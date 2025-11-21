@@ -1,0 +1,5 @@
+{
+  "name": "Restaurant POS",
+  "description": "A modern, touch-friendly Point of Sale (POS) system for restaurants. It features a swipe-out navigation drawer for easy access to sales, receipts, item management, and settings.",
+  "requestFramePermissions": []
+}
