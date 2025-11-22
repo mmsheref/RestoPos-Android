@@ -60,55 +60,64 @@ const SettingsScreen: React.FC = () => {
     setIsScanning(true);
     setFoundDevices([]);
 
-    // 1. Try Native Scanning
-    if (window.bluetoothSerial) {
-      // Request Runtime Permissions first
+    // 1. Check if plugin exists
+    if (!window.bluetoothSerial) {
+      setIsScanning(false);
+      alert("Bluetooth plugin not detected. Please ensure you are running this app on a device with Bluetooth enabled and the correct plugins installed.");
+      return;
+    }
+
+    try {
+      // 2. Request Runtime Permissions
       const hasPermission = await requestAppPermissions();
       if (!hasPermission) {
         setIsScanning(false);
+        alert("Bluetooth permissions were denied. Please enable them in your device settings to scan for printers.");
         return;
       }
 
-      // First list paired devices (faster)
+      // 3. Scan Logic: List Paired -> Then Discover Unpaired
       window.bluetoothSerial.list(
         (pairedDevices: any[]) => {
             const mapped = pairedDevices.map(d => ({ name: d.name || 'Unknown Device', address: d.address }));
-            setFoundDevices(prev => [...prev, ...mapped]);
-        },
-        (err: any) => console.error("List failed", err)
-      );
+            setFoundDevices(prev => {
+                const combined = [...prev];
+                mapped.forEach(m => {
+                    if(!combined.find(d => d.address === m.address)) combined.push(m);
+                });
+                return combined;
+            });
 
-      // Then discover unpaired devices
-      window.bluetoothSerial.discoverUnpaired(
-        (devices: any[]) => {
-          const mapped = devices.map(d => ({ name: d.name || 'Unknown Device', address: d.address }));
-          // Filter duplicates
-          setFoundDevices(prev => {
-             const newDevs = [...prev];
-             mapped.forEach(m => {
-                 if(!newDevs.find(d => d.address === m.address)) newDevs.push(m);
-             });
-             return newDevs;
-          });
-          setIsScanning(false);
+            // After listing paired, start discovery
+            window.bluetoothSerial.discoverUnpaired(
+              (devices: any[]) => {
+                const mappedUnpaired = devices.map(d => ({ name: d.name || 'Unknown Device', address: d.address }));
+                setFoundDevices(prev => {
+                   const newDevs = [...prev];
+                   mappedUnpaired.forEach(m => {
+                       if(!newDevs.find(d => d.address === m.address)) newDevs.push(m);
+                   });
+                   return newDevs;
+                });
+                setIsScanning(false);
+              },
+              (err: any) => {
+                console.warn("Discovery failed or stopped", err);
+                setIsScanning(false);
+              }
+            );
         },
         (err: any) => {
-          // Often "Device connection was lost" or "No devices found"
-          console.warn("Discovery stopped or failed", err);
-          setIsScanning(false);
+          console.error("List failed", err);
+          // If list fails, still try discover
+          setIsScanning(false); 
         }
       );
-    } 
-    // 2. Fallback to Simulation
-    else {
-      setTimeout(() => {
-          setFoundDevices([
-              { name: 'Star Micronics TSP100', address: '00:11:22:33:44:55' },
-              { name: 'Epson TM-m30', address: 'AA:BB:CC:DD:EE:FF' },
-              { name: 'Generic POS Printer', address: '12:34:56:78:90:AB' },
-          ]);
-          setIsScanning(false);
-      }, 2000);
+
+    } catch (error) {
+      console.error("Scan error:", error);
+      setIsScanning(false);
+      alert("An error occurred while scanning: " + JSON.stringify(error));
     }
   };
 
@@ -384,7 +393,7 @@ const SettingsScreen: React.FC = () => {
                      </div>
 
                      {/* Scanning Results List */}
-                     {foundDevices.length > 0 && (
+                     {foundDevices.length > 0 ? (
                          <ul className="mb-4 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-600 max-h-32 overflow-y-auto">
                              {foundDevices.map((device) => (
                                  <li key={device.address}>
@@ -401,6 +410,10 @@ const SettingsScreen: React.FC = () => {
                                  </li>
                              ))}
                          </ul>
+                     ) : (
+                        !isScanning && foundDevices.length === 0 && (
+                            <div className="text-xs text-slate-400 italic mb-3 text-center">No devices found. Press scan to search.</div>
+                        )
                      )}
                      
                      {/* Manual Entry Fallback */}

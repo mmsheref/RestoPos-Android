@@ -10,9 +10,11 @@ declare global {
  * Handles differences between Android 12+ (API 31) and older versions.
  */
 export const requestAppPermissions = async (): Promise<boolean> => {
+  console.log("[Permissions] Starting permission request check...");
+
   // 1. If not on a device or Cordova not loaded, return true (dev/web mode)
   if (!window.cordova || !window.cordova.plugins || !window.cordova.plugins.permissions) {
-    console.warn("cordova-plugin-android-permissions not detected. Assuming web environment.");
+    console.warn("[Permissions] cordova-plugin-android-permissions not detected. Assuming web environment.");
     return true;
   }
 
@@ -32,6 +34,8 @@ export const requestAppPermissions = async (): Promise<boolean> => {
     permissions.READ_EXTERNAL_STORAGE
   ];
 
+  console.log("[Permissions] Requesting:", permissionsList);
+
   // 3. Request Permissions
   // We use requestPermissions directly instead of checkPermission for arrays,
   // as it handles the check logic internally and is more reliable across plugin versions.
@@ -39,13 +43,16 @@ export const requestAppPermissions = async (): Promise<boolean> => {
     permissions.requestPermissions(
       permissionsList,
       (status: any) => {
+        console.log("[Permissions] Status response:", status);
         if (!status.hasPermission) {
-          console.warn("User denied one or more permissions.");
+          console.warn("[Permissions] User denied one or more permissions.");
+        } else {
+          console.log("[Permissions] All permissions granted.");
         }
         resolve(!!status.hasPermission);
       },
       (error: any) => {
-        console.error("Permission request failed", error);
+        console.error("[Permissions] Request failed with error:", error);
         resolve(false);
       }
     );
