@@ -89,7 +89,13 @@ const SettingsScreen: React.FC = () => {
              if (fileInputRef.current) fileInputRef.current.value = '';
           }
       };
-      reader.readAsText(file);
+      
+      try {
+        reader.readAsText(file);
+      } catch (err) {
+        console.error("File reading error", err);
+        alert("Could not read file.");
+      }
   };
 
   const handleConfirmImport = () => {
@@ -205,7 +211,7 @@ const SettingsScreen: React.FC = () => {
                </button>
                <input 
                  type="file" 
-                 accept=".json" 
+                 accept="application/json, .json" 
                  ref={fileInputRef} 
                  onChange={handleFileChange} 
                  className="hidden" 

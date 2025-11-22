@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/filesystem": "^7.1.4",
+    "@capacitor/share": "^7.0.2",
     "cordova-plugin-android-permissions": "^1.1.5",
     "cordova-plugin-bluetooth-serial": "^0.4.7",
     "framer-motion": "^12.23.24",

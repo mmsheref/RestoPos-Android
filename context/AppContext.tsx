@@ -2,6 +2,9 @@
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { Printer, Receipt, Item, AppSettings, BackupData } from '../types';
 import useLocalStorage from '../hooks/useLocalStorage';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 type Theme = 'light' | 'dark';
 
@@ -138,7 +141,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
 
   // --- Backup & Restore ---
-  const exportData = useCallback(() => {
+  const exportData = useCallback(async () => {
     const backup: BackupData = {
         version: '1.0',
         timestamp: new Date().toISOString(),
@@ -146,17 +149,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         items,
         categories,
         printers,
-        receipts
+        receipts // Local storage raw state (Date might be string or Date object, JSON.stringify handles both)
     };
     
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backup));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    const date = new Date().toISOString().slice(0, 10);
-    downloadAnchorNode.setAttribute("download", `pos_backup_${date}.json`);
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+    const jsonString = JSON.stringify(backup, null, 2);
+    const fileName = `pos_backup_${new Date().toISOString().slice(0, 10)}.json`;
+
+    if (Capacitor.isNativePlatform()) {
+      // --- NATIVE (Android/iOS) Logic ---
+      try {
+        // 1. Write file to Cache directory (safe for sharing)
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: jsonString,
+          directory: Directory.Cache,
+          encoding: Encoding.UTF8
+        });
+
+        // 2. Share the file so user can save it to Drive/Files
+        await Share.share({
+          title: 'Restaurant POS Backup',
+          text: `Backup created on ${new Date().toLocaleDateString()}`,
+          url: result.uri, 
+          dialogTitle: 'Save Backup File'
+        });
+
+      } catch (error: any) {
+        console.error("Export Failed:", error);
+        alert(`Export Failed: ${error.message || error}`);
+      }
+    } else {
+      // --- WEB Logic ---
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString);
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", fileName);
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+    }
   }, [settings, items, categories, printers, receipts]);
 
   const restoreData = useCallback((data: BackupData) => {
