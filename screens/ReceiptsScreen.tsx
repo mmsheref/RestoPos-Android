@@ -1,23 +1,20 @@
 
 
+
 import React, { useState, useMemo } from 'react';
 import type { Receipt } from '../types';
-
-const mockReceipts: Receipt[] = [
-  { id: 'R003', date: new Date('2023-10-27T14:48:00'), items: [{ id: 'm1', name: 'Steak Frites', price: 650.00, quantity: 2, category: 'Main', stock: 1, imageUrl: '' }], total: 1365.00, paymentMethod: 'Card' },
-  { id: 'R002', date: new Date('2023-10-27T12:30:00'), items: [{ id: 'b1', name: 'Coke', price: 60.00, quantity: 2, category: 'Bev', stock: 1, imageUrl: '' }], total: 126.00, paymentMethod: 'Cash' },
-  { id: 'R001', date: new Date('2023-10-26T19:00:00'), items: [{ id: 'd1', name: 'Cheesecake', price: 220.00, quantity: 1, category: 'Dessert', stock: 1, imageUrl: '' }], total: 231.00, paymentMethod: 'Card' },
-];
+import { useAppContext } from '../context/AppContext';
 
 const ReceiptsScreen: React.FC = () => {
+  const { receipts } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null);
 
   const filteredReceipts = useMemo(() => {
-    return mockReceipts
+    return receipts
       .filter(receipt => receipt.id.toLowerCase().includes(searchTerm.toLowerCase()))
       .sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [searchTerm]);
+  }, [searchTerm, receipts]);
 
   return (
     <div className="p-6 dark:bg-gray-900 min-h-full">

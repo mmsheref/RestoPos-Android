@@ -17,7 +17,7 @@ export interface Receipt {
   date: Date;
   items: OrderItem[];
   total: number;
-  paymentMethod: 'Cash' | 'Card';
+  paymentMethod: 'Cash' | 'Card' | 'QR';
 }
 
 export interface SavedTicket {
@@ -35,4 +35,20 @@ export interface Printer {
   interfaceType: PrinterInterfaceType;
   paperWidth: PrinterPaperWidth;
   address?: string; // MAC address (BT) or IP (Ethernet)
+}
+
+export interface AppSettings {
+  taxEnabled: boolean;
+  taxRate: number;
+  storeName?: string;
+}
+
+export interface BackupData {
+  version: string;
+  timestamp: string;
+  settings: AppSettings;
+  items: Item[];
+  categories: string[];
+  printers: Printer[];
+  receipts: Receipt[];
 }

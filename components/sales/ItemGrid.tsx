@@ -15,31 +15,35 @@ interface ItemGridProps {
 
 const ItemGrid: React.FC<ItemGridProps> = ({ itemsForGrid, addToOrder }) => {
   return (
-    <main className="flex-grow grid grid-cols-4 grid-rows-5 md:grid-cols-5 md:grid-rows-4 gap-4">
+    <main className="flex-grow grid grid-cols-4 grid-rows-5 md:grid-cols-5 md:grid-rows-4 gap-3 h-0">
       {itemsForGrid.map((item, index) =>
         item ? (
           <div
             key={item.id}
             onClick={() => addToOrder(item)}
-            className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-start text-center cursor-pointer transition-all duration-200 transform hover:-translate-y-1 hover:shadow-lg hover:ring-2 hover:ring-indigo-500 dark:hover:ring-indigo-400 overflow-hidden"
+            className="relative w-full h-full rounded-xl overflow-hidden cursor-pointer group shadow-sm border border-slate-200 dark:border-slate-700 bg-gray-100 dark:bg-gray-800"
             role="button"
             aria-label={`Add ${item.name} to order`}
           >
+            {/* Full size image */}
             <img 
               src={item.imageUrl} 
               alt={item.name} 
-              className="w-full h-2/3 object-cover"
+              className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
               loading="lazy"
             />
-            <div className="p-2 flex-1 flex flex-col justify-center">
-              <h3 className="font-semibold text-slate-800 dark:text-slate-200 text-sm leading-tight">{item.name}</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">₹{item.price.toFixed(2)}</p>
+            
+            {/* Content Container: Simple black bar, name only */}
+            <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5 bg-black/75 flex items-center justify-center min-h-[20%]">
+              <h3 className="font-medium text-white text-xs md:text-sm leading-tight text-center line-clamp-2" title={item.name}>
+                {item.name}
+              </h3>
             </div>
           </div>
         ) : (
           <div
             key={`placeholder-${index}`}
-            className="bg-slate-100 dark:bg-slate-800/50 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl"
+            className="w-full h-full rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-800/20"
           >
           </div>
         )

@@ -88,6 +88,38 @@ export const ArrowLeftIcon: React.FC<{ className?: string }> = ({ className }) =
     </svg>
 );
 
+export const UserIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+
+export const SplitIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M16 3h5v5" />
+        <path d="M8 3H3v5" />
+        <path d="M12 22v-8.3a4 4 0 0 0-1.17-2.83L8.59 8.59" />
+        <path d="M12 22v-8.3a4 4 0 0 1 1.17-2.83L15.41 8.59" />
+        <path d="m15 3-6 6" />
+        <path d="m9 21 6-6" />
+    </svg>
+);
+
+export const CheckIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <polyline points="20 6 9 17 4 12" />
+    </svg>
+);
+
+export const PrintIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <polyline points="6 9 6 2 18 2 18 9" />
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+        <rect x="6" y="14" width="12" height="8" />
+    </svg>
+);
+
 export const NAV_LINKS = [
   { path: '/sales', label: 'Sales', Icon: SalesIcon },
   { path: '/receipts', label: 'Receipts / Bill', Icon: ReceiptIcon },

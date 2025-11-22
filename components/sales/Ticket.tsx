@@ -1,5 +1,6 @@
 
 
+
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { OrderItem, SavedTicket } from '../../types';
@@ -37,7 +38,7 @@ interface TicketProps {
 
     // Main Actions
     handlePrimarySaveAction: () => void;
-    handleCharge: () => void;
+    onCharge: () => void;
     onOpenTickets: () => void;
     onSaveTicket: () => void;
 }
@@ -48,7 +49,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
     currentOrder, editingTicket, savedTickets, settings, total, subtotal, tax, printers,
     editingQuantityItemId, tempQuantity, removeFromOrder, addToOrder, deleteLineItem,
     handleQuantityClick, handleQuantityChangeCommit, handleQuantityInputChange, handleQuantityInputKeyDown,
-    handlePrimarySaveAction, handleCharge, onOpenTickets, onSaveTicket
+    handlePrimarySaveAction, onCharge, onOpenTickets, onSaveTicket
   } = props;
   
   const [isTicketMenuOpen, setTicketMenuOpen] = useState(false);
@@ -216,7 +217,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
           </div>
           <div className="flex items-center gap-4">
             {renderActionButtons()}
-            <button onClick={handleCharge} disabled={currentOrder.length === 0} className="w-full bg-emerald-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-emerald-600 disabled:bg-slate-300 disabled:dark:bg-slate-600 disabled:dark:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none flex justify-between items-center px-4">
+            <button onClick={onCharge} disabled={currentOrder.length === 0} className="w-full bg-emerald-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-emerald-600 disabled:bg-slate-300 disabled:dark:bg-slate-600 disabled:dark:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none flex justify-between items-center px-4">
               <span>Charge</span><span className="font-mono">₹{total.toFixed(2)}</span>
             </button>
           </div>

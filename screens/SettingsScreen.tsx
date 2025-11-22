@@ -1,14 +1,25 @@
-import React, { useState } from 'react';
+
+import React, { useState, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { TrashIcon } from '../constants';
-import { Printer } from '../types';
+import { Printer, BackupData } from '../types';
 import { testPrint } from '../utils/printerHelper';
 import AddPrinterModal from '../components/settings/AddPrinterModal';
+import ConfirmImportModal from '../components/modals/ConfirmImportModal';
 
 const SettingsScreen: React.FC = () => {
-  const { theme, setTheme, settings, updateSettings, printers, addPrinter, removePrinter } = useAppContext();
+  const { 
+      theme, setTheme, settings, updateSettings, 
+      printers, addPrinter, removePrinter,
+      exportData, restoreData
+  } = useAppContext();
+  
   const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importCandidate, setImportCandidate] = useState<BackupData | null>(null);
+  
   const [testingPrinterId, setTestingPrinterId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light');
@@ -23,6 +34,10 @@ const SettingsScreen: React.FC = () => {
     if (!isNaN(val) && val >= 0) {
       updateSettings({ taxRate: val });
     }
+  };
+
+  const handleStoreNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      updateSettings({ storeName: e.target.value });
   };
 
   const handleRemovePrinter = (id: string) => {
@@ -41,6 +56,49 @@ const SettingsScreen: React.FC = () => {
     } else {
         alert(`Print Failed:\n\n${result.message}`);
     }
+  };
+
+  const handleImportClick = () => {
+      fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+          try {
+            const json = event.target?.result as string;
+            if (json) {
+               const data: BackupData = JSON.parse(json);
+               
+               // Basic Validation
+               if (!data.timestamp || !data.items || !Array.isArray(data.items)) {
+                   throw new Error("Invalid backup file format.");
+               }
+
+               setImportCandidate(data);
+               setIsImportModalOpen(true);
+            }
+          } catch (error) {
+              console.error(error);
+              alert("Failed to parse the backup file. Please ensure it is a valid JSON exported from this app.");
+          } finally {
+             // Reset input so same file can be selected again if needed
+             if (fileInputRef.current) fileInputRef.current.value = '';
+          }
+      };
+      reader.readAsText(file);
+  };
+
+  const handleConfirmImport = () => {
+      if (importCandidate) {
+          restoreData(importCandidate);
+          setIsImportModalOpen(false);
+          setImportCandidate(null);
+          alert("Data restored successfully!");
+      }
   };
 
   return (
@@ -123,6 +181,37 @@ const SettingsScreen: React.FC = () => {
             </div>
           </div>
         </div>
+        
+        {/* Data Management Section (Backup/Restore) */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-blue-500">
+           <h2 className="text-xl font-semibold mb-4 border-b dark:border-gray-700 pb-2 text-gray-800 dark:text-gray-100">Data Management</h2>
+           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+             Backup your receipts, items, and settings to a local file or restore from a previous backup.
+           </p>
+           <div className="flex flex-col sm:flex-row gap-4">
+               <button 
+                 onClick={exportData}
+                 className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+               >
+                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                   Backup Data (JSON)
+               </button>
+               <button 
+                 onClick={handleImportClick}
+                 className="flex-1 bg-amber-500 text-white px-4 py-2 rounded-md hover:bg-amber-600 transition-colors flex items-center justify-center gap-2"
+               >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                   Import Data (JSON)
+               </button>
+               <input 
+                 type="file" 
+                 accept=".json" 
+                 ref={fileInputRef} 
+                 onChange={handleFileChange} 
+                 className="hidden" 
+               />
+           </div>
+        </div>
 
         {/* Printers Section */}
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
@@ -148,9 +237,8 @@ const SettingsScreen: React.FC = () => {
                   <li key={printer.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700">
                     <div className="flex items-center gap-3 flex-grow overflow-hidden">
                       <div className="h-10 w-10 flex-shrink-0 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                         {/* Printer Icon */}
                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                          </svg>
                       </div>
                       <div className="truncate">
@@ -188,7 +276,14 @@ const SettingsScreen: React.FC = () => {
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <label htmlFor="store-name" className="text-gray-700 dark:text-gray-300">Store Name</label>
-              <input id="store-name" type="text" defaultValue="My Restaurant" className="p-2 border rounded-md w-1/2 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" />
+              <input 
+                  id="store-name" 
+                  type="text" 
+                  value={settings.storeName || ''} 
+                  onChange={handleStoreNameChange}
+                  placeholder="My Restaurant" 
+                  className="p-2 border rounded-md w-1/2 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" 
+              />
             </div>
           </div>
         </div>
@@ -202,6 +297,13 @@ const SettingsScreen: React.FC = () => {
           addPrinter(newPrinter);
           setIsPrinterModalOpen(false);
         }}
+      />
+
+      <ConfirmImportModal 
+        isOpen={isImportModalOpen}
+        data={importCandidate}
+        onClose={() => setIsImportModalOpen(false)}
+        onConfirm={handleConfirmImport}
       />
     </div>
   );
