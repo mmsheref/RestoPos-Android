@@ -60,59 +60,70 @@ const SettingsScreen: React.FC = () => {
     setIsScanning(true);
     setFoundDevices([]);
 
-    // 1. Check if plugin exists
-    if (!window.bluetoothSerial) {
-      setIsScanning(false);
-      alert("Bluetooth plugin not detected. Please ensure you are running this app on a device with Bluetooth enabled and the correct plugins installed.");
-      return;
-    }
-
     try {
-      // 2. Request Runtime Permissions
+      // 1. Request Runtime Permissions FIRST
+      // We ask for permissions before checking for the plugin to ensure the app behaves correctly
+      // regarding privacy prompts, even if the specific printer plugin is missing.
       const hasPermission = await requestAppPermissions();
+      
       if (!hasPermission) {
         setIsScanning(false);
         alert("Bluetooth permissions were denied. Please enable them in your device settings to scan for printers.");
         return;
       }
 
-      // 3. Scan Logic: List Paired -> Then Discover Unpaired
-      window.bluetoothSerial.list(
-        (pairedDevices: any[]) => {
-            const mapped = pairedDevices.map(d => ({ name: d.name || 'Unknown Device', address: d.address }));
-            setFoundDevices(prev => {
-                const combined = [...prev];
-                mapped.forEach(m => {
-                    if(!combined.find(d => d.address === m.address)) combined.push(m);
-                });
-                return combined;
-            });
-
-            // After listing paired, start discovery
-            window.bluetoothSerial.discoverUnpaired(
-              (devices: any[]) => {
-                const mappedUnpaired = devices.map(d => ({ name: d.name || 'Unknown Device', address: d.address }));
+      // 2. Check for Plugin & Scan
+      if (window.bluetoothSerial) {
+          // Real Device Logic: List Paired -> Then Discover Unpaired
+          window.bluetoothSerial.list(
+            (pairedDevices: any[]) => {
+                const mapped = pairedDevices.map(d => ({ name: d.name || 'Unknown Device', address: d.address }));
                 setFoundDevices(prev => {
-                   const newDevs = [...prev];
-                   mappedUnpaired.forEach(m => {
-                       if(!newDevs.find(d => d.address === m.address)) newDevs.push(m);
-                   });
-                   return newDevs;
+                    const combined = [...prev];
+                    mapped.forEach(m => {
+                        if(!combined.find(d => d.address === m.address)) combined.push(m);
+                    });
+                    return combined;
                 });
-                setIsScanning(false);
-              },
-              (err: any) => {
-                console.warn("Discovery failed or stopped", err);
-                setIsScanning(false);
-              }
-            );
-        },
-        (err: any) => {
-          console.error("List failed", err);
-          // If list fails, still try discover
-          setIsScanning(false); 
-        }
-      );
+
+                // Start Discovery
+                window.bluetoothSerial.discoverUnpaired(
+                  (devices: any[]) => {
+                    const mappedUnpaired = devices.map(d => ({ name: d.name || 'Unknown Device', address: d.address }));
+                    setFoundDevices(prev => {
+                       const newDevs = [...prev];
+                       mappedUnpaired.forEach(m => {
+                           if(!newDevs.find(d => d.address === m.address)) newDevs.push(m);
+                       });
+                       return newDevs;
+                    });
+                    setIsScanning(false);
+                  },
+                  (err: any) => {
+                    console.warn("Discovery failed or stopped", err);
+                    setIsScanning(false);
+                  }
+                );
+            },
+            (err: any) => {
+              console.error("List failed", err);
+              // If list fails, still try discover or stop
+              setIsScanning(false); 
+            }
+          );
+      } else {
+          // 3. Fallback: Web/No-Plugin Simulation
+          // If the plugin is missing (browser testing or plugin load error), we simulate a scan 
+          // so you can test the UI flow without being blocked by an alert.
+          console.warn("Bluetooth plugin not detected. Running in simulation mode.");
+          
+          setTimeout(() => {
+            setFoundDevices([
+                { name: "Test Printer (Simulated)", address: "00:11:22:33:44:55" }
+            ]);
+            setIsScanning(false);
+          }, 2000);
+      }
 
     } catch (error) {
       console.error("Scan error:", error);
