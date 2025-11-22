@@ -1,3 +1,17 @@
+/**
+ * PRINTER HELPER
+ * 
+ * Required Plugins for Native Device functionality:
+ * 
+ * 1. Bluetooth Serial (for printing)
+ *    > npm install cordova-plugin-bluetooth-serial
+ * 
+ * 2. Android Permissions (for Android 12+ Bluetooth scan permissions)
+ *    > npm install cordova-plugin-android-permissions
+ * 
+ * After installing, run:
+ *    > npx cap sync
+ */
 
 import { OrderItem, Printer } from '../types';
 import { requestAppPermissions } from './permissions';
@@ -22,36 +36,51 @@ const COMMANDS = {
 };
 
 /**
- * Checks if a specific device is currently connected.
+ * Connects to a specific Bluetooth device.
  */
-export const checkPrinterConnection = async (): Promise<boolean> => {
-  if (!window.bluetoothSerial) return false;
-  return new Promise((resolve) => {
-    window.bluetoothSerial.isConnected(
-      () => resolve(true),
-      () => resolve(false)
+const connectToPrinter = (address: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    window.bluetoothSerial.connect(
+      address,
+      () => {
+        console.log("Printer Connected:", address);
+        resolve();
+      },
+      (err: any) => {
+        console.error("Connection failed:", err);
+        reject(new Error(`Could not connect to printer. Please ensure it is turned on and in range.`));
+      }
     );
   });
 };
 
 /**
- * Connects to a printer if not already connected.
+ * Disconnects from the currently connected device.
+ * This is crucial to run after every print job to avoid stale connections.
  */
-const ensureConnection = async (address: string): Promise<void> => {
-  const isConnected = await checkPrinterConnection();
-  if (!isConnected) {
-    return new Promise((resolve, reject) => {
-      window.bluetoothSerial.connect(
-        address,
-        () => resolve(),
-        (err: any) => reject(err)
-      );
+const disconnectFromPrinter = (): Promise<void> => {
+    return new Promise((resolve) => {
+        if (window.bluetoothSerial) {
+            window.bluetoothSerial.disconnect(
+                () => {
+                    console.log("Printer Disconnected.");
+                    resolve();
+                },
+                () => {
+                    // Failure to disconnect is usually not critical, as it might already be disconnected.
+                    console.warn("Failed to disconnect, or was not connected.");
+                    resolve(); 
+                }
+            );
+        } else {
+            resolve();
+        }
     });
-  }
 };
 
 /**
  * Sends a small test print to verify configuration and connectivity.
+ * Follows a robust connect -> write -> disconnect pattern.
  */
 export const testPrint = async (printer: Printer): Promise<{ success: boolean; message: string }> => {
   // 1. Web Fallback
@@ -62,21 +91,18 @@ export const testPrint = async (printer: Printer): Promise<{ success: boolean; m
   }
 
   // 2. Native Logic
-  if (printer.interfaceType !== 'Bluetooth') {
-    return { success: false, message: "Only Bluetooth test printing is currently supported." };
+  if (printer.interfaceType !== 'Bluetooth' || !printer.address) {
+    return { success: false, message: "Only Bluetooth printers with a valid MAC address are supported for native printing." };
   }
 
   try {
-    // Permission check
     const hasPermission = await requestAppPermissions();
     if (!hasPermission) {
-      return { success: false, message: "Bluetooth permissions denied." };
+      return { success: false, message: "Bluetooth permissions were denied." };
     }
 
-    // Connect
-    await ensureConnection(printer.address!);
+    await connectToPrinter(printer.address);
 
-    // Prepare Data
     let data = COMMANDS.INIT;
     data += COMMANDS.CENTER + COMMANDS.BOLD_ON + "TEST PRINT\n" + COMMANDS.BOLD_OFF;
     data += "--------------------------------\n";
@@ -86,19 +112,22 @@ export const testPrint = async (printer: Printer): Promise<{ success: boolean; m
     data += "Status: Connected\n";
     data += "--------------------------------\n";
     data += COMMANDS.CENTER + "It Works!\n";
-    data += "\n\n" + COMMANDS.CUT;
+    data += "\n\n\n" + COMMANDS.CUT;
 
-    // Send
-    return new Promise((resolve) => {
+    await new Promise<void>((resolve, reject) => {
       window.bluetoothSerial.write(
         data,
-        () => resolve({ success: true, message: "Test print sent successfully." }),
-        (err: any) => resolve({ success: false, message: `Write failed: ${JSON.stringify(err)}` })
+        () => resolve(),
+        (err: any) => reject(new Error(`Failed to send data to printer: ${JSON.stringify(err)}`))
       );
     });
 
-  } catch (error) {
-    return { success: false, message: `Connection failed: ${JSON.stringify(error)}` };
+    return { success: true, message: "Test print sent successfully." };
+
+  } catch (error: any) {
+    return { success: false, message: error.message || "An unknown printing error occurred." };
+  } finally {
+    await disconnectFromPrinter(); // CRITICAL: Always disconnect after the operation.
   }
 };
 
@@ -109,19 +138,17 @@ export const printReceipt = async (items: OrderItem[], total: number, printer?: 
   }
 
   // 1. Native Bluetooth Printing
-  if (printer.interfaceType === 'Bluetooth' && window.bluetoothSerial) {
+  if (printer.interfaceType === 'Bluetooth' && window.bluetoothSerial && printer.address) {
     try {
       const hasPermission = await requestAppPermissions();
       if (!hasPermission) {
-        console.warn("Bluetooth permissions denied. Aborting print.");
+        alert("Bluetooth permissions denied. Cannot print.");
         return;
       }
 
-      await ensureConnection(printer.address!);
+      await connectToPrinter(printer.address);
 
-      // Construct Receipt Data
-      let data = '';
-      data += COMMANDS.INIT;
+      let data = COMMANDS.INIT;
       data += COMMANDS.CENTER + COMMANDS.BOLD_ON + "RESTAURANT POS\n" + COMMANDS.BOLD_OFF;
       data += "123 Food Street, City\n";
       data += "--------------------------------\n";
@@ -129,29 +156,32 @@ export const printReceipt = async (items: OrderItem[], total: number, printer?: 
 
       items.forEach(item => {
         const lineTotal = (item.price * item.quantity).toFixed(2);
-        // Simple spacing logic (adjust based on 58mm/80mm)
-        const name = item.name.length > 16 ? item.name.substring(0, 16) : item.name;
-        data += `${item.quantity}x ${name} ${lineTotal}\n`;
+        const name = item.name.length > 16 ? item.name.substring(0, 16) : item.name.padEnd(16);
+        const qty = `${item.quantity}x`.padEnd(4);
+        data += `${qty}${name} ${lineTotal.padStart(8)}\n`;
       });
 
       data += "--------------------------------\n";
       data += COMMANDS.RIGHT + COMMANDS.BOLD_ON + `TOTAL: ${total.toFixed(2)}\n` + COMMANDS.BOLD_OFF;
-      data += "\n\n" + COMMANDS.CUT;
+      data += "\n\n\n" + COMMANDS.CUT;
 
-      // Send to printer
-      window.bluetoothSerial.write(data, 
-        () => console.log("Print success"), 
-        (err: any) => alert("Print Error: " + JSON.stringify(err))
-      );
+      await new Promise<void>((resolve, reject) => {
+          window.bluetoothSerial.write(data, 
+            () => resolve(), 
+            (err: any) => reject(new Error(JSON.stringify(err)))
+          );
+      });
 
-    } catch (error) {
-      alert(`Failed to connect to printer: ${error}`);
+    } catch (error: any) {
+      alert(`Print Error: ${error.message}`);
+    } finally {
+        await disconnectFromPrinter();
     }
   } 
   // 2. Web/Simulation Fallback
   else {
     const billText = items.map(i => `${i.quantity}x ${i.name.padEnd(20)} ${(i.price * i.quantity).toFixed(2)}`).join('\n');
-    const mode = window.bluetoothSerial ? "Native (Plugin Found but mismatch)" : "Web Simulation";
+    const mode = window.bluetoothSerial ? "Native (Plugin Found)" : "Web Simulation";
     alert(`🖨️ [${mode}] Printing to ${printer.name}:\n\n${billText}\n\n----------------\nTotal: ₹${total.toFixed(2)}`);
   }
 };

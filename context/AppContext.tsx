@@ -1,6 +1,6 @@
-
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
 import { Printer } from '../types';
+import useLocalStorage from '../hooks/useLocalStorage';
 
 type Theme = 'light' | 'dark';
 
@@ -31,8 +31,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [headerTitle, setHeaderTitle] = useState('');
   
-  // Theme State
-  const [theme, setTheme] = useState<Theme>(() => {
+  const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
         const storedPrefs = localStorage.getItem('theme');
         if (storedPrefs) {
@@ -43,64 +42,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return 'light';
   });
 
-  // App Settings State (Tax, etc.)
-  const [settings, setSettings] = useState<AppSettings>(() => {
-    if (typeof window !== 'undefined') {
-      const storedSettings = localStorage.getItem('appSettings');
-      if (storedSettings) {
-        try {
-          return JSON.parse(storedSettings);
-        } catch (e) {
-          console.error("Failed to parse settings", e);
-        }
-      }
-    }
-    // Default settings
-    return { taxEnabled: true, taxRate: 5 };
-  });
+  const [settings, setSettings] = useLocalStorage<AppSettings>('appSettings', { taxEnabled: true, taxRate: 5 });
+  const [printers, setPrinters] = useLocalStorage<Printer[]>('printers', []);
 
-  // Printer State
-  const [printers, setPrinters] = useState<Printer[]>(() => {
-    if (typeof window !== 'undefined') {
-      const storedPrinters = localStorage.getItem('printers');
-      if (storedPrinters) {
-        try {
-          return JSON.parse(storedPrinters);
-        } catch (e) {
-          console.error("Failed to parse printers", e);
-        }
-      }
-    }
-    return [];
-  });
-
-  const updateSettings = useCallback((newSettings: Partial<AppSettings>) => {
-    setSettings(prev => {
-      const updated = { ...prev, ...newSettings };
-      localStorage.setItem('appSettings', JSON.stringify(updated));
-      return updated;
-    });
-  }, []);
-
-  const addPrinter = useCallback((printer: Printer) => {
-    setPrinters(prev => {
-      const updated = [...prev, printer];
-      localStorage.setItem('printers', JSON.stringify(updated));
-      return updated;
-    });
-  }, []);
-
-  const removePrinter = useCallback((printerId: string) => {
-    setPrinters(prev => {
-      const updated = prev.filter(p => p.id !== printerId);
-      localStorage.setItem('printers', JSON.stringify(updated));
-      return updated;
-    });
-  }, []);
-
-  const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
-  const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
-  const toggleDrawer = useCallback(() => setIsDrawerOpen(prev => !prev), []);
+  const setTheme = (newTheme: Theme) => {
+    setThemeState(newTheme);
+    localStorage.setItem('theme', newTheme);
+  };
   
   useEffect(() => {
     if (theme === 'dark') {
@@ -108,10 +56,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } else {
       document.documentElement.classList.remove('dark');
     }
-    localStorage.setItem('theme', theme);
   }, [theme]);
 
+  const updateSettings = useCallback((newSettings: Partial<AppSettings>) => {
+    setSettings(prev => ({ ...prev, ...newSettings }));
+  }, [setSettings]);
 
+  const addPrinter = useCallback((printer: Printer) => {
+    setPrinters(prev => [...prev, printer]);
+  }, [setPrinters]);
+
+  const removePrinter = useCallback((printerId: string) => {
+    setPrinters(prev => prev.filter(p => p.id !== printerId));
+  }, [setPrinters]);
+
+  const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
+  const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
+  const toggleDrawer = useCallback(() => setIsDrawerOpen(prev => !prev), []);
+  
   return (
     <AppContext.Provider value={{ 
       isDrawerOpen, openDrawer, closeDrawer, toggleDrawer, 
