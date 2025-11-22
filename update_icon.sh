@@ -46,17 +46,27 @@ for folder in "${FOLDERS[@]}"; do
 done
 
 # 4. Replace Adaptive Icon Foreground
-# This fixes the issue where the icon looks like a tiny robot inside a circle on newer Androids
+# We must DELETE existing .xml files first to avoid "Duplicate resources" error
 echo -e "${YELLOW}🔄 Updating adaptive icon foregrounds...${RESET}"
 
+# Update standard drawable folder
 if [ -d "$RES_PATH/drawable" ]; then
+   # REMOVE the conflicting XML file
+   rm -f "$RES_PATH/drawable/ic_launcher_foreground.xml"
+   
+   # Copy the new PNG
    cp "$SOURCE_ICON" "$RES_PATH/drawable/ic_launcher_foreground.png"
-   echo -e "   └─ Updated drawable/ic_launcher_foreground.png"
+   echo -e "   └─ Updated drawable/ic_launcher_foreground.png (XML removed)"
 fi
 
+# Update drawable-v24 folder (Android 7+)
 if [ -d "$RES_PATH/drawable-v24" ]; then
+   # REMOVE the conflicting XML file
+   rm -f "$RES_PATH/drawable-v24/ic_launcher_foreground.xml"
+   
+   # Copy the new PNG
    cp "$SOURCE_ICON" "$RES_PATH/drawable-v24/ic_launcher_foreground.png"
-   echo -e "   └─ Updated drawable-v24/ic_launcher_foreground.png"
+   echo -e "   └─ Updated drawable-v24/ic_launcher_foreground.png (XML removed)"
 fi
 
-echo -e "${GREEN}✨ Success! App icon updated manually.${RESET}"
+
