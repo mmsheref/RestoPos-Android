@@ -32,7 +32,7 @@ jobs:
       # --- THIS CREATES THE MISSING FILE ---
       - name: Create Firebase Config
         run: |
-          cat <<EOF > src/firebaseConfig.ts
+          cat <<EOF > firebaseConfig.ts
           export const firebaseConfig = {
             apiKey: "${{ secrets.FIREBASE_API_KEY }}",
             authDomain: "${{ secrets.FIREBASE_AUTH_DOMAIN }}",
