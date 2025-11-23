@@ -1,39 +1,24 @@
 
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { useAppContext } from '../context/AppContext';
 import { NAV_LINKS } from '../constants';
 
 const NavDrawer: React.FC = () => {
   const { isDrawerOpen, closeDrawer } = useAppContext();
 
-  const backdropVariants = {
-    open: { opacity: 1, pointerEvents: 'auto' as const },
-    closed: { opacity: 0, pointerEvents: 'none' as const },
-  };
-
-  const drawerVariants = {
-    open: { x: 0 },
-    closed: { x: '-100%' },
-  };
-
   return (
     <>
-      <motion.div
-        variants={backdropVariants}
-        initial="closed"
-        animate={isDrawerOpen ? 'open' : 'closed'}
-        transition={{ duration: 0.3 }}
-        onClick={closeDrawer}
-        className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 z-30"
-      />
-      <motion.aside
-        variants={drawerVariants}
-        initial="closed"
-        animate={isDrawerOpen ? 'open' : 'closed'}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="fixed top-0 left-0 h-screen w-64 bg-gray-800 dark:bg-slate-900 text-white z-40 flex flex-col shadow-2xl"
+      {isDrawerOpen && (
+        <div
+          onClick={closeDrawer}
+          className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 z-30"
+        />
+      )}
+      <aside
+        className={`fixed top-0 left-0 h-screen w-64 bg-gray-800 dark:bg-slate-900 text-white z-40 flex flex-col shadow-2xl transform ${
+          isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
       >
         <div className="p-6 border-b border-gray-700 dark:border-gray-800">
           <h2 className="text-2xl font-bold text-white">POS Menu</h2>
@@ -60,7 +45,7 @@ const NavDrawer: React.FC = () => {
             ))}
           </ul>
         </nav>
-      </motion.aside>
+      </aside>
     </>
   );
 };

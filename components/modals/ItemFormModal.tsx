@@ -1,16 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { Item } from '../../types';
+import { TrashIcon } from '../../constants';
 
 interface ItemFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (item: Partial<Item>) => void;
+    // Optional: Pass delete handler if supported
+    onDelete?: () => void;
     initialData?: Item;
     categories: string[];
 }
 
-const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, initialData, categories }) => {
+const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, onDelete, initialData, categories }) => {
     const [name, setName] = useState('');
     const [category, setCategory] = useState('');
     const [price, setPrice] = useState('');
@@ -49,9 +52,22 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50" onClick={onClose}>
             <div className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-                <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-100">
-                    {initialData ? 'Edit Item' : 'Add New Item'}
-                </h2>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                        {initialData ? 'Edit Item' : 'Add New Item'}
+                    </h2>
+                    {initialData && onDelete && (
+                         <button 
+                            type="button" 
+                            onClick={onDelete}
+                            className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                            aria-label="Delete item"
+                            title="Delete Item"
+                         >
+                            <TrashIcon className="h-5 w-5" />
+                         </button>
+                    )}
+                </div>
                 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
@@ -61,7 +77,7 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, 
                             type="text" 
                             value={name} 
                             onChange={e => setName(e.target.value)} 
-                            className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white"
+                            className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
                         />
                     </div>
 
@@ -75,7 +91,7 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, 
                                 step="0.01"
                                 value={price} 
                                 onChange={e => setPrice(e.target.value)} 
-                                className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white"
+                                className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
                         <div>
@@ -84,7 +100,7 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, 
                                 type="number" 
                                 value={stock} 
                                 onChange={e => setStock(e.target.value)} 
-                                className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white"
+                                className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
                     </div>
@@ -95,7 +111,7 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, 
                             <select 
                                 value={category} 
                                 onChange={e => setCategory(e.target.value)}
-                                className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white"
+                                className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
                             >
                                 {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                             </select>
@@ -109,7 +125,7 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, 
                             value={imageUrl} 
                             onChange={e => setImageUrl(e.target.value)} 
                             placeholder="https://..."
-                            className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white"
+                            className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
                         />
                     </div>
 

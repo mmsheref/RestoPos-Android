@@ -1,6 +1,5 @@
 
 import React, { ReactNode, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import Header from './Header';
 import NavDrawer from './NavDrawer';
@@ -33,21 +32,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
 
   return (
-    <div className="relative h-screen w-full overflow-x-hidden bg-gray-100 dark:bg-gray-900 flex flex-col">
+    <div className="relative h-screen w-full overflow-x-hidden bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col">
       {!isSalesScreen && <Header 
         title={finalTitle} 
         onMenuClick={openDrawer}
       />}
       <NavDrawer />
-      <motion.main
-        animate={{ x: isDrawerOpen ? 256 : 0 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="flex-1 flex flex-col will-change-transform shadow-lg overflow-hidden relative"
+      <main
+        className={`flex-1 flex flex-col shadow-lg overflow-hidden relative ${isDrawerOpen ? 'translate-x-64' : 'translate-x-0'}`}
       >
         <div className={`flex-1 overflow-y-auto w-full ${isSalesScreen ? '' : 'bg-white dark:bg-gray-900'}`}>
           {children}
         </div>
-      </motion.main>
+      </main>
     </div>
   );
 };

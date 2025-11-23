@@ -1,69 +1,70 @@
+
 import React from 'react';
-import { useLongPress } from '../../hooks/useLongPress';
+import { PencilIcon, PlusIcon } from '../../constants';
+import { CustomGrid } from '../../types';
 
 interface CategoryTabsProps {
-  tabs: string[];
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
-  onAddNewTab: () => void;
-  onEditTab: (tabName: string) => void;
+  grids: CustomGrid[];
+  activeGridId: string;
+  setActiveGridId: (id: string) => void;
+  onAddNew: () => void;
+  onManage: () => void;
   isSearchActive: boolean;
   searchResultsCount: number;
   searchQuery: string;
 }
 
 const CategoryTabs: React.FC<CategoryTabsProps> = ({
-  tabs,
-  activeTab,
-  setActiveTab,
-  onAddNewTab,
-  onEditTab,
-  isSearchActive,
-  searchResultsCount,
-  searchQuery
+  grids, activeGridId, setActiveGridId, onAddNew, onManage,
+  isSearchActive, searchResultsCount, searchQuery
 }) => {
-
-  const TabButton: React.FC<{ tab: string }> = ({ tab }) => {
-    const longPressProps = useLongPress(
-      () => onEditTab(tab),
-      () => setActiveTab(tab)
-    );
-  
-    return (
-      <button
-        {...longPressProps}
-        className={`flex-shrink-0 whitespace-nowrap px-5 py-3 border-b-2 text-sm font-medium transition-colors duration-200 focus:outline-none ${
-          activeTab === tab
-            ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
-            : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:border-slate-600'
-        }`}
-      >
-        {tab}
-      </button>
-    );
-  };
 
   if (isSearchActive) {
     return (
-      <div className="flex-shrink-0 pt-4 mt-4 text-center text-slate-500 dark:text-slate-400">
+      <div className="flex-shrink-0 pt-2 text-center text-slate-500 dark:text-slate-400">
         Showing {searchResultsCount} results for "{searchQuery}"
       </div>
     );
   }
 
+  const TabButton: React.FC<{id: string, name: string}> = ({ id, name }) => (
+    <button
+        onClick={() => setActiveGridId(id)}
+        className={`flex-shrink-0 whitespace-nowrap px-5 py-3 border-b-2 text-sm font-medium transition-colors duration-200 focus:outline-none ${
+        activeGridId === id
+            ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+            : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:border-slate-600'
+        }`}
+    >
+        {name}
+    </button>
+  );
+
   return (
-    <nav className="flex-shrink-0 pt-4 mt-4">
+    <nav className="flex-shrink-0 pt-2">
       <div className="border-b border-slate-200 dark:border-slate-700">
         <div className="flex -mb-px overflow-x-auto">
-          {tabs.map(tab => (
-            <TabButton key={tab} tab={tab} />
+          <TabButton id="All" name="All Items" />
+          
+          {grids.map(grid => (
+             <TabButton key={grid.id} id={grid.id} name={grid.name} />
           ))}
+
           <button
-            onClick={onAddNewTab}
-            className="flex-shrink-0 whitespace-nowrap px-5 py-3 border-b-2 border-transparent text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400"
-            title="Add new tab"
+            onClick={onAddNew}
+            className="flex-shrink-0 whitespace-nowrap px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 flex items-center gap-1.5"
+            title="Add new grid"
           >
-            [ + ]
+            <PlusIcon className="h-4 w-4" />
+          </button>
+          
+          <button
+            onClick={onManage}
+            className="flex-shrink-0 whitespace-nowrap px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 flex items-center gap-1.5 ml-auto"
+            title="Manage grids"
+          >
+            <PencilIcon className="h-4 w-4" />
+            <span className="text-sm font-medium">Manage</span>
           </button>
         </div>
       </div>
