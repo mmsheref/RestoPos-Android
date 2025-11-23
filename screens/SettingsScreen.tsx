@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { TrashIcon } from '../constants';
@@ -13,7 +14,7 @@ const SettingsScreen: React.FC = () => {
       theme, setTheme, settings, updateSettings, 
       printers, addPrinter, removePrinter,
       exportData, restoreData,
-      exportItemsCsv, replaceItemsAndCategories
+      exportItemsCsv, replaceItems
   } = useAppContext();
   
   const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
@@ -24,7 +25,7 @@ const SettingsScreen: React.FC = () => {
   
   // CSV import state
   const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState(false);
-  const [csvImportCandidate, setCsvImportCandidate] = useState<{items: Item[], categories: string[]}>({ items: [], categories: [] });
+  const [csvImportCandidate, setCsvImportCandidate] = useState<{items: Item[]}>({ items: [] });
 
   const [testingPrinterId, setTestingPrinterId] = useState<string | null>(null);
   
@@ -156,9 +157,9 @@ const SettingsScreen: React.FC = () => {
 
   const handleConfirmCsvImport = () => {
       if (csvImportCandidate.items.length > 0) {
-          replaceItemsAndCategories(csvImportCandidate.items, csvImportCandidate.categories);
+          replaceItems(csvImportCandidate.items);
           setIsCsvImportModalOpen(false);
-          setCsvImportCandidate({ items: [], categories: [] });
+          setCsvImportCandidate({ items: [] });
           alert("Items imported successfully!");
       }
   };
@@ -397,7 +398,6 @@ const SettingsScreen: React.FC = () => {
       <ConfirmCsvImportModal
         isOpen={isCsvImportModalOpen}
         items={csvImportCandidate.items}
-        categories={csvImportCandidate.categories}
         onClose={() => setIsCsvImportModalOpen(false)}
         onConfirm={handleConfirmCsvImport}
       />

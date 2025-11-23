@@ -1,15 +1,15 @@
+
 import React from 'react';
 import { Item } from '../../types';
 
 interface ConfirmCsvImportModalProps {
   isOpen: boolean;
   items: Item[];
-  categories: string[];
   onClose: () => void;
   onConfirm: () => void;
 }
 
-const ConfirmCsvImportModal: React.FC<ConfirmCsvImportModalProps> = ({ isOpen, items, categories, onClose, onConfirm }) => {
+const ConfirmCsvImportModal: React.FC<ConfirmCsvImportModalProps> = ({ isOpen, items, onClose, onConfirm }) => {
   if (!isOpen) return null;
 
   return (
@@ -31,13 +31,6 @@ const ConfirmCsvImportModal: React.FC<ConfirmCsvImportModalProps> = ({ isOpen, i
                 <div className="flex justify-between">
                     <span className="text-slate-500 dark:text-slate-400">Items to be imported:</span>
                     <span className="font-medium text-slate-800 dark:text-slate-200">{items.length}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="text-slate-500 dark:text-slate-400">New Categories found:</span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">{categories.length}</span>
-                </div>
-                 <div className="text-xs text-slate-400 dark:text-slate-500 pt-2">
-                     Note: New categories will be added, existing ones will be kept.
                 </div>
             </div>
         </div>

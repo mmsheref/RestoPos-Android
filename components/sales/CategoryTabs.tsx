@@ -43,29 +43,33 @@ const CategoryTabs: React.FC<CategoryTabsProps> = ({
   return (
     <nav className="flex-shrink-0 pt-2">
       <div className="border-b border-slate-200 dark:border-slate-700">
-        <div className="flex -mb-px overflow-x-auto">
-          <TabButton id="All" name="All Items" />
+        <div className="flex -mb-px">
+          {/* Scrollable Grids */}
+          <div className="flex overflow-x-auto">
+            {grids.map(grid => (
+               <TabButton key={grid.id} id={grid.id} name={grid.name} />
+            ))}
+            <button
+              onClick={onAddNew}
+              className="flex-shrink-0 whitespace-nowrap px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 flex items-center gap-1.5"
+              title="Add new grid"
+            >
+              <PlusIcon className="h-4 w-4" />
+            </button>
+          </div>
           
-          {grids.map(grid => (
-             <TabButton key={grid.id} id={grid.id} name={grid.name} />
-          ))}
-
-          <button
-            onClick={onAddNew}
-            className="flex-shrink-0 whitespace-nowrap px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 flex items-center gap-1.5"
-            title="Add new grid"
-          >
-            <PlusIcon className="h-4 w-4" />
-          </button>
-          
-          <button
-            onClick={onManage}
-            className="flex-shrink-0 whitespace-nowrap px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 flex items-center gap-1.5 ml-auto"
-            title="Manage grids"
-          >
-            <PencilIcon className="h-4 w-4" />
-            <span className="text-sm font-medium">Manage</span>
-          </button>
+          {/* Fixed Buttons on the Right */}
+          <div className="flex items-center ml-auto pl-4">
+            <button
+              onClick={onManage}
+              className="flex-shrink-0 whitespace-nowrap px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 flex items-center gap-1.5"
+              title="Manage grids"
+            >
+              <PencilIcon className="h-4 w-4" />
+              <span className="text-sm font-medium">Manage</span>
+            </button>
+            <TabButton id="All" name="All Items" />
+          </div>
         </div>
       </div>
     </nav>

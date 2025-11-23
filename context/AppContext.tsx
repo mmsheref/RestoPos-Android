@@ -9,7 +9,13 @@ import { exportItemsToCsv } from '../utils/csvHelper';
 
 type Theme = 'light' | 'dark';
 
-const DEFAULT_SETTINGS: AppSettings = { taxEnabled: true, taxRate: 5, storeName: 'My Restaurant' };
+const DEFAULT_SETTINGS: AppSettings = { 
+    taxEnabled: true, 
+    taxRate: 5, 
+    storeName: 'My Restaurant',
+    storeAddress: '123 Food Street, Flavor Town',
+    receiptFooter: 'Follow us @myrestaurant'
+};
 
 interface AppContextType {
   isDrawerOpen: boolean;
@@ -37,10 +43,6 @@ interface AppContextType {
   addItem: (item: Item) => void;
   updateItem: (item: Item) => void;
   deleteItem: (id: string) => void;
-  
-  categories: string[];
-  setCategories: (categories: string[]) => void; 
-  addCategory: (name: string) => void;
 
   savedTickets: SavedTicket[];
   saveTicket: (ticket: SavedTicket) => void;
@@ -56,7 +58,7 @@ interface AppContextType {
   exportData: () => void;
   restoreData: (data: BackupData) => void;
   exportItemsCsv: () => void;
-  replaceItemsAndCategories: (items: Item[], newCategories: string[]) => void;
+  replaceItems: (items: Item[]) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -82,7 +84,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [printers, setPrintersState] = useState<Printer[]>([]);
   const [receipts, setReceiptsState] = useState<Receipt[]>([]);
   const [items, setItemsState] = useState<Item[]>([]);
-  const [categories, setCategoriesState] = useState<string[]>([]);
   const [savedTickets, setSavedTicketsState] = useState<SavedTicket[]>([]);
   const [customGrids, setCustomGridsState] = useState<CustomGrid[]>([]);
   
@@ -94,10 +95,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         
         const [
             loadedItems, loadedReceipts, loadedPrinters, 
-            loadedSettings, loadedCategories, loadedTickets, loadedGrids
+            loadedSettings, loadedTickets, loadedGrids
         ] = await Promise.all([
             DB.getAllItems(), DB.getAllReceipts(), DB.getAllPrinters(),
-            DB.getSettings(), DB.getCategories(), DB.getAllSavedTickets(),
+            DB.getSettings(), DB.getAllSavedTickets(),
             DB.getAllCustomGrids()
         ]);
 
@@ -105,7 +106,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setReceiptsState(loadedReceipts.sort((a,b) => b.date.getTime() - a.date.getTime())); // Sort desc
         setPrintersState(loadedPrinters);
         setSettingsState(loadedSettings || DEFAULT_SETTINGS);
-        setCategoriesState(loadedCategories || []);
         setSavedTicketsState(loadedTickets);
         setCustomGridsState(loadedGrids);
         
@@ -207,27 +207,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, []);
 
-  // --- Category Management ---
-  const setCategories = useCallback(async (newCategories: string[]) => {
-      try {
-        await DB.saveCategories(newCategories);
-        setCategoriesState(newCategories);
-      } catch (e) {
-          alert("Failed to update categories.");
-      }
-  }, []);
-
-  const addCategory = useCallback(async (name: string) => {
-      if (categories.includes(name)) return;
-      const newCats = [...categories, name];
-      try {
-          await DB.saveCategories(newCats);
-          setCategoriesState(newCats);
-      } catch (e) {
-          alert("Failed to save category.");
-      }
-  }, [categories]);
-
   // --- Ticket Management ---
   const saveTicket = useCallback(async (ticket: SavedTicket) => {
       setSavedTicketsState(curr => {
@@ -258,29 +237,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try { await DB.deleteCustomGrid(id); } catch (e) { alert("Failed to delete custom grid."); }
   }, []);
 
-  const setCustomGrids = useCallback(async (grids: CustomGrid[]) => {
-      setCustomGridsState(grids);
+  const setCustomGrids = useCallback(async (newGrids: CustomGrid[]) => {
+      const originalGrids = [...customGrids]; // Capture the state at the time of the call for potential rollback.
+      setCustomGridsState(newGrids); // Optimistic UI update.
+
       try {
-          // This needs to be transactional
-          for (const grid of grids) {
-              await DB.putCustomGrid(grid);
+          const db = await DB.initDB();
+          const tx = db.transaction('custom_grids', 'readwrite');
+          const store = tx.objectStore('custom_grids');
+
+          // FIX: Add a more robust path for deleting all grids by clearing the object store.
+          if (newGrids.length === 0 && originalGrids.length > 0) {
+              await store.clear();
+          } else {
+              const newGridIds = new Set(newGrids.map(g => g.id));
+              const gridsToDelete = originalGrids.filter(g => !newGridIds.has(g.id));
+
+              // Batch deletes and puts within a single transaction
+              const deletePromises = gridsToDelete.map(grid => store.delete(grid.id));
+              const putPromises = newGrids.map(grid => store.put(grid));
+              
+              await Promise.all([...deletePromises, ...putPromises]);
           }
+          
+          await tx.done;
+
       } catch (e) {
-          alert("Failed to save grid order.");
+          console.error("Failed to save grid changes to DB:", e);
+          setCustomGridsState(originalGrids); // Revert UI state on failure.
+          alert("Failed to save grid changes. Your changes have been reverted.");
       }
-  }, []);
+  }, [customGrids]);
 
 
   // --- CSV Import/Export ---
-  const replaceItemsAndCategories = useCallback(async (newItems: Item[], newCategories: string[]) => {
+  const replaceItems = useCallback(async (newItems: Item[]) => {
     setIsLoading(true);
     try {
-      const existingCategories = await DB.getCategories() || [];
-      const combinedCategories = Array.from(new Set([...existingCategories, ...newCategories]));
       await DB.replaceAllItems(newItems);
-      await DB.saveCategories(combinedCategories);
       setItemsState(newItems);
-      setCategoriesState(combinedCategories);
     } catch (e) {
       alert("Failed to import items from CSV. Data has not been changed.");
     } finally {
@@ -323,7 +318,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const exportData = useCallback(async () => {
     const backup: BackupData = {
         version: '2.0', timestamp: new Date().toISOString(),
-        settings, items, categories, printers, receipts, savedTickets, customGrids
+        settings, items, categories: [], printers, receipts, savedTickets, customGrids
     };
     const jsonString = JSON.stringify(backup, null, 2);
     const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
@@ -345,7 +340,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       downloadAnchorNode.click();
       downloadAnchorNode.remove();
     }
-  }, [settings, items, categories, printers, receipts, savedTickets, customGrids]);
+  }, [settings, items, printers, receipts, savedTickets, customGrids]);
 
   const restoreData = useCallback(async (data: BackupData) => {
       setIsLoading(true);
@@ -356,7 +351,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
           // Bulk Insert to DB
           await DB.saveSettings(data.settings);
-          await DB.saveCategories(data.categories);
           for(const p of (data.printers || [])) await DB.putPrinter(p);
           for(const i of (data.items || [])) await DB.putItem(i);
           for(const r of restoredReceipts) await DB.addReceipt(r);
@@ -366,7 +360,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           // Update State
           setSettingsState(data.settings);
           setItemsState(data.items || []);
-          setCategoriesState(data.categories || []);
           setPrintersState(data.printers || []);
           setReceiptsState(restoredReceipts);
           setSavedTicketsState(data.savedTickets || []);
@@ -405,11 +398,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       printers, addPrinter, removePrinter,
       receipts, addReceipt,
       items, addItem, updateItem, deleteItem,
-      categories, setCategories, addCategory,
       savedTickets, saveTicket, removeTicket,
       customGrids, addCustomGrid, updateCustomGrid, deleteCustomGrid, setCustomGrids,
       exportData, restoreData,
-      exportItemsCsv, replaceItemsAndCategories
+      exportItemsCsv, replaceItems
     }}>
       {children}
     </AppContext.Provider>

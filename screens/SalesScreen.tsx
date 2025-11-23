@@ -42,7 +42,7 @@ const SalesScreen: React.FC = () => {
   const [tempQuantity, setTempQuantity] = useState<string>('');
   
   // Payment state
-  const [paymentResult, setPaymentResult] = useState<{ method: 'Cash' | 'QR', change: number } | null>(null);
+  const [paymentResult, setPaymentResult] = useState<{ method: 'Cash' | 'QR', change: number, receiptId: string } | null>(null);
 
   // Modal states
   const [isManageGridsModalOpen, setIsManageGridsModalOpen] = useState(false);
@@ -107,8 +107,9 @@ const SalesScreen: React.FC = () => {
   
   const handleProcessPayment = (method: 'Cash' | 'QR', tendered: number) => {
     if (editingTicket) removeTicket(editingTicket.id);
-    addReceipt({ id: `R${Date.now()}`, date: new Date(), items: currentOrder, total, paymentMethod: method });
-    setPaymentResult({ method, change: tendered - total });
+    const receiptId = `R${Date.now()}`;
+    addReceipt({ id: receiptId, date: new Date(), items: currentOrder, total, paymentMethod: method });
+    setPaymentResult({ method, change: tendered - total, receiptId });
   };
   
   const handleNewSale = () => {
@@ -141,6 +142,10 @@ const SalesScreen: React.FC = () => {
   const handleSaveGrids = (newGrids: CustomGrid[]) => {
       setCustomGrids(newGrids);
       setIsManageGridsModalOpen(false);
+      // UX Improvement: If the active grid was deleted, switch to the 'All' view.
+      if (activeGridId !== 'All' && !newGrids.some(g => g.id === activeGridId)) {
+          setActiveGridId('All');
+      }
   };
   const handleOpenSelectItemModal = (slotIndex: number) => {
       if (activeGridId === 'All') return;
@@ -157,6 +162,12 @@ const SalesScreen: React.FC = () => {
       }
       setIsSelectItemModalOpen(false);
       setAssigningSlot(null);
+  };
+
+  const handleClearTicket = () => {
+    setCurrentOrder([]);
+    setEditingTicket(null);
+    setEditingQuantityItemId(null);
   };
 
   if (salesView === 'payment') {
@@ -202,6 +213,7 @@ const SalesScreen: React.FC = () => {
         handlePrimarySaveAction={() => editingTicket ? (saveTicket({ ...editingTicket, items: currentOrder }), setCurrentOrder([]), setEditingTicket(null)) : setIsSaveModalOpen(true)}
         onCharge={() => setSalesView('payment')} onOpenTickets={() => setIsOpenTicketsModalOpen(true)}
         onSaveTicket={() => setIsSaveModalOpen(true)} printers={printers}
+        onClearTicket={handleClearTicket}
       />
       
       {currentOrder.length > 0 && !isTicketVisible && (

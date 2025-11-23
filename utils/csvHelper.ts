@@ -1,9 +1,10 @@
+
 import { Item } from '../types';
 
-export const parseCsvToItems = (csvContent: string): { items: Item[], categories: string[] } => {
+export const parseCsvToItems = (csvContent: string): { items: Item[] } => {
     const lines = csvContent.trim().replace(/\r\n/g, '\n').split('\n');
     if (lines.length < 2) {
-        return { items: [], categories: [] };
+        return { items: [] };
     }
 
     const headerLine = lines.shift()!.trim();
@@ -11,23 +12,20 @@ export const parseCsvToItems = (csvContent: string): { items: Item[], categories
     
     const handleIndex = headers.indexOf('Handle');
     const nameIndex = headers.indexOf('Name');
-    const categoryIndex = headers.indexOf('Category');
     const priceIndex = headers.indexOf('Price [AYSHAS]');
     const trackStockIndex = headers.indexOf('Track stock');
     const inStockIndex = headers.indexOf('In stock [AYSHAS]');
 
-    if ([handleIndex, nameIndex, categoryIndex, priceIndex].some(i => i === -1)) {
-        throw new Error('CSV file is missing required columns: Handle, Name, Category, Price [AYSHAS]');
+    if ([handleIndex, nameIndex, priceIndex].some(i => i === -1)) {
+        throw new Error('CSV file is missing required columns: Handle, Name, Price [AYSHAS]');
     }
 
     const items: Item[] = [];
-    const categorySet = new Set<string>();
 
     for (const line of lines) {
         if (!line.trim()) continue;
         const values = line.trim().split(',');
         
-        const category = values[categoryIndex] || 'Uncategorized';
         const priceStr = values[priceIndex];
         const price = (priceStr && priceStr.toLowerCase() !== 'variable' && !isNaN(parseFloat(priceStr))) ? parseFloat(priceStr) : 0;
         
@@ -43,7 +41,6 @@ export const parseCsvToItems = (csvContent: string): { items: Item[], categories
         const item: Item = {
             id: values[handleIndex],
             name: values[nameIndex] || 'Unnamed Item',
-            category: category,
             price: price,
             stock: stock,
             imageUrl: `https://via.placeholder.com/150?text=${encodeURIComponent(values[nameIndex] || 'Item')}`
@@ -51,16 +48,15 @@ export const parseCsvToItems = (csvContent: string): { items: Item[], categories
 
         if (item.id && item.name) {
             items.push(item);
-            categorySet.add(category);
         }
     }
 
-    return { items, categories: Array.from(categorySet) };
+    return { items };
 }
 
 export const exportItemsToCsv = (items: Item[]): string => {
     const headers = [
-        'Handle','SKU','Name','Category','Description','Sold by weight','Option 1 name','Option 1 value','Option 2 name','Option 2 value','Option 3 name','Option 3 value','Cost','Barcode','SKU of included item','Quantity of included item','Track stock','Available for sale [AYSHAS]','Price [AYSHAS]','In stock [AYSHAS]','Low stock [AYSHAS]'
+        'Handle','SKU','Name','Description','Sold by weight','Option 1 name','Option 1 value','Option 2 name','Option 2 value','Option 3 name','Option 3 value','Cost','Barcode','SKU of included item','Quantity of included item','Track stock','Available for sale [AYSHAS]','Price [AYSHAS]','In stock [AYSHAS]','Low stock [AYSHAS]'
     ];
     
     const rows = items.map(item => {
@@ -71,7 +67,6 @@ export const exportItemsToCsv = (items: Item[]): string => {
         row[headers.indexOf('Handle')] = item.id;
         row[headers.indexOf('SKU')] = item.id; // Using Handle as SKU as well
         row[headers.indexOf('Name')] = csvField(item.name);
-        row[headers.indexOf('Category')] = item.category;
         row[headers.indexOf('Sold by weight')] = 'N';
         row[headers.indexOf('Track stock')] = 'N'; // Assuming no stock tracking for simplicity
         row[headers.indexOf('Available for sale [AYSHAS]')] = 'Y';

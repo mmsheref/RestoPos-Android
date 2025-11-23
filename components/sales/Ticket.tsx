@@ -1,7 +1,8 @@
+
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { OrderItem, SavedTicket } from '../../types';
 import { ThreeDotsIcon, TrashIcon, ArrowLeftIcon } from '../../constants';
-import { printReceipt } from '../../utils/printerHelper';
+import { printBill } from '../../utils/printerHelper';
 
 // Define a leaner item type for what addToOrder expects from the grid
 type SimpleItem = { id: string; name: string; price: number };
@@ -37,6 +38,7 @@ interface TicketProps {
     onCharge: () => void;
     onOpenTickets: () => void;
     onSaveTicket: () => void;
+    onClearTicket: () => void;
 }
 
 const Ticket: React.FC<TicketProps> = (props) => {
@@ -45,10 +47,11 @@ const Ticket: React.FC<TicketProps> = (props) => {
     currentOrder, editingTicket, savedTickets, settings, total, subtotal, tax, printers,
     editingQuantityItemId, tempQuantity, removeFromOrder, addToOrder, deleteLineItem,
     handleQuantityClick, handleQuantityChangeCommit, handleQuantityInputChange, handleQuantityInputKeyDown,
-    handlePrimarySaveAction, onCharge, onOpenTickets, onSaveTicket
+    handlePrimarySaveAction, onCharge, onOpenTickets, onSaveTicket, onClearTicket
   } = props;
   
   const [isTicketMenuOpen, setTicketMenuOpen] = useState(false);
+  const [isClearConfirmVisible, setIsClearConfirmVisible] = useState(false);
   const ticketMenuRef = useRef<HTMLDivElement>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
   const prevOrderLength = useRef(currentOrder.length);
@@ -62,6 +65,13 @@ const Ticket: React.FC<TicketProps> = (props) => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+  
+  useEffect(() => {
+    // When confirm state becomes visible, ensure menu is closed.
+    if (isClearConfirmVisible) {
+        setTicketMenuOpen(false);
+    }
+  }, [isClearConfirmVisible]);
 
   // Bug fix 1: Auto-scroll on new item
   useEffect(() => {
@@ -83,10 +93,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
     switch (action) {
       case 'clear':
         if (currentOrder.length === 0 && !editingTicket) return;
-        if (window.confirm("Are you sure you want to clear the current order? All unsaved items will be lost.")) {
-          // This should be handled in parent, but for now we clear inputs
-          props.setEditingQuantityItemId(null);
-        }
+        setIsClearConfirmVisible(true);
         break;
       
       case 'print':
@@ -96,10 +103,18 @@ const Ticket: React.FC<TicketProps> = (props) => {
         }
         try {
           const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
-          await printReceipt(currentOrder, total, printer);
+          await printBill({
+            items: currentOrder,
+            total,
+            subtotal,
+            tax,
+            ticketName: editingTicket?.name,
+            settings,
+            printer,
+          });
         } catch (e) {
           console.error("An unexpected error occurred while trying to print:", e);
-          let errorMessage = "Could not print the ticket due to an unexpected error.";
+          let errorMessage = "Could not print the bill due to an unexpected error.";
           if (e instanceof Error) errorMessage += `\nDetails: ${e.message}`;
           alert(errorMessage);
         }
@@ -116,6 +131,11 @@ const Ticket: React.FC<TicketProps> = (props) => {
         alert(`Feature '${action}' is coming soon!`);
         break;
     }
+  };
+  
+  const handleConfirmClear = () => {
+    onClearTicket();
+    setIsClearConfirmVisible(false);
   };
 
   const renderActionButtons = () => {
@@ -184,7 +204,21 @@ const Ticket: React.FC<TicketProps> = (props) => {
           </div>
       </header>
       <div ref={listContainerRef} className="flex-1 overflow-y-auto p-4">
-          {currentOrder.length === 0 ? (
+          {isClearConfirmVisible ? (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <TrashIcon className="h-12 w-12 text-red-400 mb-4" />
+              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Clear Current Order?</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-6">This action cannot be undone.</p>
+              <div className="flex gap-4">
+                  <button onClick={() => setIsClearConfirmVisible(false)} className="px-6 py-2 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-500 font-semibold">
+                      Cancel
+                  </button>
+                  <button onClick={handleConfirmClear} className="px-6 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 shadow-md">
+                      Yes, Clear
+                  </button>
+              </div>
+            </div>
+          ) : currentOrder.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-500">
               <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="dark:text-slate-600"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" /><path d="M16 8h-6a2 2 0 1 0 0 4h6" /><path d="M12 14v-4" /></svg>
               <p className="mt-4 font-medium text-slate-500">Your order is empty</p>
@@ -225,7 +259,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
             {settings.taxEnabled && (<div className="flex justify-between text-slate-600 dark:text-slate-400"><span>GST ({settings.taxRate}%)</span><span>₹{tax.toFixed(2)}</span></div>)}
             <div className="flex justify-between font-bold text-xl text-slate-800 dark:text-slate-100 pt-2 border-t mt-2 border-slate-200 dark:border-slate-700"><span>Total</span><span>₹{total.toFixed(2)}</span></div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className={`flex items-center gap-4 ${isClearConfirmVisible ? 'opacity-50 pointer-events-none' : ''}`}>
             {renderActionButtons()}
             <button onClick={onCharge} disabled={currentOrder.length === 0} className="w-full bg-emerald-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-emerald-600 disabled:bg-slate-300 disabled:dark:bg-slate-600 disabled:dark:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none flex justify-between items-center px-4">
               <span>Charge</span><span className="font-mono">₹{total.toFixed(2)}</span>

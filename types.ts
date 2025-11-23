@@ -2,10 +2,11 @@
 export interface Item {
   id: string;
   name: string;
-  category: string;
   price: number;
   stock: number;
   imageUrl: string;
+  // FIX: Add optional category property to be used in filtering and management.
+  category?: string;
 }
 
 export interface OrderItem extends Item {
@@ -41,6 +42,8 @@ export interface AppSettings {
   taxEnabled: boolean;
   taxRate: number;
   storeName?: string;
+  storeAddress?: string;
+  receiptFooter?: string;
 }
 
 export interface CustomGrid {

@@ -10,12 +10,10 @@ interface ItemFormModalProps {
     // Optional: Pass delete handler if supported
     onDelete?: () => void;
     initialData?: Item;
-    categories: string[];
 }
 
-const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, onDelete, initialData, categories }) => {
+const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, onDelete, initialData }) => {
     const [name, setName] = useState('');
-    const [category, setCategory] = useState('');
     const [price, setPrice] = useState('');
     const [stock, setStock] = useState('');
     const [imageUrl, setImageUrl] = useState('');
@@ -23,18 +21,16 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, 
     useEffect(() => {
         if (initialData) {
             setName(initialData.name);
-            setCategory(initialData.category);
             setPrice(initialData.price.toString());
             setStock(initialData.stock.toString());
             setImageUrl(initialData.imageUrl);
         } else {
             setName('');
-            setCategory(categories[0] || '');
             setPrice('');
             setStock('100');
             setImageUrl('');
         }
-    }, [initialData, categories, isOpen]);
+    }, [initialData, isOpen]);
 
     if (!isOpen) return null;
 
@@ -42,7 +38,6 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, 
         e.preventDefault();
         onSave({
             name,
-            category,
             price: parseFloat(price) || 0,
             stock: parseInt(stock) || 0,
             imageUrl: imageUrl || 'https://via.placeholder.com/150'
@@ -102,19 +97,6 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, 
                                 onChange={e => setStock(e.target.value)} 
                                 className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
                             />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Category</label>
-                        <div className="flex gap-2">
-                            <select 
-                                value={category} 
-                                onChange={e => setCategory(e.target.value)}
-                                className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
-                            >
-                                {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                            </select>
                         </div>
                     </div>
 

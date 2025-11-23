@@ -1,3 +1,4 @@
+
 /**
  * PRINTER HELPER
  * 
@@ -13,7 +14,7 @@
  *    > npx cap sync
  */
 
-import { OrderItem, Printer } from '../types';
+import { AppSettings, OrderItem, Printer } from '../types';
 import { requestAppPermissions } from './permissions';
 
 declare global {
@@ -78,110 +79,172 @@ const disconnectFromPrinter = (): Promise<void> => {
     });
 };
 
-/**
- * Sends a small test print to verify configuration and connectivity.
- * Follows a robust connect -> write -> disconnect pattern.
- */
-export const testPrint = async (printer: Printer): Promise<{ success: boolean; message: string }> => {
-  // 1. Web Fallback
-  if (!window.bluetoothSerial) {
-    console.log(`Test Print for ${printer.name} (${printer.address})`);
-    alert(`Simulated Test Print:\n\n[PRINTER: ${printer.name}]\n[INTERFACE: ${printer.interfaceType}]\n\nConnection Successful!`);
-    return { success: true, message: "Simulated test print successful" };
-  }
-
-  // 2. Native Logic
-  if (printer.interfaceType !== 'Bluetooth' || !printer.address) {
-    return { success: false, message: "Only Bluetooth printers with a valid MAC address are supported for native printing." };
-  }
-
-  try {
-    const hasPermission = await requestAppPermissions();
-    if (!hasPermission) {
-      return { success: false, message: "Bluetooth permissions were denied." };
-    }
-
-    await connectToPrinter(printer.address);
-
-    let data = COMMANDS.INIT;
-    data += COMMANDS.CENTER + COMMANDS.BOLD_ON + "TEST PRINT\n" + COMMANDS.BOLD_OFF;
-    data += "--------------------------------\n";
-    data += COMMANDS.LEFT;
-    data += `Device: ${printer.name}\n`;
-    data += `Addr: ${printer.address}\n`;
-    data += "Status: Connected\n";
-    data += "--------------------------------\n";
-    data += COMMANDS.CENTER + "It Works!\n";
-    data += "\n\n\n" + COMMANDS.CUT;
-
-    await new Promise<void>((resolve, reject) => {
-      window.bluetoothSerial.write(
-        data,
-        () => resolve(),
-        (err: any) => reject(new Error(`Failed to send data to printer: ${JSON.stringify(err)}`))
-      );
-    });
-
-    return { success: true, message: "Test print sent successfully." };
-
-  } catch (error: any) {
-    return { success: false, message: error.message || "An unknown printing error occurred." };
-  } finally {
-    await disconnectFromPrinter(); // CRITICAL: Always disconnect after the operation.
-  }
+const createLine = (left: string, right: string, width: number): string => {
+    const space = width - left.length - right.length;
+    return left + ' '.repeat(Math.max(0, space)) + right + '\n';
 };
 
-export const printReceipt = async (items: OrderItem[], total: number, printer?: Printer) => {
-  if (!printer) {
-    alert("No printer configured. Please add a printer in Settings.");
-    return;
-  }
+const createDivider = (width: number): string => '-'.repeat(width) + '\n';
 
-  // 1. Native Bluetooth Printing
-  if (printer.interfaceType === 'Bluetooth' && window.bluetoothSerial && printer.address) {
+// --- NEW Bill/Receipt Interfaces ---
+interface PrintBillArgs {
+  items: OrderItem[];
+  total: number;
+  subtotal: number;
+  tax: number;
+  ticketName?: string;
+  settings: AppSettings;
+  printer?: Printer;
+}
+
+export interface PrintReceiptArgs extends PrintBillArgs {
+    receiptId: string;
+    paymentMethod: 'Cash' | 'Card' | 'QR';
+}
+
+// Refactors the core printing logic to be reusable
+const sendToPrinter = async (data: string, printer: Printer): Promise<{ success: boolean; message: string }> => {
+    // Web Fallback
+    if (!window.bluetoothSerial) {
+        console.log("--- SIMULATED PRINT ---");
+        console.log(data.replace(/[\x1b\x1d]/g, '')); // Log cleaned data for readability
+        alert(`Simulated Print to ${printer.name}`);
+        return { success: true, message: "Simulated print successful" };
+    }
+
+    // Native Logic
+    if (printer.interfaceType !== 'Bluetooth' || !printer.address) {
+        return { success: false, message: "Only Bluetooth printers with a valid MAC address are supported." };
+    }
+
     try {
-      const hasPermission = await requestAppPermissions();
-      if (!hasPermission) {
-        alert("Bluetooth permissions denied. Cannot print.");
-        return;
-      }
+        const hasPermission = await requestAppPermissions();
+        if (!hasPermission) return { success: false, message: "Bluetooth permissions denied." };
 
-      await connectToPrinter(printer.address);
+        await connectToPrinter(printer.address);
 
-      let data = COMMANDS.INIT;
-      data += COMMANDS.CENTER + COMMANDS.BOLD_ON + "RESTAURANT POS\n" + COMMANDS.BOLD_OFF;
-      data += "123 Food Street, City\n";
-      data += "--------------------------------\n";
-      data += COMMANDS.LEFT;
+        await new Promise<void>((resolve, reject) => {
+            window.bluetoothSerial.write(data, () => resolve(), (err: any) => reject(new Error(JSON.stringify(err))));
+        });
 
-      items.forEach(item => {
-        const lineTotal = (item.price * item.quantity).toFixed(2);
-        const name = item.name.length > 16 ? item.name.substring(0, 16) : item.name.padEnd(16);
-        const qty = `${item.quantity}x`.padEnd(4);
-        data += `${qty}${name} ${lineTotal.padStart(8)}\n`;
-      });
-
-      data += "--------------------------------\n";
-      data += COMMANDS.RIGHT + COMMANDS.BOLD_ON + `TOTAL: ${total.toFixed(2)}\n` + COMMANDS.BOLD_OFF;
-      data += "\n\n\n" + COMMANDS.CUT;
-
-      await new Promise<void>((resolve, reject) => {
-          window.bluetoothSerial.write(data, 
-            () => resolve(), 
-            (err: any) => reject(new Error(JSON.stringify(err)))
-          );
-      });
-
+        return { success: true, message: "Data sent to printer." };
     } catch (error: any) {
-      alert(`Print Error: ${error.message}`);
+        return { success: false, message: error.message || "An unknown printing error occurred." };
     } finally {
         await disconnectFromPrinter();
     }
-  } 
-  // 2. Web/Simulation Fallback
-  else {
-    const billText = items.map(i => `${i.quantity}x ${i.name.padEnd(20)} ${(i.price * i.quantity).toFixed(2)}`).join('\n');
-    const mode = window.bluetoothSerial ? "Native (Plugin Found)" : "Web Simulation";
-    alert(`🖨️ [${mode}] Printing to ${printer.name}:\n\n${billText}\n\n----------------\nTotal: ₹${total.toFixed(2)}`);
-  }
+}
+
+
+/**
+ * Sends a small test print to verify configuration and connectivity.
+ */
+export const testPrint = async (printer: Printer): Promise<{ success: boolean; message: string }> => {
+    const paperWidthChars = printer.paperWidth === '80mm' ? 48 : 32;
+    const divider = createDivider(paperWidthChars);
+    
+    let data = COMMANDS.INIT;
+    data += COMMANDS.CENTER + COMMANDS.BOLD_ON + "TEST PRINT\n" + COMMANDS.BOLD_OFF;
+    data += divider;
+    data += COMMANDS.LEFT;
+    data += `Device: ${printer.name}\n`;
+    if(printer.address) data += `Addr: ${printer.address}\n`;
+    data += "Status: Connected\n";
+    data += divider;
+    data += COMMANDS.CENTER + "It Works!\n";
+    data += "\n\n\n" + COMMANDS.CUT;
+
+    return sendToPrinter(data, printer);
+};
+
+// New function for pre-payment bills
+export const printBill = async (args: PrintBillArgs): Promise<{ success: boolean; message: string }> => {
+    const { items, total, subtotal, tax, ticketName, settings, printer } = args;
+
+    if (!printer) {
+      alert("No printer configured. Please add a printer in Settings.");
+      return { success: false, message: "No printer configured." };
+    }
+    
+    const paperWidthChars = printer.paperWidth === '80mm' ? 48 : 32;
+    const divider = createDivider(paperWidthChars);
+
+    let data = COMMANDS.INIT;
+    if(settings.storeName) data += COMMANDS.CENTER + COMMANDS.BOLD_ON + settings.storeName.toUpperCase() + '\n' + COMMANDS.BOLD_OFF;
+    if(settings.storeAddress) data += COMMANDS.CENTER + settings.storeAddress + '\n';
+    data += divider;
+    data += COMMANDS.LEFT + `Cashier: Admin\nPOS: 1\n`;
+    if(ticketName) data += `Ticket: ${ticketName}\n`;
+    data += divider;
+
+    items.forEach(item => {
+        const lineTotal = (item.price * item.quantity).toFixed(2);
+        const namePart = item.name.length > (paperWidthChars - 10) ? item.name.substring(0, paperWidthChars - 10) : item.name;
+        data += createLine(namePart, `₹${lineTotal}`, paperWidthChars);
+        data += `  ${item.quantity} x ₹${item.price.toFixed(2)}\n`;
+    });
+    data += divider;
+
+    data += createLine('Subtotal', `₹${subtotal.toFixed(2)}`, paperWidthChars);
+    if (settings.taxEnabled) data += createLine(`GST (${settings.taxRate}%)`, `₹${tax.toFixed(2)}`, paperWidthChars);
+    data += COMMANDS.BOLD_ON + createLine('TOTAL', `₹${total.toFixed(2)}`, paperWidthChars) + COMMANDS.BOLD_OFF;
+    
+    data += '\n' + COMMANDS.CENTER + '--- THIS IS NOT A RECEIPT ---\n';
+    data += "\n\n\n" + COMMANDS.CUT;
+    
+    return sendToPrinter(data, printer);
+};
+
+// Re-implement printReceipt with full customization
+export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: boolean; message: string }> => {
+    const { items, total, subtotal, tax, receiptId, paymentMethod, settings, printer } = args;
+    
+    if (!printer) {
+      alert("No printer configured. Please add a printer in Settings.");
+      return { success: false, message: "No printer configured." };
+    }
+    
+    const paperWidthChars = printer.paperWidth === '80mm' ? 48 : 32;
+    const divider = createDivider(paperWidthChars);
+    const now = new Date();
+    const formattedDate = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+
+    // 1. Header
+    let data = COMMANDS.INIT;
+    if (settings.storeName) data += COMMANDS.CENTER + COMMANDS.BOLD_ON + settings.storeName.toUpperCase() + '\n' + COMMANDS.BOLD_OFF;
+    if (settings.storeAddress) data += COMMANDS.CENTER + settings.storeAddress.replace(/[\r\n]+/g, ' ') + '\n';
+    data += divider;
+    
+    // 2. Meta
+    data += COMMANDS.LEFT + `Cashier: Admin\nPOS: 1\n`;
+    data += divider;
+    
+    // 3. Items
+    items.forEach(item => {
+        const lineTotal = (item.price * item.quantity).toFixed(2);
+        const namePart = item.name.length > (paperWidthChars - 12) ? item.name.substring(0, paperWidthChars - 12) : item.name;
+        data += createLine(namePart, `₹${lineTotal}`, paperWidthChars);
+        data += `  ${item.quantity} x ₹${item.price.toFixed(2)}\n`;
+    });
+    data += divider;
+    
+    // 4. Totals
+    data += createLine('Subtotal', `₹${subtotal.toFixed(2)}`, paperWidthChars);
+    if (settings.taxEnabled) data += createLine(`GST (${settings.taxRate}%)`, `₹${tax.toFixed(2)}`, paperWidthChars);
+    data += COMMANDS.BOLD_ON + createLine('TOTAL', `₹${total.toFixed(2)}`, paperWidthChars) + COMMANDS.BOLD_OFF;
+    data += divider;
+    
+    // 5. Payment
+    data += createLine(paymentMethod === 'QR' ? 'QR FEDERAL BANK' : 'Cash', `₹${total.toFixed(2)}`, paperWidthChars);
+    data += divider;
+
+    // 6. Footer
+    if(settings.receiptFooter) data += COMMANDS.CENTER + settings.receiptFooter + '\n';
+    data += COMMANDS.CENTER + 'Thank you for your visit!\n';
+    data += divider;
+    data += createLine(formattedDate, receiptId, paperWidthChars);
+
+    data += "\n\n\n" + COMMANDS.CUT;
+    
+    return sendToPrinter(data, printer);
 };

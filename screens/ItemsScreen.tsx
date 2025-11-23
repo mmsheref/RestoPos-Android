@@ -1,9 +1,7 @@
-
 import React, { useState, useMemo } from 'react';
 import type { Item } from '../types';
 import { useAppContext } from '../context/AppContext';
 import ItemFormModal from '../components/modals/ItemFormModal';
-import ManageCategoriesModal from '../components/modals/ManageCategoriesModal';
 import { SearchIcon, TrashIcon } from '../constants';
 
 // UUID Generator Fallback for non-secure contexts (e.g. localhost/http)
@@ -17,8 +15,15 @@ const generateId = () => {
     });
 };
 
+// FIX: Refactored ItemRow to use a props interface and React.FC to fix typing issue with the 'key' prop.
 // Refactored Row Component: Row click edits, Delete button is separate/protected
-const ItemRow = ({ item, onEdit, onDelete }: { item: Item, onEdit: (item: Item) => void, onDelete: (id: string) => void }) => {
+interface ItemRowProps {
+  item: Item;
+  onEdit: (item: Item) => void;
+  onDelete: (id: string) => void;
+}
+
+const ItemRow: React.FC<ItemRowProps> = ({ item, onEdit, onDelete }) => {
     return (
         <tr 
             onClick={() => onEdit(item)}
@@ -33,11 +38,6 @@ const ItemRow = ({ item, onEdit, onDelete }: { item: Item, onEdit: (item: Item) 
                 />
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{item.name}</td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-xs text-gray-700 dark:text-gray-300">
-                    {item.category}
-                </span>
-            </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">₹{item.price.toFixed(2)}</td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.stock}</td>
             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -59,16 +59,14 @@ const ItemRow = ({ item, onEdit, onDelete }: { item: Item, onEdit: (item: Item) 
 };
 
 const ItemsScreen: React.FC = () => {
-  const { items, addItem, updateItem, deleteItem, categories, setCategories } = useAppContext();
+  const { items, addItem, updateItem, deleteItem } = useAppContext();
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | undefined>(undefined);
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   const filteredItems = useMemo(() => {
       return items.filter(i => 
-        i.name.toLowerCase().includes(search.toLowerCase()) ||
-        i.category.toLowerCase().includes(search.toLowerCase())
+        i.name.toLowerCase().includes(search.toLowerCase())
       );
   }, [items, search]);
 
@@ -84,12 +82,8 @@ const ItemsScreen: React.FC = () => {
 
   const handleDeleteItem = (itemId: string) => {
       console.log(`[ItemsScreen] User initiated delete for item ID: ${itemId}.`);
-      // The confirmation dialog was causing issues and is now removed.
-      // Deletion is now immediate.
-      console.log(`[ItemsScreen] Calling deleteItem context function.`);
       deleteItem(itemId);
       
-      // If we were editing this item, close the modal
       if (editingItem?.id === itemId) {
           console.log(`[ItemsScreen] Closing edit modal because the item being edited was deleted.`);
           setIsModalOpen(false);
@@ -105,17 +99,11 @@ const ItemsScreen: React.FC = () => {
               id: generateId(), 
               name: itemData.name || 'New Item',
               price: itemData.price || 0,
-              category: itemData.category || 'Uncategorized',
               stock: itemData.stock || 0,
               imageUrl: itemData.imageUrl || 'https://via.placeholder.com/150'
           } as Item);
       }
       setIsModalOpen(false);
-  };
-
-  const handleSaveCategories = (newCategories: string[]) => {
-    setCategories(newCategories);
-    setIsCategoryModalOpen(false);
   };
 
   return (
@@ -134,12 +122,6 @@ const ItemsScreen: React.FC = () => {
                 />
             </div>
             <button
-              onClick={() => setIsCategoryModalOpen(true)}
-              className="bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex-shrink-0 shadow-sm"
-            >
-              Manage Categories
-            </button>
-            <button
               onClick={handleAddItem}
               className="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0 shadow-sm"
             >
@@ -155,7 +137,6 @@ const ItemsScreen: React.FC = () => {
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Image</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Name</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Category</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Price</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Stock</th>
                 <th scope="col" className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
@@ -164,7 +145,7 @@ const ItemsScreen: React.FC = () => {
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {filteredItems.length === 0 ? (
                   <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                      <td colSpan={5} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                           {search ? 'No items found matching your search.' : 'No items available. Add your first item!'}
                       </td>
                   </tr>
@@ -191,16 +172,8 @@ const ItemsScreen: React.FC = () => {
             if(editingItem) handleDeleteItem(editingItem.id);
         }}
         initialData={editingItem}
-        categories={categories}
       />
 
-      <ManageCategoriesModal
-        isOpen={isCategoryModalOpen}
-        onClose={() => setIsCategoryModalOpen(false)}
-        onSave={handleSaveCategories}
-        initialCategories={categories}
-        allItems={items}
-      />
     </div>
   );
 };

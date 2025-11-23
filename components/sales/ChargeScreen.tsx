@@ -13,7 +13,7 @@ interface ChargeScreenProps {
   onBack: () => void;
   onProcessPayment: (method: 'Cash' | 'QR', tendered: number) => void;
   onNewSale: () => void;
-  paymentResult: { method: 'Cash' | 'QR', change: number } | null;
+  paymentResult: { method: 'Cash' | 'QR', change: number, receiptId: string } | null;
 }
 
 const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, subtotal, onBack, onProcessPayment, onNewSale, paymentResult }) => {
@@ -57,8 +57,18 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
   }, [total]);
 
   const handlePrintReceipt = () => {
+    if (!paymentResult) return;
     const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
-    printReceipt(orderItems, total, printer);
+    printReceipt({
+        items: orderItems,
+        total,
+        subtotal,
+        tax,
+        receiptId: paymentResult.receiptId,
+        paymentMethod: paymentResult.method,
+        settings,
+        printer,
+    });
   };
   
   const StaticTicketPanel = () => (

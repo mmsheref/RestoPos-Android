@@ -16,7 +16,8 @@ const SelectItemModal: React.FC<SelectItemModalProps> = ({ isOpen, onClose, onSe
   const filteredItems = useMemo(() => {
     return allItems.filter(i =>
       i.name.toLowerCase().includes(search.toLowerCase()) ||
-      i.category.toLowerCase().includes(search.toLowerCase())
+      // FIX: Safely access optional `category` property to prevent runtime errors.
+      (i.category || '').toLowerCase().includes(search.toLowerCase())
     );
   }, [allItems, search]);
 

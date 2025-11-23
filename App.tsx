@@ -15,6 +15,8 @@ const App: React.FC = () => {
       <HashRouter>
         <Layout>
           <Routes>
+            <Route index element={<Navigate to="/sales" replace />} />
+            <Route path="/" element={<Navigate to="/sales" replace />} />
             <Route path="/sales" element={<SalesScreen />} />
             <Route path="/receipts" element={<ReceiptsScreen />} />
             <Route path="/items" element={<ItemsScreen />} />

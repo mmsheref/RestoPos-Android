@@ -1,3 +1,4 @@
+
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { Item, Receipt, Printer, AppSettings, SavedTicket, CustomGrid } from '../types';
 
@@ -94,8 +95,6 @@ export const deletePrinter = async (id: string) => (await initDB()).delete('prin
 // --- Config (Settings & Categories) ---
 export const getSettings = async (): Promise<AppSettings | undefined> => (await initDB()).get('config', 'settings');
 export const saveSettings = async (settings: AppSettings) => (await initDB()).put('config', settings, 'settings');
-export const getCategories = async (): Promise<string[] | undefined> => (await initDB()).get('config', 'categories');
-export const saveCategories = async (categories: string[]) => (await initDB()).put('config', categories, 'categories');
 
 // --- Saved Tickets ---
 export const getAllSavedTickets = async () => (await initDB()).getAll('saved_tickets');
