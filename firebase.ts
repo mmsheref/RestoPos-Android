@@ -1,10 +1,9 @@
 
-// FIX: Update Firebase SDK usage. `initializeFirestore` is deprecated. The modern way to enable multi-tab persistence
-// is with `getFirestore` and `enableMultiTabIndexedDbPersistence`. This resolves the module resolution error.
 import { initializeApp } from 'firebase/app';
 import { 
-  getFirestore,
-  enableMultiTabIndexedDbPersistence,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   collection, 
   doc, 
   getDocs, 
@@ -12,12 +11,10 @@ import {
 } from 'firebase/firestore';
 import { 
     getAuth, 
-    onAuthStateChanged,
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
     signOut
 } from 'firebase/auth';
-import type { User, AuthCredential } from 'firebase/auth';
 // IMPORT the config from the separate file (which CI/CD will generate)
 import { firebaseConfig } from './firebaseConfig';
 
@@ -26,21 +23,14 @@ export { firebaseConfig };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
 
-enableMultiTabIndexedDbPersistence(db)
-  .catch((err) => {
-    if (err.code == 'failed-precondition') {
-      console.warn(
-        'Firebase persistence failed. This may happen when multiple tabs are open. Offline functionality will be limited.'
-      );
-    } else if (err.code == 'unimplemented') {
-      console.info(
-        'The current browser does not support all features required to enable offline persistence.'
-      );
-    }
-  });
-
+// Initialize Firestore with persistent local cache (multi-tab supported)
+// This replaces the deprecated enableMultiTabIndexedDbPersistence()
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
+});
 
 // --- Auth Functions ---
 export const signUp = (email: string, pass: string) => createUserWithEmailAndPassword(auth, email, pass);
