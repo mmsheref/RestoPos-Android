@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Printer, PrinterInterfaceType, PrinterPaperWidth } from '../../types';
 import { CloseIcon } from '../../constants';
@@ -68,6 +69,7 @@ const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ isOpen, onClose, onSa
       setPrinterName(device.name);
       setPrinterAddress(device.address);
       setFoundDevices([]);
+      setIsScanning(false);
   };
 
   const handleSavePrinter = () => {

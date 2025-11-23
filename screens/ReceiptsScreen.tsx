@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useMemo } from 'react';
 import type { Receipt } from '../types';
 import { useAppContext } from '../context/AppContext';
@@ -44,7 +45,7 @@ const ReceiptsScreen: React.FC = () => {
                 <tr key={receipt.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" onClick={() => setSelectedReceipt(receipt)}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{receipt.id}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{receipt.date.toLocaleString()}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">₹{receipt.total.toFixed(2)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{receipt.total.toFixed(2)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{receipt.paymentMethod}</td>
                 </tr>
               ))}
@@ -58,7 +59,7 @@ const ReceiptsScreen: React.FC = () => {
            <div className="bg-white dark:bg-gray-800 rounded-lg p-8 max-w-md w-full text-gray-800 dark:text-gray-200" onClick={e => e.stopPropagation()}>
              <h2 className="text-2xl font-bold mb-4">Receipt Details: {selectedReceipt.id}</h2>
              <p><strong>Date:</strong> {selectedReceipt.date.toLocaleString()}</p>
-             <p><strong>Total:</strong> ₹{selectedReceipt.total.toFixed(2)}</p>
+             <p><strong>Total:</strong> {selectedReceipt.total.toFixed(2)}</p>
              <p><strong>Payment:</strong> {selectedReceipt.paymentMethod}</p>
              <h3 className="font-bold mt-4 mb-2">Items:</h3>
              <ul>

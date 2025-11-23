@@ -1,4 +1,3 @@
-
 /**
  * PRINTER HELPER
  * 
@@ -124,7 +123,16 @@ const sendToPrinter = async (data: string, printer: Printer): Promise<{ success:
         await connectToPrinter(printer.address);
 
         await new Promise<void>((resolve, reject) => {
-            window.bluetoothSerial.write(data, () => resolve(), (err: any) => reject(new Error(JSON.stringify(err))));
+            window.bluetoothSerial.write(data, 
+                () => resolve(), 
+                // FIX: Do not JSON.stringify the raw error object from the plugin, as it may contain circular references.
+                // Instead, safely extract a message for propagation.
+                (err: any) => {
+                    console.error("Bluetooth write failed:", err);
+                    const message = typeof err === 'string' ? err : (err?.message || 'Unknown write error');
+                    reject(new Error(message));
+                }
+            );
         });
 
         return { success: true, message: "Data sent to printer." };
@@ -172,7 +180,7 @@ export const printBill = async (args: PrintBillArgs): Promise<{ success: boolean
     let data = COMMANDS.INIT;
     if(settings.storeName) data += COMMANDS.CENTER + COMMANDS.BOLD_ON + settings.storeName.toUpperCase() + '\n' + COMMANDS.BOLD_OFF;
     if(settings.storeAddress) data += COMMANDS.CENTER + settings.storeAddress + '\n';
-    data += divider;
+    data += '\n';
     data += COMMANDS.LEFT + `Cashier: Admin\nPOS: 1\n`;
     if(ticketName) data += `Ticket: ${ticketName}\n`;
     data += divider;
@@ -180,14 +188,14 @@ export const printBill = async (args: PrintBillArgs): Promise<{ success: boolean
     items.forEach(item => {
         const lineTotal = (item.price * item.quantity).toFixed(2);
         const namePart = item.name.length > (paperWidthChars - 10) ? item.name.substring(0, paperWidthChars - 10) : item.name;
-        data += createLine(namePart, `₹${lineTotal}`, paperWidthChars);
-        data += `  ${item.quantity} x ₹${item.price.toFixed(2)}\n`;
+        data += createLine(namePart, `${lineTotal}`, paperWidthChars);
+        data += `  ${item.quantity} x ${item.price.toFixed(2)}\n`;
     });
     data += divider;
 
-    data += createLine('Subtotal', `₹${subtotal.toFixed(2)}`, paperWidthChars);
-    if (settings.taxEnabled) data += createLine(`GST (${settings.taxRate}%)`, `₹${tax.toFixed(2)}`, paperWidthChars);
-    data += COMMANDS.BOLD_ON + createLine('TOTAL', `₹${total.toFixed(2)}`, paperWidthChars) + COMMANDS.BOLD_OFF;
+    data += createLine('Subtotal', `${subtotal.toFixed(2)}`, paperWidthChars);
+    if (settings.taxEnabled) data += createLine(`GST (${settings.taxRate}%)`, `${tax.toFixed(2)}`, paperWidthChars);
+    data += COMMANDS.BOLD_ON + createLine('TOTAL', `${total.toFixed(2)}`, paperWidthChars) + COMMANDS.BOLD_OFF;
     
     data += '\n' + COMMANDS.CENTER + '--- THIS IS NOT A RECEIPT ---\n';
     data += "\n\n\n" + COMMANDS.CUT;
@@ -213,7 +221,7 @@ export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: b
     let data = COMMANDS.INIT;
     if (settings.storeName) data += COMMANDS.CENTER + COMMANDS.BOLD_ON + settings.storeName.toUpperCase() + '\n' + COMMANDS.BOLD_OFF;
     if (settings.storeAddress) data += COMMANDS.CENTER + settings.storeAddress.replace(/[\r\n]+/g, ' ') + '\n';
-    data += divider;
+    data += '\n';
     
     // 2. Meta
     data += COMMANDS.LEFT + `Cashier: Admin\nPOS: 1\n`;
@@ -223,25 +231,24 @@ export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: b
     items.forEach(item => {
         const lineTotal = (item.price * item.quantity).toFixed(2);
         const namePart = item.name.length > (paperWidthChars - 12) ? item.name.substring(0, paperWidthChars - 12) : item.name;
-        data += createLine(namePart, `₹${lineTotal}`, paperWidthChars);
-        data += `  ${item.quantity} x ₹${item.price.toFixed(2)}\n`;
+        data += createLine(namePart, `${lineTotal}`, paperWidthChars);
+        data += `  ${item.quantity} x ${item.price.toFixed(2)}\n`;
     });
     data += divider;
     
     // 4. Totals
-    data += createLine('Subtotal', `₹${subtotal.toFixed(2)}`, paperWidthChars);
-    if (settings.taxEnabled) data += createLine(`GST (${settings.taxRate}%)`, `₹${tax.toFixed(2)}`, paperWidthChars);
-    data += COMMANDS.BOLD_ON + createLine('TOTAL', `₹${total.toFixed(2)}`, paperWidthChars) + COMMANDS.BOLD_OFF;
-    data += divider;
+    data += createLine('Subtotal', `${subtotal.toFixed(2)}`, paperWidthChars);
+    if (settings.taxEnabled) data += createLine(`GST (${settings.taxRate}%)`, `${tax.toFixed(2)}`, paperWidthChars);
+    data += COMMANDS.BOLD_ON + createLine('TOTAL', `${total.toFixed(2)}`, paperWidthChars) + COMMANDS.BOLD_OFF;
+    data += '\n';
     
     // 5. Payment
-    data += createLine(paymentMethod === 'QR' ? 'QR FEDERAL BANK' : 'Cash', `₹${total.toFixed(2)}`, paperWidthChars);
-    data += divider;
-
+    data += createLine(paymentMethod === 'QR' ? 'QR FEDERAL BANK' : 'Cash', `${total.toFixed(2)}`, paperWidthChars);
+    
     // 6. Footer
-    if(settings.receiptFooter) data += COMMANDS.CENTER + settings.receiptFooter + '\n';
+    if(settings.receiptFooter) data += '\n' + COMMANDS.CENTER + settings.receiptFooter + '\n';
     data += COMMANDS.CENTER + 'Thank you for your visit!\n';
-    data += divider;
+    data += '\n';
     data += createLine(formattedDate, receiptId, paperWidthChars);
 
     data += "\n\n\n" + COMMANDS.CUT;

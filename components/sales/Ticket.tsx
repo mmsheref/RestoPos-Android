@@ -1,4 +1,5 @@
 
+
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { OrderItem, SavedTicket } from '../../types';
 import { ThreeDotsIcon, TrashIcon, ArrowLeftIcon } from '../../constants';
@@ -229,7 +230,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
                 <li key={item.id} className="relative group bg-white dark:bg-slate-800 flex items-center text-sm p-2 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700">
                   <div className="flex-grow">
                       <p className="font-semibold text-slate-800 dark:text-slate-200">{item.name}</p>
-                      <p className="text-slate-500 dark:text-slate-400">₹{item.price.toFixed(2)}</p>
+                      <p className="text-slate-500 dark:text-slate-400">{item.price.toFixed(2)}</p>
                   </div>
                   <div className="flex items-center justify-center gap-2 mx-4">
                       <button onPointerDown={(e) => e.stopPropagation()} onClick={() => removeFromOrder(item.id)} className="h-7 w-7 bg-slate-200 dark:bg-slate-700 text-lg rounded-full text-slate-600 dark:text-slate-300 hover:bg-red-200 dark:hover:bg-red-500/50 hover:text-red-700 transition-colors" aria-label={`Remove one ${item.name}`}>-</button>
@@ -240,7 +241,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
                       )}
                       <button onPointerDown={(e) => e.stopPropagation()} onClick={() => addToOrder(item)} className="h-7 w-7 bg-slate-200 dark:bg-slate-700 text-lg rounded-full text-slate-600 dark:text-slate-300 hover:bg-green-200 dark:hover:bg-green-500/50 hover:text-green-700 transition-colors" aria-label={`Add one ${item.name}`}>+</button>
                   </div>
-                  <p className="w-16 font-semibold text-slate-800 dark:text-slate-200 text-right">₹{(item.price * item.quantity).toFixed(2)}</p>
+                  <p className="w-16 font-semibold text-slate-800 dark:text-slate-200 text-right">{(item.price * item.quantity).toFixed(2)}</p>
                   <button 
                     onClick={() => deleteLineItem(item.id)} 
                     className="ml-2 p-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400 rounded-full transition-colors"
@@ -255,14 +256,14 @@ const Ticket: React.FC<TicketProps> = (props) => {
         </div>
         <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 mt-auto">
           <div className="space-y-2 mb-4 text-sm">
-            <div className="flex justify-between text-slate-600 dark:text-slate-400"><span>Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
-            {settings.taxEnabled && (<div className="flex justify-between text-slate-600 dark:text-slate-400"><span>GST ({settings.taxRate}%)</span><span>₹{tax.toFixed(2)}</span></div>)}
-            <div className="flex justify-between font-bold text-xl text-slate-800 dark:text-slate-100 pt-2 border-t mt-2 border-slate-200 dark:border-slate-700"><span>Total</span><span>₹{total.toFixed(2)}</span></div>
+            <div className="flex justify-between text-slate-600 dark:text-slate-400"><span>Subtotal</span><span>{subtotal.toFixed(2)}</span></div>
+            {settings.taxEnabled && (<div className="flex justify-between text-slate-600 dark:text-slate-400"><span>GST ({settings.taxRate}%)</span><span>{tax.toFixed(2)}</span></div>)}
+            <div className="flex justify-between font-bold text-xl text-slate-800 dark:text-slate-100 pt-2 border-t mt-2 border-slate-200 dark:border-slate-700"><span>Total</span><span>{total.toFixed(2)}</span></div>
           </div>
           <div className={`flex items-center gap-4 ${isClearConfirmVisible ? 'opacity-50 pointer-events-none' : ''}`}>
             {renderActionButtons()}
             <button onClick={onCharge} disabled={currentOrder.length === 0} className="w-full bg-emerald-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-emerald-600 disabled:bg-slate-300 disabled:dark:bg-slate-600 disabled:dark:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none flex justify-between items-center px-4">
-              <span>Charge</span><span className="font-mono">₹{total.toFixed(2)}</span>
+              <span>Charge</span><span className="font-mono">{total.toFixed(2)}</span>
             </button>
           </div>
         </div>

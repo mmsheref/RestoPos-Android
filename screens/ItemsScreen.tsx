@@ -1,8 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import type { Item } from '../types';
 import { useAppContext } from '../context/AppContext';
 import ItemFormModal from '../components/modals/ItemFormModal';
 import { SearchIcon, TrashIcon } from '../constants';
+import ConfirmCsvImportModal from '../components/modals/ConfirmCsvImportModal';
+import { parseCsvToItems } from '../utils/csvHelper';
+
 
 // UUID Generator Fallback for non-secure contexts (e.g. localhost/http)
 const generateId = () => {
@@ -38,7 +41,7 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, onEdit, onDelete }) => {
                 />
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{item.name}</td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">₹{item.price.toFixed(2)}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.price.toFixed(2)}</td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.stock}</td>
             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <button 
@@ -59,10 +62,15 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, onEdit, onDelete }) => {
 };
 
 const ItemsScreen: React.FC = () => {
-  const { items, addItem, updateItem, deleteItem } = useAppContext();
+  const { items, addItem, updateItem, deleteItem, exportItemsCsv, replaceItems } = useAppContext();
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | undefined>(undefined);
+
+  // CSV import state
+  const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState(false);
+  const [csvImportCandidate, setCsvImportCandidate] = useState<{items: Item[]}>({ items: [] });
+  const csvFileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredItems = useMemo(() => {
       return items.filter(i => 
@@ -106,11 +114,56 @@ const ItemsScreen: React.FC = () => {
       setIsModalOpen(false);
   };
 
+  const handleCsvImportClick = () => {
+      csvFileInputRef.current?.click();
+  };
+
+  const handleCsvFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+          try {
+            const csvContent = event.target?.result as string;
+            if (csvContent) {
+               const parsedData = parseCsvToItems(csvContent);
+               if (parsedData.items.length === 0) {
+                   throw new Error("No valid items found in the CSV file.");
+               }
+               setCsvImportCandidate(parsedData);
+               setIsCsvImportModalOpen(true);
+            }
+          } catch (error: any) {
+              console.error(error);
+              alert(`Failed to parse CSV file: ${error.message}`);
+          } finally {
+             if (csvFileInputRef.current) csvFileInputRef.current.value = '';
+          }
+      };
+      
+      try {
+        reader.readAsText(file);
+      } catch (err) {
+        console.error("File reading error", err);
+        alert("Could not read file.");
+      }
+  };
+
+  const handleConfirmCsvImport = () => {
+      if (csvImportCandidate.items.length > 0) {
+          replaceItems(csvImportCandidate.items);
+          setIsCsvImportModalOpen(false);
+          setCsvImportCandidate({ items: [] });
+          alert("Items imported successfully!");
+      }
+  };
+
   return (
     <div className="p-6 dark:bg-gray-900 min-h-full flex flex-col">
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 self-start md:self-center">Menu Items</h1>
-        <div className="flex w-full md:w-auto gap-2">
+        <div className="flex w-full md:w-auto items-center gap-2">
             <div className="relative flex-grow md:flex-grow-0">
                 <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                 <input 
@@ -121,6 +174,20 @@ const ItemsScreen: React.FC = () => {
                     className="pl-10 pr-4 py-2 border rounded-lg w-full md:w-64 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
                 />
             </div>
+            <button
+                onClick={handleCsvImportClick}
+                className="bg-teal-500 text-white font-semibold px-4 py-2 rounded-lg hover:bg-teal-600 transition-colors flex-shrink-0 shadow-sm"
+                title="Import items from a CSV file"
+            >
+                Import
+            </button>
+            <button
+                onClick={exportItemsCsv}
+                className="bg-green-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex-shrink-0 shadow-sm"
+                title="Export all items to a CSV file"
+            >
+                Export
+            </button>
             <button
               onClick={handleAddItem}
               className="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0 shadow-sm"
@@ -172,6 +239,21 @@ const ItemsScreen: React.FC = () => {
             if(editingItem) handleDeleteItem(editingItem.id);
         }}
         initialData={editingItem}
+      />
+
+      <input 
+        type="file" 
+        accept=".csv, text/csv"
+        ref={csvFileInputRef} 
+        onChange={handleCsvFileChange} 
+        className="hidden" 
+      />
+
+      <ConfirmCsvImportModal
+        isOpen={isCsvImportModalOpen}
+        items={csvImportCandidate.items}
+        onClose={() => setIsCsvImportModalOpen(false)}
+        onConfirm={handleConfirmCsvImport}
       />
 
     </div>

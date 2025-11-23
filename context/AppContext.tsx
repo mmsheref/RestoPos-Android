@@ -1,11 +1,14 @@
 
-import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useMemo } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
 import { Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, CustomGrid } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
-import * as DB from '../db/db';
 import { exportItemsToCsv } from '../utils/csvHelper';
+import { db, signOutUser, clearAllData, firebaseConfig, auth } from '../firebase';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import FirebaseError from '../components/FirebaseError';
 
 type Theme = 'light' | 'dark';
 
@@ -17,7 +20,16 @@ const DEFAULT_SETTINGS: AppSettings = {
     receiptFooter: 'Follow us @myrestaurant'
 };
 
+interface FirebaseErrorState {
+  title: string;
+  message: string;
+  instructions: string[];
+  projectId: string;
+}
+
 interface AppContextType {
+  user: User | null;
+  signOut: () => void;
   isDrawerOpen: boolean;
   openDrawer: () => void;
   closeDrawer: () => void;
@@ -64,9 +76,11 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [headerTitle, setHeaderTitle] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [initializationError, setInitializationError] = useState<FirebaseErrorState | null>(null);
   
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
@@ -87,58 +101,95 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [savedTickets, setSavedTicketsState] = useState<SavedTicket[]>([]);
   const [customGrids, setCustomGridsState] = useState<CustomGrid[]>([]);
   
-  // --- Initialize & Load Data ---
+  // --- Initialize & Load Data from Firebase based on Auth State ---
   useEffect(() => {
-    const initData = async () => {
-      try {
-        await DB.initDB();
-        
-        const [
-            loadedItems, loadedReceipts, loadedPrinters, 
-            loadedSettings, loadedTickets, loadedGrids
-        ] = await Promise.all([
-            DB.getAllItems(), DB.getAllReceipts(), DB.getAllPrinters(),
-            DB.getSettings(), DB.getAllSavedTickets(),
-            DB.getAllCustomGrids()
-        ]);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        if (currentUser) {
+            setUser(currentUser);
+            const uid = currentUser.uid;
+            
+            // Set up Firestore listeners for the logged-in user
+            const unsubscribers = [
+              onSnapshot(collection(db, 'users', uid, 'items'), (snapshot) => {
+                  const itemsData = snapshot.docs.map(doc => ({ ...doc.data() } as Item));
+                  setItemsState(itemsData);
+              }),
+              onSnapshot(collection(db, 'users', uid, 'receipts'), (snapshot) => {
+                  const receiptsData = snapshot.docs.map(doc => {
+                      const data = doc.data();
+                      return { ...data, date: (data.date as Timestamp).toDate() } as Receipt;
+                  }).sort((a,b) => b.date.getTime() - a.date.getTime());
+                  setReceiptsState(receiptsData);
+              }),
+              onSnapshot(collection(db, 'users', uid, 'printers'), (snapshot) => {
+                  const printersData = snapshot.docs.map(doc => ({ ...doc.data() } as Printer));
+                  setPrintersState(printersData);
+              }),
+              onSnapshot(collection(db, 'users', uid, 'saved_tickets'), (snapshot) => {
+                  const ticketsData = snapshot.docs.map(doc => ({ ...doc.data() } as SavedTicket));
+                  setSavedTicketsState(ticketsData);
+              }),
+              onSnapshot(collection(db, 'users', uid, 'custom_grids'), (snapshot) => {
+                  const gridsData = snapshot.docs.map(doc => ({ ...doc.data() } as CustomGrid));
+                  setCustomGridsState(gridsData);
+              }),
+              onSnapshot(doc(db, 'users', uid, 'config', 'settings'), async (docSnap) => {
+                  if (docSnap.exists()) {
+                    setSettingsState(docSnap.data() as AppSettings);
+                  } else {
+                    console.log("No settings found for user, creating with defaults.");
+                    setSettingsState(DEFAULT_SETTINGS);
+                    try {
+                      await setDoc(doc(db, 'users', uid, 'config', 'settings'), DEFAULT_SETTINGS);
+                    } catch (e) {
+                      console.error("Failed to create default settings document:", e);
+                    }
+                  }
+              })
+            ];
+            
+            setIsLoading(false);
+            return () => unsubscribers.forEach(unsub => unsub());
 
-        setItemsState(loadedItems);
-        setReceiptsState(loadedReceipts.sort((a,b) => b.date.getTime() - a.date.getTime())); // Sort desc
-        setPrintersState(loadedPrinters);
-        setSettingsState(loadedSettings || DEFAULT_SETTINGS);
-        setSavedTicketsState(loadedTickets);
-        setCustomGridsState(loadedGrids);
-        
-        // Seed initial settings if none exist
-        if (!loadedSettings) {
-             await DB.saveSettings(DEFAULT_SETTINGS);
+        } else {
+            // User is signed out
+            setUser(null);
+            setItemsState([]);
+            setReceiptsState([]);
+            setPrintersState([]);
+            setSavedTicketsState([]);
+            setCustomGridsState([]);
+            setSettingsState(DEFAULT_SETTINGS);
+            setIsLoading(false);
         }
-
-      } catch (e) {
-        console.error("Failed to initialize database:", e);
-        alert("Critical Error: Database initialization failed. Some features may not work.");
-      } finally {
+    }, (error) => {
+        // Handle initialization errors
+        console.error("Firebase Auth error:", error);
+        setInitializationError({
+            title: 'Connection Failed',
+            message: error.message || 'Could not connect to the database. Please check your internet connection and try again.',
+            instructions: ['If the problem persists, verify your Firebase configuration details in firebase.ts.'],
+            projectId: firebaseConfig.projectId
+        });
         setIsLoading(false);
-      }
-    };
+    });
 
-    initData();
+    return () => unsubscribe();
   }, []);
 
-
-  // --- Logic Wrappers with Robust Error Handling (Optimistic UI) ---
+  const getUid = useCallback(() => {
+    if (!user) throw new Error("User not authenticated");
+    return user.uid;
+  }, [user]);
 
   const addReceipt = useCallback(async (receipt: Receipt) => {
-    const prev = receipts;
-    setReceiptsState(curr => [receipt, ...curr]);
     try {
-        await DB.addReceipt(receipt);
+        await setDoc(doc(db, 'users', getUid(), 'receipts', receipt.id), receipt);
     } catch (e) {
         console.error("Failed to save receipt", e);
-        setReceiptsState(prev);
         alert("Failed to save receipt to database.");
     }
-  }, [receipts]);
+  }, [getUid]);
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
@@ -154,134 +205,141 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [theme]);
 
   const updateSettings = useCallback(async (newSettings: Partial<AppSettings>) => {
-    const prev = settings;
     const updated = { ...settings, ...newSettings };
-    setSettingsState(updated);
     try {
-        await DB.saveSettings(updated);
+        await setDoc(doc(db, 'users', getUid(), 'config', 'settings'), updated);
     } catch (e) {
-        setSettingsState(prev);
         console.error("Failed to save settings", e);
     }
-  }, [settings]);
+  }, [settings, getUid]);
 
   const addPrinter = useCallback(async (printer: Printer) => {
-    const prev = printers;
-    setPrintersState(curr => [...curr, printer]);
     try {
-        await DB.putPrinter(printer);
+        await setDoc(doc(db, 'users', getUid(), 'printers', printer.id), printer);
     } catch (e) {
-        setPrintersState(prev);
         alert("Failed to save printer.");
     }
-  }, [printers]);
+  }, [getUid]);
 
   const removePrinter = useCallback(async (printerId: string) => {
-    const prev = printers;
-    setPrintersState(curr => curr.filter(p => p.id !== printerId));
     try {
-        await DB.deletePrinter(printerId);
+        await deleteDoc(doc(db, 'users', getUid(), 'printers', printerId));
     } catch (e) {
-        setPrintersState(prev);
         alert("Failed to delete printer.");
     }
-  }, [printers]);
+  }, [getUid]);
 
-  // --- Item Management ---
   const addItem = useCallback(async (item: Item) => {
-    setItemsState(curr => [...curr, item]);
-    try { await DB.putItem(item); } catch (e) { alert("Failed to add item."); }
-  }, []);
+    try { 
+      await setDoc(doc(db, 'users', getUid(), 'items', item.id), item); 
+    } catch (e) { 
+      console.error("Failed to add item", e);
+      alert("Failed to add item.");
+    }
+  }, [getUid]);
 
   const updateItem = useCallback(async (updatedItem: Item) => {
-    setItemsState(curr => curr.map(item => item.id === updatedItem.id ? updatedItem : item));
-    try { await DB.putItem(updatedItem); } catch (e) { alert("Failed to update item."); }
-  }, []);
+    try { 
+      await setDoc(doc(db, 'users', getUid(), 'items', updatedItem.id), updatedItem); 
+    } catch (e) { 
+      console.error("Failed to update item", e);
+      alert("Failed to update item.");
+    }
+  }, [getUid]);
 
   const deleteItem = useCallback(async (id: string) => {
     try {
-        await DB.deleteItem(id);
-        setItemsState(curr => curr.filter(item => item.id !== id));
+        await deleteDoc(doc(db, 'users', getUid(), 'items', id));
     } catch (e) {
-        alert("Failed to delete item from database. The item will reappear on refresh.");
+        console.error("Failed to delete item", e);
+        alert("Failed to delete item from database.");
     }
-  }, []);
+  }, [getUid]);
 
-  // --- Ticket Management ---
   const saveTicket = useCallback(async (ticket: SavedTicket) => {
-      setSavedTicketsState(curr => {
-          const exists = curr.find(t => t.id === ticket.id);
-          return exists ? curr.map(t => t.id === ticket.id ? ticket : t) : [...curr, ticket];
-      });
-      try { await DB.putSavedTicket(ticket); } catch (e) { alert("Failed to save ticket."); }
-  }, []);
+      try { 
+        await setDoc(doc(db, 'users', getUid(), 'saved_tickets', ticket.id), ticket); 
+      } catch (e) { 
+        console.error("Failed to save ticket", e);
+        alert("Failed to save ticket.");
+      }
+  }, [getUid]);
 
   const removeTicket = useCallback(async (ticketId: string) => {
-      setSavedTicketsState(curr => curr.filter(t => t.id !== ticketId));
-      try { await DB.deleteSavedTicket(ticketId); } catch (e) { alert("Failed to delete ticket."); }
-  }, []);
+      try { 
+        await deleteDoc(doc(db, 'users', getUid(), 'saved_tickets', ticketId));
+      } catch (e) { 
+        console.error("Failed to delete ticket", e);
+        alert("Failed to delete ticket.");
+      }
+  }, [getUid]);
 
-  // --- Custom Grid Management ---
   const addCustomGrid = useCallback(async (grid: CustomGrid) => {
-      setCustomGridsState(curr => [...curr, grid]);
-      try { await DB.putCustomGrid(grid); } catch (e) { alert("Failed to add custom grid."); }
-  }, []);
+      try { 
+        await setDoc(doc(db, 'users', getUid(), 'custom_grids', grid.id), grid); 
+      } catch (e) { 
+        console.error("Failed to add custom grid", e);
+        alert("Failed to add custom grid.");
+      }
+  }, [getUid]);
 
   const updateCustomGrid = useCallback(async (grid: CustomGrid) => {
-      setCustomGridsState(curr => curr.map(g => g.id === grid.id ? grid : g));
-      try { await DB.putCustomGrid(grid); } catch (e) { alert("Failed to update custom grid."); }
-  }, []);
+      try { 
+        await setDoc(doc(db, 'users', getUid(), 'custom_grids', grid.id), grid);
+      } catch (e) { 
+        console.error("Failed to update custom grid", e);
+        alert("Failed to update custom grid.");
+      }
+  }, [getUid]);
 
   const deleteCustomGrid = useCallback(async (id: string) => {
-      setCustomGridsState(curr => curr.filter(g => g.id !== id));
-      try { await DB.deleteCustomGrid(id); } catch (e) { alert("Failed to delete custom grid."); }
-  }, []);
+      try { 
+        await deleteDoc(doc(db, 'users', getUid(), 'custom_grids', id));
+      } catch (e) { 
+        console.error("Failed to delete custom grid", e);
+        alert("Failed to delete custom grid.");
+      }
+  }, [getUid]);
 
   const setCustomGrids = useCallback(async (newGrids: CustomGrid[]) => {
-      const originalGrids = [...customGrids]; // Capture the state at the time of the call for potential rollback.
-      setCustomGridsState(newGrids); // Optimistic UI update.
-
+      const batch = writeBatch(db);
+      const gridsCollectionRef = collection(db, 'users', getUid(), 'custom_grids');
+      
       try {
-          const db = await DB.initDB();
-          const tx = db.transaction('custom_grids', 'readwrite');
-          const store = tx.objectStore('custom_grids');
-
-          // FIX: Add a more robust path for deleting all grids by clearing the object store.
-          if (newGrids.length === 0 && originalGrids.length > 0) {
-              await store.clear();
-          } else {
-              const newGridIds = new Set(newGrids.map(g => g.id));
-              const gridsToDelete = originalGrids.filter(g => !newGridIds.has(g.id));
-
-              // Batch deletes and puts within a single transaction
-              const deletePromises = gridsToDelete.map(grid => store.delete(grid.id));
-              const putPromises = newGrids.map(grid => store.put(grid));
-              
-              await Promise.all([...deletePromises, ...putPromises]);
-          }
+          const currentGridIds = customGrids.map(g => g.id);
+          const newGridIds = new Set(newGrids.map(g => g.id));
+          const gridsToDelete = currentGridIds.filter(id => !newGridIds.has(id));
           
-          await tx.done;
+          gridsToDelete.forEach(id => {
+              batch.delete(doc(gridsCollectionRef, id));
+          });
+
+          newGrids.forEach(grid => {
+              batch.set(doc(gridsCollectionRef, grid.id), grid);
+          });
+          
+          await batch.commit();
 
       } catch (e) {
           console.error("Failed to save grid changes to DB:", e);
-          setCustomGridsState(originalGrids); // Revert UI state on failure.
-          alert("Failed to save grid changes. Your changes have been reverted.");
+          alert("Failed to save grid changes. Please try again.");
       }
-  }, [customGrids]);
+  }, [customGrids, getUid]);
 
-
-  // --- CSV Import/Export ---
   const replaceItems = useCallback(async (newItems: Item[]) => {
     setIsLoading(true);
+    const batch = writeBatch(db);
+    const itemsCollectionRef = collection(db, 'users', getUid(), 'items');
     try {
-      await DB.replaceAllItems(newItems);
-      setItemsState(newItems);
+      items.forEach(item => batch.delete(doc(itemsCollectionRef, item.id)));
+      newItems.forEach(item => batch.set(doc(itemsCollectionRef, item.id), item));
+      await batch.commit();
     } catch (e) {
       alert("Failed to import items from CSV. Data has not been changed.");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [items, getUid]);
 
   const exportItemsCsv = useCallback(() => {
     try {
@@ -314,10 +372,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [items]);
   
-  // --- Backup & Restore ---
   const exportData = useCallback(async () => {
     const backup: BackupData = {
-        version: '2.0', timestamp: new Date().toISOString(),
+        version: '2.0-firebase', timestamp: new Date().toISOString(),
         settings, items, categories: [], printers, receipts, savedTickets, customGrids
     };
     const jsonString = JSON.stringify(backup, null, 2);
@@ -344,52 +401,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const restoreData = useCallback(async (data: BackupData) => {
       setIsLoading(true);
+      const uid = getUid();
       try {
-          await DB.clearDatabase();
+          await clearAllData(uid);
+          const batch = writeBatch(db);
           
-          const restoredReceipts = (data.receipts || []).map(r => ({ ...r, date: new Date(r.date) }));
+          batch.set(doc(db, 'users', uid, 'config', 'settings'), data.settings);
+          (data.items || []).forEach(item => batch.set(doc(db, 'users', uid, 'items', item.id), item));
+          (data.printers || []).forEach(p => batch.set(doc(db, 'users', uid, 'printers', p.id), p));
+          (data.receipts || []).forEach(r => batch.set(doc(db, 'users', uid, 'receipts', r.id), {...r, date: new Date(r.date)}));
+          (data.savedTickets || []).forEach(t => batch.set(doc(db, 'users', uid, 'saved_tickets', t.id), t));
+          (data.customGrids || []).forEach(g => batch.set(doc(db, 'users', uid, 'custom_grids', g.id), g));
 
-          // Bulk Insert to DB
-          await DB.saveSettings(data.settings);
-          for(const p of (data.printers || [])) await DB.putPrinter(p);
-          for(const i of (data.items || [])) await DB.putItem(i);
-          for(const r of restoredReceipts) await DB.addReceipt(r);
-          for(const t of (data.savedTickets || [])) await DB.putSavedTicket(t);
-          for(const g of (data.customGrids || [])) await DB.putCustomGrid(g);
-
-          // Update State
-          setSettingsState(data.settings);
-          setItemsState(data.items || []);
-          setPrintersState(data.printers || []);
-          setReceiptsState(restoredReceipts);
-          setSavedTicketsState(data.savedTickets || []);
-          setCustomGridsState(data.customGrids || []);
-
+          await batch.commit();
       } catch(e) {
+          console.error("Restore failed:", e);
           alert("Failed to restore data from backup.");
       } finally {
           setIsLoading(false);
       }
-  }, []);
-
+  }, [getUid]);
 
   const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => setIsDrawerOpen(prev => !prev), []);
   
-  if (isLoading) {
-      return (
-          <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-             <div className="text-center">
-                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                 <p className="text-gray-600 dark:text-gray-400">Loading Database...</p>
-             </div>
-          </div>
-      )
+  if (initializationError) {
+      return <FirebaseError error={initializationError} />
   }
 
   return (
     <AppContext.Provider value={{ 
+      user, signOut: signOutUser,
       isDrawerOpen, openDrawer, closeDrawer, toggleDrawer, 
       headerTitle, setHeaderTitle,
       theme, setTheme,

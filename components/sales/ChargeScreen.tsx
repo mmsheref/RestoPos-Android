@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import type { OrderItem } from '../../types';
 import { useAppContext } from '../../context/AppContext';
@@ -83,7 +84,7 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
           {orderItems.map(item => (
             <li key={item.id} className="flex justify-between items-center text-sm">
               <span className="text-slate-700 dark:text-slate-300">{item.name} x {item.quantity}</span>
-              <span className="font-mono text-slate-800 dark:text-slate-200">₹{(item.price * item.quantity).toFixed(2)}</span>
+              <span className="font-mono text-slate-800 dark:text-slate-200">{(item.price * item.quantity).toFixed(2)}</span>
             </li>
           ))}
         </ul>
@@ -91,9 +92,9 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
         {/* Totals Section */}
         <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
           <div className="space-y-1 text-sm">
-            <div className="flex justify-between text-slate-500 dark:text-slate-400"><span>Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
-            {settings.taxEnabled && <div className="flex justify-between text-slate-500 dark:text-slate-400"><span>GST ({settings.taxRate}%)</span><span>₹{tax.toFixed(2)}</span></div>}
-            <div className="flex justify-between font-bold text-lg text-slate-800 dark:text-slate-100 pt-2 mt-1 border-t border-slate-100 dark:border-slate-700/50"><span>Total</span><span>₹{total.toFixed(2)}</span></div>
+            <div className="flex justify-between text-slate-500 dark:text-slate-400"><span>Subtotal</span><span>{subtotal.toFixed(2)}</span></div>
+            {settings.taxEnabled && <div className="flex justify-between text-slate-500 dark:text-slate-400"><span>GST ({settings.taxRate}%)</span><span>{tax.toFixed(2)}</span></div>}
+            <div className="flex justify-between font-bold text-lg text-slate-800 dark:text-slate-100 pt-2 mt-1 border-t border-slate-100 dark:border-slate-700/50"><span>Total</span><span>{total.toFixed(2)}</span></div>
           </div>
         </div>
       </div>
@@ -113,7 +114,7 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
         </button>
       </header>
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-        <h1 className="text-7xl font-bold font-mono text-slate-800 dark:text-slate-100 mb-8">₹{total.toFixed(2)}</h1>
+        <h1 className="text-7xl font-bold font-mono text-slate-800 dark:text-slate-100 mb-8">{total.toFixed(2)}</h1>
         <div className="w-full max-w-md space-y-4">
           <button onClick={() => onProcessPayment('QR', total)} className="w-full text-left p-4 bg-white dark:bg-slate-700 rounded-lg shadow-md border dark:border-slate-600 flex items-center justify-between hover:ring-2 hover:ring-indigo-500 transition-all">
             <span className="font-bold text-lg text-slate-800 dark:text-slate-200">QR FEDERAL BANK</span>
@@ -123,14 +124,13 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
           {/* Cash Entry */}
           <div className="flex items-center gap-2">
             <div className="relative flex-grow">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-lg font-bold">₹</span>
                 <input 
                   type="number"
                   inputMode="decimal"
                   value={cashTendered}
                   onFocus={(e) => e.target.select()}
                   onChange={(e) => setCashTendered(parseFloat(e.target.value) || 0)}
-                  className="w-full p-4 pl-8 text-lg font-mono bg-white dark:bg-slate-700 rounded-lg shadow-md border dark:border-slate-600 focus:ring-2 focus:ring-indigo-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="w-full p-4 text-lg font-mono bg-white dark:bg-slate-700 rounded-lg shadow-md border dark:border-slate-600 focus:ring-2 focus:ring-indigo-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
             </div>
             <button onClick={() => onProcessPayment('Cash', cashTendered)} className="p-4 bg-emerald-500 text-white font-bold rounded-lg shadow-md text-lg hover:bg-emerald-600 transition-colors">
@@ -143,7 +143,7 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
         <div className="flex gap-3 mt-6 flex-wrap justify-center">
             {uniqueQuickCash.map(amount => (
                 <button key={amount} onClick={() => { setCashTendered(amount); onProcessPayment('Cash', amount); }} className="px-6 py-3 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors">
-                    ₹{amount.toFixed(2)}
+                    {amount.toFixed(2)}
                 </button>
             ))}
         </div>
@@ -167,11 +167,11 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
                 <div className="grid grid-cols-2 gap-8 text-center w-full max-w-lg mb-12">
                     <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700">
                         <label className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Paid</label>
-                        <p className="text-4xl md:text-5xl font-bold font-mono text-slate-800 dark:text-slate-100 mt-2">₹{amountTendered.toFixed(2)}</p>
+                        <p className="text-4xl md:text-5xl font-bold font-mono text-slate-800 dark:text-slate-100 mt-2">{amountTendered.toFixed(2)}</p>
                     </div>
                     <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700">
                         <label className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Change</label>
-                        <p className="text-4xl md:text-5xl font-bold font-mono text-emerald-500 mt-2">₹{change.toFixed(2)}</p>
+                        <p className="text-4xl md:text-5xl font-bold font-mono text-emerald-500 mt-2">{change.toFixed(2)}</p>
                     </div>
                 </div>
                 <div className="w-full max-w-md space-y-4">

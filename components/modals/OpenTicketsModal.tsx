@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import type { OrderItem, SavedTicket } from '../../types';
 import { useAppContext } from '../../context/AppContext';
@@ -39,7 +40,7 @@ const OpenTicketsModal: React.FC<OpenTicketsModalProps> = ({ isOpen, tickets, on
                     <li key={ticket.id} className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg flex items-center justify-between transition-colors hover:bg-slate-100 dark:hover:bg-slate-700">
                       <div>
                         <p className="font-bold text-slate-800 dark:text-slate-200">{ticket.name}</p>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">{ticket.items.length} items &bull; Total: ₹{calculateTotal(ticket.items).toFixed(2)}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">{ticket.items.length} items &bull; Total: {calculateTotal(ticket.items).toFixed(2)}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <button onClick={() => onDeleteTicket(ticket.id)} className="h-9 w-9 flex items-center justify-center text-red-500 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-500/20" aria-label={`Delete ticket ${ticket.name}`}>&times;</button>

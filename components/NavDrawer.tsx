@@ -2,10 +2,10 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { NAV_LINKS } from '../constants';
+import { NAV_LINKS, SignOutIcon } from '../constants';
 
 const NavDrawer: React.FC = () => {
-  const { isDrawerOpen, closeDrawer } = useAppContext();
+  const { isDrawerOpen, closeDrawer, user, signOut } = useAppContext();
 
   return (
     <>
@@ -45,6 +45,20 @@ const NavDrawer: React.FC = () => {
             ))}
           </ul>
         </nav>
+        <div className="p-4 mt-auto border-t border-gray-700 dark:border-gray-800">
+            {user && (
+                <div className="text-xs text-gray-400 mb-2 truncate">
+                    Logged in as: {user.email}
+                </div>
+            )}
+            <button 
+                onClick={signOut}
+                className="w-full flex items-center px-4 py-3 text-lg transition-colors duration-200 text-gray-300 hover:bg-red-800/50 hover:text-white rounded-md"
+            >
+                <SignOutIcon className="h-6 w-6 mr-4"/>
+                <span>Sign Out</span>
+            </button>
+        </div>
       </aside>
     </>
   );
