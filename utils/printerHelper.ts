@@ -1,3 +1,4 @@
+
 /**
  * PRINTER HELPER
  * 
@@ -98,7 +99,7 @@ interface PrintBillArgs {
 
 export interface PrintReceiptArgs extends PrintBillArgs {
     receiptId: string;
-    paymentMethod: 'Cash' | 'Card' | 'QR';
+    payments: { method: 'Cash' | 'Card' | 'QR'; amount: number }[];
 }
 
 // Refactors the core printing logic to be reusable
@@ -205,7 +206,7 @@ export const printBill = async (args: PrintBillArgs): Promise<{ success: boolean
 
 // Re-implement printReceipt with full customization
 export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: boolean; message: string }> => {
-    const { items, total, subtotal, tax, receiptId, paymentMethod, settings, printer } = args;
+    const { items, total, subtotal, tax, receiptId, payments, settings, printer } = args;
     
     if (!printer) {
       alert("No printer configured. Please add a printer in Settings.");
@@ -243,7 +244,9 @@ export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: b
     data += '\n';
     
     // 5. Payment
-    data += createLine(paymentMethod === 'QR' ? 'QR FEDERAL BANK' : 'Cash', `${total.toFixed(2)}`, paperWidthChars);
+    payments.forEach(p => {
+        data += createLine(p.method === 'QR' ? 'QR FEDERAL BANK' : p.method, `${p.amount.toFixed(2)}`, paperWidthChars);
+    });
     
     // 6. Footer
     if(settings.receiptFooter) data += '\n' + COMMANDS.CENTER + settings.receiptFooter + '\n';

@@ -108,7 +108,7 @@ const ReceiptsScreen: React.FC = () => {
                 subtotal,
                 tax,
                 receiptId: selectedReceipt.id,
-                paymentMethod: selectedReceipt.paymentMethod,
+                payments: selectedReceipt.payments,
                 settings,
                 printer: printerToUse,
             });
@@ -177,8 +177,16 @@ const ReceiptsScreen: React.FC = () => {
             </ul>
             <hr className="my-6 dark:border-gray-600" />
             <div className="space-y-2 text-sm text-gray-500 dark:text-gray-400">
-              <div className="flex justify-between"><p>Payment Method</p><p className="font-medium text-gray-700 dark:text-gray-300">{selectedReceipt.paymentMethod}</p></div>
-              <div className="flex justify-between"><p>Date</p><p>{selectedReceipt.date.toLocaleDateString()}</p></div>
+              <div className="space-y-1">
+                <p className="font-medium text-gray-700 dark:text-gray-300">Payments:</p>
+                {selectedReceipt.payments.map((p, i) => (
+                  <div key={i} className="flex justify-between pl-2">
+                    <p>{p.method}</p>
+                    <p>₹{p.amount.toFixed(2)}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between pt-2"><p>Date</p><p>{selectedReceipt.date.toLocaleDateString()}</p></div>
               <div className="flex justify-between"><p>Time</p><p>{selectedReceipt.date.toLocaleTimeString()}</p></div>
               <div className="flex justify-between"><p>Receipt ID</p><p>#{selectedReceipt.id}</p></div>
             </div>

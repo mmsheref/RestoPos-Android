@@ -22,6 +22,7 @@ import ItemGridContextMenu from '../components/sales/ItemGridContextMenu';
 const GRID_SIZE = 20; // 5 columns * 4 rows
 
 type SalesView = 'grid' | 'payment';
+type PaymentMethod = 'Cash' | 'Card' | 'QR';
 
 // UUID Generator Fallback
 const generateId = () => crypto.randomUUID ? crypto.randomUUID() : `G${Date.now()}`;
@@ -48,7 +49,7 @@ const SalesScreen: React.FC = () => {
   const [tempQuantity, setTempQuantity] = useState<string>('');
   
   // Payment state
-  const [paymentResult, setPaymentResult] = useState<{ method: 'Cash' | 'QR', change: number, receiptId: string } | null>(null);
+  const [paymentResult, setPaymentResult] = useState<{ payments: { method: PaymentMethod, amount: number }[], receiptId: string } | null>(null);
 
   // Modal states
   const [isManageGridsModalOpen, setIsManageGridsModalOpen] = useState(false);
@@ -131,11 +132,11 @@ const SalesScreen: React.FC = () => {
   const tax = useMemo(() => settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0, [subtotal, settings]);
   const total = useMemo(() => subtotal + tax, [subtotal, tax]);
   
-  const handleProcessPayment = useCallback((method: 'Cash' | 'QR', tendered: number) => {
+  const handleProcessPayment = useCallback((payments: { method: PaymentMethod, amount: number }[]) => {
     if (editingTicket) removeTicket(editingTicket.id);
     const receiptId = `R${Date.now()}`;
-    addReceipt({ id: receiptId, date: new Date(), items: currentOrder, total, paymentMethod: method });
-    setPaymentResult({ method, change: tendered - total, receiptId });
+    addReceipt({ id: receiptId, date: new Date(), items: currentOrder, total, payments });
+    setPaymentResult({ payments, receiptId });
   }, [addReceipt, currentOrder, editingTicket, removeTicket, total]);
   
   const handleNewSale = useCallback(() => {
@@ -149,7 +150,11 @@ const SalesScreen: React.FC = () => {
     }
     if (activeGridId === 'All') return items;
     const grid = customGrids.find(g => g.id === activeGridId);
-    if (grid) return grid.itemIds.map(itemId => items.find(i => i.id === itemId) || null);
+    if (grid) {
+        // FIX: Defensively handle cases where itemIds might be missing to prevent crash.
+        const itemIds = grid.itemIds || new Array(GRID_SIZE).fill(null);
+        return itemIds.map(itemId => items.find(i => i.id === itemId) || null);
+    }
     return new Array(GRID_SIZE).fill(null);
   }, [activeGridId, items, customGrids, debouncedSearchQuery]);
 
@@ -178,7 +183,9 @@ const SalesScreen: React.FC = () => {
       if (!assigningSlot) return;
       const gridToUpdate = customGrids.find(g => g.id === assigningSlot.gridId);
       if (gridToUpdate) {
-          const newItemIds = [...gridToUpdate.itemIds];
+          // FIX: Defensively handle cases where itemIds might be missing from a grid object to prevent crash.
+          const currentItemIds = gridToUpdate.itemIds || new Array(GRID_SIZE).fill(null);
+          const newItemIds = [...currentItemIds];
           newItemIds[assigningSlot.slotIndex] = item.id;
           updateCustomGrid({ ...gridToUpdate, itemIds: newItemIds });
       }
@@ -190,7 +197,9 @@ const SalesScreen: React.FC = () => {
     if (activeGridId === 'All') return;
     const gridToUpdate = customGrids.find(g => g.id === activeGridId);
     if (gridToUpdate) {
-        const newItemIds = [...gridToUpdate.itemIds];
+        // FIX: Defensively handle cases where itemIds might be missing from a grid object to prevent crash.
+        const currentItemIds = gridToUpdate.itemIds || new Array(GRID_SIZE).fill(null);
+        const newItemIds = [...currentItemIds];
         newItemIds[slotIndex] = null;
         updateCustomGrid({ ...gridToUpdate, itemIds: newItemIds });
     }
