@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
-import { Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, CustomGrid } from '../types';
+import { Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, CustomGrid, PaymentType } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -47,6 +47,11 @@ interface AppContextType {
   printers: Printer[];
   addPrinter: (printer: Printer) => void;
   removePrinter: (printerId: string) => void;
+
+  paymentTypes: PaymentType[];
+  addPaymentType: (paymentType: Omit<PaymentType, 'id' | 'enabled'>) => void;
+  updatePaymentType: (paymentType: PaymentType) => void;
+  removePaymentType: (paymentTypeId: string) => void;
   
   receipts: Receipt[];
   addReceipt: (receipt: Receipt) => void;
@@ -99,7 +104,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
 
   // --- State ---
-  // Initialize from LocalStorage for instant startup where possible
   const [settings, setSettingsState] = useState<AppSettings>(() => {
       const cached = localStorage.getItem(SETTINGS_CACHE_KEY);
       return cached ? JSON.parse(cached) : DEFAULT_SETTINGS;
@@ -111,82 +115,47 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
 
   const [printers, setPrintersState] = useState<Printer[]>([]);
+  const [paymentTypes, setPaymentTypesState] = useState<PaymentType[]>([]);
   const [receipts, setReceiptsState] = useState<Receipt[]>([]);
   const [savedTickets, setSavedTicketsState] = useState<SavedTicket[]>([]);
   const [customGrids, setCustomGridsState] = useState<CustomGrid[]>([]);
   
-  // Pagination State
   const [lastReceiptDoc, setLastReceiptDoc] = useState<QueryDocumentSnapshot | null>(null);
   const [hasMoreReceipts, setHasMoreReceipts] = useState(true);
 
-  // --- Initialize & Load Data from Firebase based on Auth State ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
         if (currentUser) {
             setUser(currentUser);
             const uid = currentUser.uid;
             
-            // 1. Items Listener (Updates Cache)
             const unsubItems = onSnapshot(collection(db, 'users', uid, 'items'), (snapshot) => {
                   const itemsData = snapshot.docs.map(doc => ({ ...doc.data() } as Item));
                   setItemsState(itemsData);
                   localStorage.setItem(ITEMS_CACHE_KEY, JSON.stringify(itemsData));
             });
 
-            // 2. Receipts Listener - OPTIMIZED: Only listen to the last 25 items for real-time updates
-            const qReceipts = query(
-                collection(db, 'users', uid, 'receipts'), 
-                orderBy('date', 'desc'), 
-                limit(25)
-            );
-            
+            const qReceipts = query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(25));
             const unsubReceipts = onSnapshot(qReceipts, (snapshot) => {
-                const receiptsData = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    return { ...data, date: (data.date as Timestamp).toDate() } as Receipt;
-                });
-                
+                const receiptsData = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
                 setReceiptsState(prev => {
-                    // Merge real-time updates with existing loaded data, preventing duplicates
                     const existingIds = new Set(prev.map(r => r.id));
                     const newItems = receiptsData.filter(r => !existingIds.has(r.id));
-                    
-                    // If we have a fresh load, just set it. If we have older data loaded, merge intelligently.
                     if (prev.length === 0) {
-                        if (snapshot.docs.length > 0) {
-                             setLastReceiptDoc(snapshot.docs[snapshot.docs.length - 1]);
-                        }
+                        if (snapshot.docs.length > 0) setLastReceiptDoc(snapshot.docs[snapshot.docs.length - 1]);
                         return receiptsData;
                     }
-
-                    // Replace the top of the list with the real-time data, keep the rest (older pages)
-                    // This is a simplified approach: we trust the listener for the "head" of the list.
-                    // For a robust infinite scroll, we simply prepend new items.
                     const combined = [...receiptsData, ...prev.filter(p => !receiptsData.some(n => n.id === p.id))];
                     return combined.sort((a,b) => b.date.getTime() - a.date.getTime());
                 });
             });
 
-            // 3. Printers Listener
-            const unsubPrinters = onSnapshot(collection(db, 'users', uid, 'printers'), (snapshot) => {
-                  const printersData = snapshot.docs.map(doc => ({ ...doc.data() } as Printer));
-                  setPrintersState(printersData);
-            });
-
-            // 4. Saved Tickets Listener
-            const unsubTickets = onSnapshot(collection(db, 'users', uid, 'saved_tickets'), (snapshot) => {
-                  const ticketsData = snapshot.docs.map(doc => ({ ...doc.data() } as SavedTicket));
-                  setSavedTicketsState(ticketsData);
-            });
-
-            // 5. Custom Grids Listener - FIX: Order by the 'order' field to maintain user-defined sequence
+            const unsubPrinters = onSnapshot(collection(db, 'users', uid, 'printers'), (snapshot) => setPrintersState(snapshot.docs.map(doc => doc.data() as Printer)));
+            const unsubPaymentTypes = onSnapshot(collection(db, 'users', uid, 'payment_types'), (snapshot) => setPaymentTypesState(snapshot.docs.map(doc => doc.data() as PaymentType)));
+            const unsubTickets = onSnapshot(collection(db, 'users', uid, 'saved_tickets'), (snapshot) => setSavedTicketsState(snapshot.docs.map(doc => doc.data() as SavedTicket)));
             const qGrids = query(collection(db, 'users', uid, 'custom_grids'), orderBy('order'));
-            const unsubGrids = onSnapshot(qGrids, (snapshot) => {
-                  const gridsData = snapshot.docs.map(doc => ({ ...doc.data() } as CustomGrid));
-                  setCustomGridsState(gridsData);
-            });
+            const unsubGrids = onSnapshot(qGrids, (snapshot) => setCustomGridsState(snapshot.docs.map(doc => doc.data() as CustomGrid)));
 
-            // 6. Settings Listener
             const unsubSettings = onSnapshot(doc(db, 'users', uid, 'config', 'settings'), async (docSnap) => {
                   if (docSnap.exists()) {
                     const newSettings = docSnap.data() as AppSettings;
@@ -196,23 +165,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     setSettingsState(DEFAULT_SETTINGS);
                     try {
                       await setDoc(doc(db, 'users', uid, 'config', 'settings'), DEFAULT_SETTINGS);
-                    } catch (e) { console.error(e); }
+                       // Create default payment types for new user
+                       const paymentTypesSnapshot = await getDocs(collection(db, 'users', uid, 'payment_types'));
+                       if (paymentTypesSnapshot.empty) {
+                           const batch = writeBatch(db);
+                           const ptCollection = collection(db, 'users', uid, 'payment_types');
+                           batch.set(doc(ptCollection, 'cash'), { id: 'cash', name: 'Cash', icon: 'cash', type: 'cash', enabled: true });
+                           batch.set(doc(ptCollection, 'qr'), { id: 'qr', name: 'QR Code', icon: 'qr', type: 'other', enabled: true });
+                           await batch.commit();
+                       }
+                    } catch (e) { console.error("Error initializing user config:", e); }
                   }
             });
             
             setIsLoading(false);
-            return () => {
-                unsubItems(); unsubReceipts(); unsubPrinters(); unsubTickets(); unsubGrids(); unsubSettings();
-            };
+            return () => { unsubItems(); unsubReceipts(); unsubPrinters(); unsubPaymentTypes(); unsubTickets(); unsubGrids(); unsubSettings(); };
 
         } else {
-            // User is signed out
             setUser(null);
-            setItemsState([]);
-            setReceiptsState([]);
-            setPrintersState([]);
-            setSavedTicketsState([]);
-            setCustomGridsState([]);
+            setItemsState([]); setReceiptsState([]); setPrintersState([]); setPaymentTypesState([]); setSavedTicketsState([]); setCustomGridsState([]);
             setSettingsState(DEFAULT_SETTINGS);
             setIsLoading(false);
             localStorage.removeItem(ITEMS_CACHE_KEY);
@@ -220,12 +191,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     }, (error) => {
         console.error("Firebase Auth error:", error);
-        setInitializationError({
-            title: 'Connection Failed',
-            message: error.message || 'Could not connect. Working offline.',
-            instructions: ['Check internet connection.'],
-            projectId: firebaseConfig.projectId
-        });
+        setInitializationError({ title: 'Connection Failed', message: error.message || 'Could not connect. Working offline.', instructions: ['Check internet connection.'], projectId: firebaseConfig.projectId });
         setIsLoading(false);
     });
 
@@ -237,50 +203,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return user.uid;
   }, [user]);
 
-  // --- Pagination Logic ---
   const loadMoreReceipts = useCallback(async () => {
       if (!lastReceiptDoc || !user) return;
-      
       try {
-          const qNext = query(
-              collection(db, 'users', user.uid, 'receipts'),
-              orderBy('date', 'desc'),
-              startAfter(lastReceiptDoc),
-              limit(25)
-          );
-          
+          const qNext = query(collection(db, 'users', user.uid, 'receipts'), orderBy('date', 'desc'), startAfter(lastReceiptDoc), limit(25));
           const snapshot = await getDocs(qNext);
-          
           if (!snapshot.empty) {
-              const newReceipts = snapshot.docs.map(doc => {
-                  const data = doc.data();
-                  return { ...data, date: (data.date as Timestamp).toDate() } as Receipt;
-              });
-              
+              const newReceipts = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
               setReceiptsState(prev => [...prev, ...newReceipts]);
               setLastReceiptDoc(snapshot.docs[snapshot.docs.length - 1]);
           } else {
               setHasMoreReceipts(false);
           }
-      } catch (e) {
-          console.error("Error loading more receipts", e);
-      }
+      } catch (e) { console.error("Error loading more receipts", e); }
   }, [lastReceiptDoc, user]);
-
-  // --- Optimistic Updates ---
-  // Update local state immediately, then sync to Firestore
   
   const addReceipt = useCallback(async (receipt: Receipt) => {
-    // 1. Optimistic Update
-    setReceiptsState(prev => [receipt, ...prev]);
-
-    try {
-        await setDoc(doc(db, 'users', getUid(), 'receipts', receipt.id), receipt);
-    } catch (e) {
-        console.error("Failed to save receipt", e);
-        // In a production app, we would revert the state or queue this for retry
-        alert("Saved locally. Sync failed (Offline).");
-    }
+    setReceiptsState(prev => [receipt, ...prev].sort((a,b) => b.date.getTime() - a.date.getTime()));
+    try { await setDoc(doc(db, 'users', getUid(), 'receipts', receipt.id), receipt); } 
+    catch (e) { console.error("Failed to save receipt", e); alert("Saved locally. Sync failed (Offline).");}
   }, [getUid]);
 
   const setTheme = (newTheme: Theme) => {
@@ -289,143 +230,117 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
   
   useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    if (theme === 'dark') document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
   }, [theme]);
 
   const updateSettings = useCallback(async (newSettings: Partial<AppSettings>) => {
-    const updated = { ...settings, ...newSettings };
-    setSettingsState(updated); // Optimistic
-    try {
-        await setDoc(doc(db, 'users', getUid(), 'config', 'settings'), updated);
-    } catch (e) { console.error(e); }
+    setSettingsState(prev => ({ ...prev, ...newSettings }));
+    try { await setDoc(doc(db, 'users', getUid(), 'config', 'settings'), { ...settings, ...newSettings }); } 
+    catch (e) { console.error(e); }
   }, [settings, getUid]);
 
   const addPrinter = useCallback(async (printer: Printer) => {
-    try {
-        await setDoc(doc(db, 'users', getUid(), 'printers', printer.id), printer);
-    } catch (e) { alert("Failed to save printer."); }
+    try { await setDoc(doc(db, 'users', getUid(), 'printers', printer.id), printer); } 
+    catch (e) { alert("Failed to save printer."); }
   }, [getUid]);
 
   const removePrinter = useCallback(async (printerId: string) => {
-    try {
-        await deleteDoc(doc(db, 'users', getUid(), 'printers', printerId));
-    } catch (e) { alert("Failed to delete printer."); }
+    try { await deleteDoc(doc(db, 'users', getUid(), 'printers', printerId)); } 
+    catch (e) { alert("Failed to delete printer."); }
+  }, [getUid]);
+
+  const addPaymentType = useCallback(async (paymentType: Omit<PaymentType, 'id' | 'enabled'>) => {
+      const id = `pt_${Date.now()}`;
+      const newPaymentType = { ...paymentType, id, enabled: true };
+      try { await setDoc(doc(db, 'users', getUid(), 'payment_types', id), newPaymentType); } 
+      catch (e) { console.error(e); alert("Failed to add payment type."); }
+  }, [getUid]);
+
+  const updatePaymentType = useCallback(async (paymentType: PaymentType) => {
+      try { await setDoc(doc(db, 'users', getUid(), 'payment_types', paymentType.id), paymentType); } 
+      catch (e) { console.error(e); alert("Failed to update payment type."); }
+  }, [getUid]);
+
+  const removePaymentType = useCallback(async (paymentTypeId: string) => {
+      try { await deleteDoc(doc(db, 'users', getUid(), 'payment_types', paymentTypeId)); } 
+      catch (e) { console.error(e); alert("Failed to delete payment type."); }
   }, [getUid]);
 
   const addItem = useCallback(async (item: Item) => {
-    try { 
-      await setDoc(doc(db, 'users', getUid(), 'items', item.id), item); 
-    } catch (e) { console.error(e); alert("Failed to add item."); }
+    try { await setDoc(doc(db, 'users', getUid(), 'items', item.id), item); } 
+    catch (e) { console.error(e); alert("Failed to add item."); }
   }, [getUid]);
 
   const updateItem = useCallback(async (updatedItem: Item) => {
-    try { 
-      await setDoc(doc(db, 'users', getUid(), 'items', updatedItem.id), updatedItem); 
-    } catch (e) { console.error(e); alert("Failed to update item."); }
+    try { await setDoc(doc(db, 'users', getUid(), 'items', updatedItem.id), updatedItem); } 
+    catch (e) { console.error(e); alert("Failed to update item."); }
   }, [getUid]);
 
   const deleteItem = useCallback(async (id: string) => {
-    try {
-        await deleteDoc(doc(db, 'users', getUid(), 'items', id));
-    } catch (e) { console.error(e); alert("Failed to delete item."); }
+    try { await deleteDoc(doc(db, 'users', getUid(), 'items', id)); } 
+    catch (e) { console.error(e); alert("Failed to delete item."); }
   }, [getUid]);
 
   const saveTicket = useCallback(async (ticket: SavedTicket) => {
-      try { 
-        await setDoc(doc(db, 'users', getUid(), 'saved_tickets', ticket.id), ticket); 
-      } catch (e) { console.error(e); alert("Failed to save ticket."); }
+      try { await setDoc(doc(db, 'users', getUid(), 'saved_tickets', ticket.id), ticket); } 
+      catch (e) { console.error(e); alert("Failed to save ticket."); }
   }, [getUid]);
 
   const removeTicket = useCallback(async (ticketId: string) => {
-      try { 
-        await deleteDoc(doc(db, 'users', getUid(), 'saved_tickets', ticketId));
-      } catch (e) { console.error(e); alert("Failed to delete ticket."); }
+      try { await deleteDoc(doc(db, 'users', getUid(), 'saved_tickets', ticketId)); } 
+      catch (e) { console.error(e); alert("Failed to delete ticket."); }
   }, [getUid]);
 
   const addCustomGrid = useCallback(async (grid: CustomGrid) => {
-      try {
-        const gridWithOrder = { ...grid, order: customGrids.length };
-        await setDoc(doc(db, 'users', getUid(), 'custom_grids', grid.id), gridWithOrder); 
-      } catch (e) { console.error(e); alert("Failed to add custom grid."); }
+      try { await setDoc(doc(db, 'users', getUid(), 'custom_grids', grid.id), { ...grid, order: customGrids.length }); } 
+      catch (e) { console.error(e); alert("Failed to add custom grid."); }
   }, [getUid, customGrids.length]);
 
   const updateCustomGrid = useCallback(async (grid: CustomGrid) => {
-      try { 
-        await setDoc(doc(db, 'users', getUid(), 'custom_grids', grid.id), grid);
-      } catch (e) { console.error(e); alert("Failed to update custom grid."); }
+      try { await setDoc(doc(db, 'users', getUid(), 'custom_grids', grid.id), grid); } 
+      catch (e) { console.error(e); alert("Failed to update custom grid."); }
   }, [getUid]);
 
   const deleteCustomGrid = useCallback(async (id: string) => {
-      try { 
-        await deleteDoc(doc(db, 'users', getUid(), 'custom_grids', id));
-      } catch (e) { console.error(e); alert("Failed to delete custom grid."); }
+      try { await deleteDoc(doc(db, 'users', getUid(), 'custom_grids', id)); } 
+      catch (e) { console.error(e); alert("Failed to delete custom grid."); }
   }, [getUid]);
 
   const setCustomGrids = useCallback(async (newGrids: CustomGrid[]) => {
       const batch = writeBatch(db);
-      const gridsCollectionRef = collection(db, 'users', getUid(), 'custom_grids');
+      const gridsRef = collection(db, 'users', getUid(), 'custom_grids');
       try {
-          const currentGridIds = customGrids.map(g => g.id);
-          const newGridIds = new Set(newGrids.map(g => g.id));
-          const gridsToDelete = currentGridIds.filter(id => !newGridIds.has(id));
-          
-          gridsToDelete.forEach(id => {
-              batch.delete(doc(gridsCollectionRef, id));
-          });
-
-          // FIX: Add the order index to each grid before committing
-          newGrids.forEach((grid, index) => {
-              const gridWithOrder = { ...grid, order: index };
-              batch.set(doc(gridsCollectionRef, grid.id), gridWithOrder);
-          });
-          
+          customGrids.forEach(g => batch.delete(doc(gridsRef, g.id)));
+          newGrids.forEach((grid, index) => batch.set(doc(gridsRef, grid.id), { ...grid, order: index }));
           await batch.commit();
-
-      } catch (e) {
-          console.error("Failed to save grid changes to DB:", e);
-          alert("Failed to save grid changes.");
-      }
+      } catch (e) { console.error("Failed to save grid changes to DB:", e); alert("Failed to save grid changes."); }
   }, [customGrids, getUid]);
 
   const replaceItems = useCallback(async (newItems: Item[]) => {
     setIsLoading(true);
     const batch = writeBatch(db);
-    const itemsCollectionRef = collection(db, 'users', getUid(), 'items');
+    const itemsRef = collection(db, 'users', getUid(), 'items');
     try {
-      items.forEach(item => batch.delete(doc(itemsCollectionRef, item.id)));
-      newItems.forEach(item => batch.set(doc(itemsCollectionRef, item.id), item));
+      items.forEach(item => batch.delete(doc(itemsRef, item.id)));
+      newItems.forEach(item => batch.set(doc(itemsRef, item.id), item));
       await batch.commit();
-    } catch (e) {
-      alert("Failed to import items. Data unchanged.");
-    } finally {
-      setIsLoading(false);
-    }
+    } catch (e) { alert("Failed to import items. Data unchanged."); } 
+    finally { setIsLoading(false); }
   }, [items, getUid]);
 
   const exportItemsCsv = useCallback(() => {
     try {
       const csvString = exportItemsToCsv(items);
       const fileName = `pos_items_${Date.now()}.csv`;
-  
       if (Capacitor.isNativePlatform()) {
-        Filesystem.writeFile({
-          path: fileName,
-          data: csvString,
-          directory: Directory.Documents,
-          encoding: Encoding.UTF8
-        }).then(result => {
-           Share.share({ url: result.uri });
-        }).catch(error => alert(`Export Failed: ${error.message}`));
+        Filesystem.writeFile({ path: fileName, data: csvString, directory: Directory.Documents, encoding: Encoding.UTF8 })
+            .then(result => Share.share({ url: result.uri }))
+            .catch(error => alert(`Export Failed: ${error.message}`));
       } else {
-        const dataStr = "data:text/csv;charset=utf-8," + encodeURIComponent(csvString);
         const a = document.createElement('a');
-        a.href = dataStr;
+        a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csvString);
         a.download = fileName;
-        document.body.appendChild(a);
         a.click();
         a.remove();
       }
@@ -434,27 +349,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   const exportData = useCallback(async () => {
     const backup: BackupData = {
-        version: '2.0-opt', timestamp: new Date().toISOString(),
-        settings, items, categories: [], printers, receipts, savedTickets, customGrids
+        version: '2.1-dynamic-payments', timestamp: new Date().toISOString(),
+        settings, items, categories: [], printers, paymentTypes, receipts, savedTickets, customGrids
     };
     const jsonString = JSON.stringify(backup, null, 2);
     const fileName = `pos_backup_${Date.now()}.json`;
-
     if (Capacitor.isNativePlatform()) {
       try {
         const result = await Filesystem.writeFile({ path: fileName, data: jsonString, directory: Directory.Documents, encoding: Encoding.UTF8 });
         await Share.share({ url: result.uri });
       } catch (error: any) { alert(`Export Failed: ${error.message}`); }
     } else {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString);
       const a = document.createElement('a');
-      a.href = dataStr;
+      a.href = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString);
       a.download = fileName;
-      document.body.appendChild(a);
       a.click();
       a.remove();
     }
-  }, [settings, items, printers, receipts, savedTickets, customGrids]);
+  }, [settings, items, printers, paymentTypes, receipts, savedTickets, customGrids]);
 
   const restoreData = useCallback(async (data: BackupData) => {
       setIsLoading(true);
@@ -465,6 +377,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           batch.set(doc(db, 'users', uid, 'config', 'settings'), data.settings);
           (data.items || []).forEach(item => batch.set(doc(db, 'users', uid, 'items', item.id), item));
           (data.printers || []).forEach(p => batch.set(doc(db, 'users', uid, 'printers', p.id), p));
+          (data.paymentTypes || []).forEach(pt => batch.set(doc(db, 'users', uid, 'payment_types', pt.id), pt));
           (data.receipts || []).forEach(r => batch.set(doc(db, 'users', uid, 'receipts', r.id), {...r, date: new Date(r.date)}));
           (data.savedTickets || []).forEach(t => batch.set(doc(db, 'users', uid, 'saved_tickets', t.id), t));
           (data.customGrids || []).forEach(g => batch.set(doc(db, 'users', uid, 'custom_grids', g.id), g));
@@ -487,6 +400,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       isLoading,
       settings, updateSettings,
       printers, addPrinter, removePrinter,
+      paymentTypes, addPaymentType, updatePaymentType, removePaymentType,
       receipts, addReceipt, loadMoreReceipts, hasMoreReceipts,
       items, addItem, updateItem, deleteItem,
       savedTickets, saveTicket, removeTicket,

@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { PaymentTypeIcon } from './types';
 
 export const MenuIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -156,6 +157,32 @@ export const RefundIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
+export const QrCodeIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <rect x="3" y="3" width="6" height="6" />
+        <rect x="15" y="3" width="6" height="6" />
+        <rect x="3" y="15" width="6" height="6" />
+        <path d="M15 15h6v6h-6z" />
+    </svg>
+);
+
+export const CashBillIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <rect x="2" y="6" width="20" height="12" rx="2" />
+        <circle cx="12" cy="12" r="3" />
+        <line x1="2" y1="12" x2="22" y2="12" />
+        <text x="10" y="14.5" fontSize="5" fill="currentColor" stroke="none">₹</text>
+    </svg>
+);
+
+export const CardIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <rect x="2" y="5" width="20" height="14" rx="2"/>
+        <line x1="2" y1="10" x2="22" y2="10"/>
+    </svg>
+);
+
+
 export const NAV_LINKS = [
   { path: '/sales', label: 'Sales', Icon: SalesIcon },
   { path: '/receipts', label: 'Receipts / Bill', Icon: ReceiptIcon },
@@ -186,3 +213,16 @@ export const AnimatedCheckIcon: React.FC<{ className?: string }> = ({ className 
         `}</style>
     </svg>
 );
+
+export const PaymentMethodIcon: React.FC<{ iconName: PaymentTypeIcon | undefined, className?: string }> = ({ iconName, className }) => {
+    switch (iconName) {
+        case 'cash':
+            return <CashBillIcon className={className} />;
+        case 'qr':
+            return <QrCodeIcon className={className} />;
+        case 'card':
+            return <CardIcon className={className} />;
+        default:
+            return <SalesIcon className={className} />; // A generic fallback
+    }
+};

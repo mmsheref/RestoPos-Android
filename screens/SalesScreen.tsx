@@ -22,7 +22,6 @@ import ItemGridContextMenu from '../components/sales/ItemGridContextMenu';
 const GRID_SIZE = 20; // 5 columns * 4 rows
 
 type SalesView = 'grid' | 'payment';
-type PaymentMethod = 'Cash' | 'Card' | 'QR';
 
 // UUID Generator Fallback
 const generateId = () => crypto.randomUUID ? crypto.randomUUID() : `G${Date.now()}`;
@@ -49,7 +48,7 @@ const SalesScreen: React.FC = () => {
   const [tempQuantity, setTempQuantity] = useState<string>('');
   
   // Payment state
-  const [paymentResult, setPaymentResult] = useState<{ payments: { method: PaymentMethod, amount: number }[], receiptId: string } | null>(null);
+  const [paymentResult, setPaymentResult] = useState<{ method: string, change: number, receiptId: string } | null>(null);
 
   // Modal states
   const [isManageGridsModalOpen, setIsManageGridsModalOpen] = useState(false);
@@ -132,11 +131,11 @@ const SalesScreen: React.FC = () => {
   const tax = useMemo(() => settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0, [subtotal, settings]);
   const total = useMemo(() => subtotal + tax, [subtotal, tax]);
   
-  const handleProcessPayment = useCallback((payments: { method: PaymentMethod, amount: number }[]) => {
+  const handleProcessPayment = useCallback((method: string, tendered: number) => {
     if (editingTicket) removeTicket(editingTicket.id);
     const receiptId = `R${Date.now()}`;
-    addReceipt({ id: receiptId, date: new Date(), items: currentOrder, total, payments });
-    setPaymentResult({ payments, receiptId });
+    addReceipt({ id: receiptId, date: new Date(), items: currentOrder, total, paymentMethod: method });
+    setPaymentResult({ method, change: tendered - total, receiptId });
   }, [addReceipt, currentOrder, editingTicket, removeTicket, total]);
   
   const handleNewSale = useCallback(() => {

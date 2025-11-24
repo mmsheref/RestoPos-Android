@@ -1,21 +1,26 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import type { Receipt } from '../types';
+import type { Receipt, PaymentTypeIcon } from '../types';
 import { useAppContext } from '../context/AppContext';
-import { SearchIcon, PrintIcon, MailIcon, RefundIcon, ArrowLeftIcon, ReceiptIcon as ReceiptIconPlaceholder, MenuIcon, ThreeDotsIcon } from '../constants';
+import { SearchIcon, PrintIcon, MailIcon, RefundIcon, ArrowLeftIcon, ReceiptIcon as ReceiptIconPlaceholder, MenuIcon, ThreeDotsIcon, PaymentMethodIcon } from '../constants';
 import { printReceipt } from '../utils/printerHelper';
 import { useDebounce } from '../hooks/useDebounce';
 
 const ReceiptsScreen: React.FC = () => {
-  const { receipts, openDrawer, settings, printers, loadMoreReceipts, hasMoreReceipts } = useAppContext();
+  const { receipts, openDrawer, settings, printers, loadMoreReceipts, hasMoreReceipts, paymentTypes } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null);
   const [isDetailView, setIsDetailView] = useState(false); // For mobile view switching
   
-  // Infinite Scroll Observer Ref
   const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  const paymentTypeIconMap = useMemo(() => {
+    const map = new Map<string, PaymentTypeIcon>();
+    paymentTypes.forEach(pt => map.set(pt.name, pt.icon));
+    return map;
+  }, [paymentTypes]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -31,40 +36,30 @@ const ReceiptsScreen: React.FC = () => {
     return () => observer.disconnect();
   }, [hasMoreReceipts, loadMoreReceipts, debouncedSearchTerm]);
 
-  // 1. Filter and sort receipts
   const filteredReceipts = useMemo(() => {
-    // If search is active, we search loosely on the current loaded set.
-    // In a production app with Server Search (Algolia/Firebase Extensions), this would trigger a server query.
     return receipts
       .filter(receipt => receipt.id.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))
       .sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [debouncedSearchTerm, receipts]);
 
-  // 2. Group by date
   const groupedReceipts = useMemo(() => {
     return filteredReceipts.reduce((acc: Record<string, Receipt[]>, receipt) => {
       const dateStr = receipt.date.toLocaleDateString('en-GB', {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
       });
-      if (!acc[dateStr]) {
-        acc[dateStr] = [];
-      }
+      if (!acc[dateStr]) acc[dateStr] = [];
       acc[dateStr].push(receipt);
       return acc;
     }, {} as Record<string, Receipt[]>);
   }, [filteredReceipts]);
 
-  // 3. Select first receipt on load or when filter changes
   useEffect(() => {
     if (filteredReceipts.length > 0 && !filteredReceipts.some(r => r.id === selectedReceipt?.id)) {
-        // Only auto-select on desktop
-        if (window.innerWidth >= 768) {
-             setSelectedReceipt(filteredReceipts[0]);
-        }
+        if (window.innerWidth >= 768) setSelectedReceipt(filteredReceipts[0]);
     } else if (filteredReceipts.length === 0) {
         setSelectedReceipt(null);
     }
-  }, [filteredReceipts.length]); // Dependency on length change to avoid resets on every scroll
+  }, [filteredReceipts.length]);
 
   const handleSelectReceipt = (receipt: Receipt) => {
       setSelectedReceipt(receipt);
@@ -78,9 +73,7 @@ const ReceiptsScreen: React.FC = () => {
 
     useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
-        if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-          setIsMenuOpen(false);
-        }
+        if (menuRef.current && !menuRef.current.contains(event.target as Node)) setIsMenuOpen(false);
       };
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -88,37 +81,18 @@ const ReceiptsScreen: React.FC = () => {
 
     const handlePrintReceipt = async () => {
         if (!selectedReceipt || isPrinting) return;
-    
         if (printers.length === 0) {
             alert("No printer configured. Please go to Settings to add a printer.");
             return;
         }
-    
         setIsPrinting(true);
         try {
             const subtotal = selectedReceipt.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
             const tax = settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0;
-            
-            // Use the first available printer as default
             const printerToUse = printers[0];
-        
-            const result = await printReceipt({
-                items: selectedReceipt.items,
-                total: selectedReceipt.total,
-                subtotal,
-                tax,
-                receiptId: selectedReceipt.id,
-                payments: selectedReceipt.payments,
-                settings,
-                printer: printerToUse,
-            });
-        
-            if (!result.success) {
-                alert(`Print Failed: ${result.message}`);
-            } else {
-                // Close menu on successful print
-                setIsMenuOpen(false);
-            }
+            const result = await printReceipt({ items: selectedReceipt.items, total: selectedReceipt.total, subtotal, tax, receiptId: selectedReceipt.id, paymentMethod: selectedReceipt.paymentMethod, settings, printer: printerToUse });
+            if (!result.success) alert(`Print Failed: ${result.message}`);
+            else setIsMenuOpen(false);
         } catch (error: any) {
              alert(`An unexpected error occurred during printing: ${error.message || 'Unknown error'}`);
         } finally {
@@ -177,16 +151,8 @@ const ReceiptsScreen: React.FC = () => {
             </ul>
             <hr className="my-6 dark:border-gray-600" />
             <div className="space-y-2 text-sm text-gray-500 dark:text-gray-400">
-              <div className="space-y-1">
-                <p className="font-medium text-gray-700 dark:text-gray-300">Payments:</p>
-                {selectedReceipt.payments.map((p, i) => (
-                  <div key={i} className="flex justify-between pl-2">
-                    <p>{p.method}</p>
-                    <p>₹{p.amount.toFixed(2)}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-between pt-2"><p>Date</p><p>{selectedReceipt.date.toLocaleDateString()}</p></div>
+              <div className="flex justify-between"><p>Payment Method</p><p className="font-medium text-gray-700 dark:text-gray-300">{selectedReceipt.paymentMethod}</p></div>
+              <div className="flex justify-between"><p>Date</p><p>{selectedReceipt.date.toLocaleDateString()}</p></div>
               <div className="flex justify-between"><p>Time</p><p>{selectedReceipt.date.toLocaleTimeString()}</p></div>
               <div className="flex justify-between"><p>Receipt ID</p><p>#{selectedReceipt.id}</p></div>
             </div>
@@ -195,9 +161,7 @@ const ReceiptsScreen: React.FC = () => {
       </>
     ) : (
       <div className="hidden md:flex flex-col flex-1">
-        <div className="flex-shrink-0 h-16 flex justify-between items-center px-4 md:px-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-            {/* Empty header for layout consistency */}
-        </div>
+        <div className="flex-shrink-0 h-16 flex justify-between items-center px-4 md:px-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800" />
         <div className="flex flex-1 justify-center items-center text-center text-gray-500 dark:text-gray-400">
             <div>
             <ReceiptIconPlaceholder className="h-16 w-16 mx-auto text-gray-300 dark:text-gray-600" />
@@ -211,7 +175,6 @@ const ReceiptsScreen: React.FC = () => {
 
   return (
     <div className="flex h-full bg-gray-100 dark:bg-gray-900 overflow-hidden">
-      {/* Left Panel: Transaction Log */}
       <div className={`w-full md:w-1/3 flex-col border-r border-gray-200 dark:border-gray-700 ${isDetailView ? 'hidden md:flex' : 'flex'}`}>
         <div className="flex-shrink-0 h-16 flex items-center px-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
             <button onClick={openDrawer} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
@@ -229,7 +192,6 @@ const ReceiptsScreen: React.FC = () => {
           {Object.keys(groupedReceipts).length > 0 ? (
              <>
                 {Object.entries(groupedReceipts).map(([date, receiptsInGroup]) => {
-                    // FIX: Cast receiptsInGroup to Receipt[] to resolve type inference issue.
                     const receipts = receiptsInGroup as Receipt[];
                     return (
                         <div key={date}>
@@ -238,9 +200,12 @@ const ReceiptsScreen: React.FC = () => {
                             {receipts.map((receipt) => (
                             <li key={receipt.id}>
                                 <button onClick={() => handleSelectReceipt(receipt)} className={`w-full text-left p-4 border-b border-gray-200 dark:border-gray-700/50 flex justify-between items-center transition-colors duration-150 ${selectedReceipt?.id === receipt.id ? 'bg-blue-100/50 dark:bg-slate-700' : 'hover:bg-gray-50 dark:hover:bg-slate-800'}`}>
-                                <div>
-                                    <p className="font-bold text-lg text-gray-800 dark:text-gray-100">₹{receipt.total.toFixed(2)}</p>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">{receipt.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                <div className="flex items-center gap-3">
+                                    <PaymentMethodIcon iconName={paymentTypeIconMap.get(receipt.paymentMethod)} className="h-6 w-6 text-gray-500 dark:text-gray-400" />
+                                    <div>
+                                        <p className="font-bold text-lg text-gray-800 dark:text-gray-100">₹{receipt.total.toFixed(2)}</p>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">{receipt.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                    </div>
                                 </div>
                                 <p className="text-sm text-gray-400 dark:text-gray-500 font-mono">#{receipt.id}</p>
                                 </button>
@@ -250,8 +215,6 @@ const ReceiptsScreen: React.FC = () => {
                         </div>
                     );
                 })}
-                
-                {/* Infinite Scroll Loader */}
                 {!debouncedSearchTerm && hasMoreReceipts && (
                     <div ref={loadMoreRef} className="py-6 text-center text-gray-500">
                         <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent"></span>
@@ -266,8 +229,6 @@ const ReceiptsScreen: React.FC = () => {
           )}
         </div>
       </div>
-
-      {/* Right Panel: Digital Receipt */}
       <div className={`w-full md:w-2/3 flex-col ${isDetailView ? 'flex' : 'hidden md:flex'}`}>
         <ReceiptDetailView />
       </div>
