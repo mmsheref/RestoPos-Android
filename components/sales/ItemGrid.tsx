@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { PlusIcon, CloseIcon } from '../../constants';
 import { Item } from '../../types';
@@ -43,20 +42,6 @@ const ItemGrid: React.FC<ItemGridProps> = ({ itemsForDisplay, mode, onAddItemToO
 
           // Check if the item has a real, user-provided image
           const hasRealImage = item.imageUrl && !item.imageUrl.includes('via.placeholder.com');
-          
-          const removeItemButton = mode === 'grid' && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemoveItemFromGrid(index);
-              }}
-              className="absolute top-1 right-1 bg-black/50 hover:bg-red-600 text-white rounded-full p-1 z-10 transition-colors duration-200"
-              aria-label={`Remove ${item.name} from grid`}
-              title="Remove from grid"
-            >
-              <CloseIcon className="h-4 w-4" />
-            </button>
-          );
 
           if (hasRealImage) {
             // View for items WITH a real image (image and text overlay)
@@ -64,22 +49,34 @@ const ItemGrid: React.FC<ItemGridProps> = ({ itemsForDisplay, mode, onAddItemToO
               <div
                 key={`${item.id}-${index}`}
                 onClick={() => onAddItemToOrder(item)}
-                className={`relative w-full rounded-lg overflow-hidden cursor-pointer group shadow-sm border border-slate-200 dark:border-slate-700 bg-gray-100 dark:bg-gray-800 ${isFixedGrid ? 'h-full' : 'aspect-square'}`}
+                className={`relative w-full rounded-lg overflow-hidden cursor-pointer group shadow-sm border border-slate-200 dark:border-slate-700 bg-gray-200 dark:bg-gray-800 ${isFixedGrid ? 'h-full' : 'aspect-square'}`}
                 role="button"
                 aria-label={`Add ${item.name} to order`}
               >
-                {removeItemButton}
                 <img 
                   src={item.imageUrl} 
                   alt={item.name} 
-                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 z-0"
                   loading="lazy"
                 />
-                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gray-900/60 backdrop-blur-sm">
+                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gray-900/60 backdrop-blur-sm z-10">
                   <h3 className="font-semibold text-white text-xs md:text-sm leading-tight text-center line-clamp-2" title={item.name}>
                     {item.name}
                   </h3>
                 </div>
+                {mode === 'grid' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveItemFromGrid(index);
+                    }}
+                    className="absolute top-1 right-1 bg-black/50 hover:bg-red-600 text-white rounded-full p-1 z-20 transition-colors"
+                    aria-label={`Remove ${item.name} from grid`}
+                    title="Remove from grid"
+                  >
+                    <CloseIcon className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             );
           } else {
@@ -92,7 +89,19 @@ const ItemGrid: React.FC<ItemGridProps> = ({ itemsForDisplay, mode, onAddItemToO
                 role="button"
                 aria-label={`Add ${item.name} to order`}
               >
-                {removeItemButton}
+                {mode === 'grid' && (
+                    <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onRemoveItemFromGrid(index);
+                    }}
+                    className="absolute top-1 right-1 bg-slate-200 hover:bg-red-600 text-slate-600 hover:text-white rounded-full p-1 z-10 transition-colors duration-200 dark:bg-slate-700 dark:text-slate-300"
+                    aria-label={`Remove ${item.name} from grid`}
+                    title="Remove from grid"
+                    >
+                    <CloseIcon className="h-4 w-4" />
+                    </button>
+                )}
                 <h3 className="font-semibold text-slate-700 dark:text-slate-200 text-sm md:text-base leading-tight line-clamp-3">
                   {item.name}
                 </h3>

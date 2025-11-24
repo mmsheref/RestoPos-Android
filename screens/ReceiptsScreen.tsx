@@ -1,27 +1,47 @@
 
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Receipt } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { SearchIcon, PrintIcon, MailIcon, RefundIcon, ArrowLeftIcon, ReceiptIcon as ReceiptIconPlaceholder, MenuIcon, ThreeDotsIcon } from '../constants';
 import { printReceipt } from '../utils/printerHelper';
+import { useDebounce } from '../hooks/useDebounce';
 
 const ReceiptsScreen: React.FC = () => {
-  const { receipts, openDrawer, settings, printers } = useAppContext();
+  const { receipts, openDrawer, settings, printers, loadMoreReceipts, hasMoreReceipts } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null);
   const [isDetailView, setIsDetailView] = useState(false); // For mobile view switching
+  
+  // Infinite Scroll Observer Ref
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMoreReceipts && !debouncedSearchTerm) {
+          loadMoreReceipts();
+        }
+      },
+      { threshold: 0.5 }
+    );
+
+    if (loadMoreRef.current) observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [hasMoreReceipts, loadMoreReceipts, debouncedSearchTerm]);
 
   // 1. Filter and sort receipts
   const filteredReceipts = useMemo(() => {
+    // If search is active, we search loosely on the current loaded set.
+    // In a production app with Server Search (Algolia/Firebase Extensions), this would trigger a server query.
     return receipts
-      .filter(receipt => receipt.id.toLowerCase().includes(searchTerm.toLowerCase()))
+      .filter(receipt => receipt.id.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))
       .sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [searchTerm, receipts]);
+  }, [debouncedSearchTerm, receipts]);
 
   // 2. Group by date
   const groupedReceipts = useMemo(() => {
-    // FIX: Use a more explicitly typed reduce function to ensure correct type inference.
     return filteredReceipts.reduce((acc: Record<string, Receipt[]>, receipt) => {
       const dateStr = receipt.date.toLocaleDateString('en-GB', {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -37,11 +57,14 @@ const ReceiptsScreen: React.FC = () => {
   // 3. Select first receipt on load or when filter changes
   useEffect(() => {
     if (filteredReceipts.length > 0 && !filteredReceipts.some(r => r.id === selectedReceipt?.id)) {
-        setSelectedReceipt(filteredReceipts[0]);
+        // Only auto-select on desktop
+        if (window.innerWidth >= 768) {
+             setSelectedReceipt(filteredReceipts[0]);
+        }
     } else if (filteredReceipts.length === 0) {
         setSelectedReceipt(null);
     }
-  }, [filteredReceipts, selectedReceipt]);
+  }, [filteredReceipts.length]); // Dependency on length change to avoid resets on every scroll
 
   const handleSelectReceipt = (receipt: Receipt) => {
       setSelectedReceipt(receipt);
@@ -72,26 +95,34 @@ const ReceiptsScreen: React.FC = () => {
         }
     
         setIsPrinting(true);
-    
-        const subtotal = selectedReceipt.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        const tax = settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0;
+        try {
+            const subtotal = selectedReceipt.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            const tax = settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0;
+            
+            // Use the first available printer as default
+            const printerToUse = printers[0];
         
-        const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
-    
-        const result = await printReceipt({
-            items: selectedReceipt.items,
-            total: selectedReceipt.total,
-            subtotal,
-            tax,
-            receiptId: selectedReceipt.id,
-            paymentMethod: selectedReceipt.paymentMethod,
-            settings,
-            printer,
-        });
-        setIsPrinting(false);
-    
-        if (!result.success) {
-            alert(`Print Failed: ${result.message}`);
+            const result = await printReceipt({
+                items: selectedReceipt.items,
+                total: selectedReceipt.total,
+                subtotal,
+                tax,
+                receiptId: selectedReceipt.id,
+                paymentMethod: selectedReceipt.paymentMethod,
+                settings,
+                printer: printerToUse,
+            });
+        
+            if (!result.success) {
+                alert(`Print Failed: ${result.message}`);
+            } else {
+                // Close menu on successful print
+                setIsMenuOpen(false);
+            }
+        } catch (error: any) {
+             alert(`An unexpected error occurred during printing: ${error.message || 'Unknown error'}`);
+        } finally {
+            setIsPrinting(false);
         }
     };
     
@@ -187,24 +218,36 @@ const ReceiptsScreen: React.FC = () => {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {Object.keys(groupedReceipts).length > 0 ? Object.entries(groupedReceipts).map(([date, receiptsInGroup]) => (
-            <div key={date}>
-              <h3 className="px-4 py-2 text-sm font-semibold text-green-700 dark:text-green-400 bg-gray-50 dark:bg-gray-800/50 sticky top-0 z-10">{date}</h3>
-              <ul>
-                {receiptsInGroup.map((receipt) => (
-                  <li key={receipt.id}>
-                    <button onClick={() => handleSelectReceipt(receipt)} className={`w-full text-left p-4 border-b border-gray-200 dark:border-gray-700/50 flex justify-between items-center transition-colors duration-150 ${selectedReceipt?.id === receipt.id ? 'bg-blue-100/50 dark:bg-slate-700' : 'hover:bg-gray-50 dark:hover:bg-slate-800'}`}>
-                      <div>
-                        <p className="font-bold text-lg text-gray-800 dark:text-gray-100">₹{receipt.total.toFixed(2)}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{receipt.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                      </div>
-                      <p className="text-sm text-gray-400 dark:text-gray-500 font-mono">#{receipt.id}</p>
-                    </button>
-                  </li>
+          {Object.keys(groupedReceipts).length > 0 ? (
+             <>
+                {Object.entries(groupedReceipts).map(([date, receiptsInGroup]) => (
+                    <div key={date}>
+                    <h3 className="px-4 py-2 text-sm font-semibold text-green-700 dark:text-green-400 bg-gray-50 dark:bg-gray-800/50 sticky top-0 z-10">{date}</h3>
+                    <ul>
+                        {receiptsInGroup.map((receipt) => (
+                        <li key={receipt.id}>
+                            <button onClick={() => handleSelectReceipt(receipt)} className={`w-full text-left p-4 border-b border-gray-200 dark:border-gray-700/50 flex justify-between items-center transition-colors duration-150 ${selectedReceipt?.id === receipt.id ? 'bg-blue-100/50 dark:bg-slate-700' : 'hover:bg-gray-50 dark:hover:bg-slate-800'}`}>
+                            <div>
+                                <p className="font-bold text-lg text-gray-800 dark:text-gray-100">₹{receipt.total.toFixed(2)}</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{receipt.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                            </div>
+                            <p className="text-sm text-gray-400 dark:text-gray-500 font-mono">#{receipt.id}</p>
+                            </button>
+                        </li>
+                        ))}
+                    </ul>
+                    </div>
                 ))}
-              </ul>
-            </div>
-          )) : (
+                
+                {/* Infinite Scroll Loader */}
+                {!debouncedSearchTerm && hasMoreReceipts && (
+                    <div ref={loadMoreRef} className="py-6 text-center text-gray-500">
+                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent"></span>
+                        <span className="ml-2 text-sm">Loading more...</span>
+                    </div>
+                )}
+             </>
+          ) : (
             <div className="flex justify-center items-center h-full text-center text-gray-400 dark:text-gray-500 p-4">
                 <p>No receipts found for your search.</p>
             </div>

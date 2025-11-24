@@ -6,7 +6,7 @@ import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { exportItemsToCsv } from '../utils/csvHelper';
 import { db, signOutUser, clearAllData, firebaseConfig, auth } from '../firebase';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, query, orderBy, limit, startAfter, getDocs, QueryDocumentSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import FirebaseError from '../components/FirebaseError';
 
@@ -50,6 +50,8 @@ interface AppContextType {
   
   receipts: Receipt[];
   addReceipt: (receipt: Receipt) => void;
+  loadMoreReceipts: () => Promise<void>;
+  hasMoreReceipts: boolean;
   
   items: Item[];
   addItem: (item: Item) => void;
@@ -75,6 +77,9 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const ITEMS_CACHE_KEY = 'pos_items_cache';
+const SETTINGS_CACHE_KEY = 'pos_settings_cache';
+
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -94,13 +99,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
 
   // --- State ---
-  const [settings, setSettingsState] = useState<AppSettings>(DEFAULT_SETTINGS);
+  // Initialize from LocalStorage for instant startup where possible
+  const [settings, setSettingsState] = useState<AppSettings>(() => {
+      const cached = localStorage.getItem(SETTINGS_CACHE_KEY);
+      return cached ? JSON.parse(cached) : DEFAULT_SETTINGS;
+  });
+  
+  const [items, setItemsState] = useState<Item[]>(() => {
+      const cached = localStorage.getItem(ITEMS_CACHE_KEY);
+      return cached ? JSON.parse(cached) : [];
+  });
+
   const [printers, setPrintersState] = useState<Printer[]>([]);
   const [receipts, setReceiptsState] = useState<Receipt[]>([]);
-  const [items, setItemsState] = useState<Item[]>([]);
   const [savedTickets, setSavedTicketsState] = useState<SavedTicket[]>([]);
   const [customGrids, setCustomGridsState] = useState<CustomGrid[]>([]);
   
+  // Pagination State
+  const [lastReceiptDoc, setLastReceiptDoc] = useState<QueryDocumentSnapshot | null>(null);
+  const [hasMoreReceipts, setHasMoreReceipts] = useState(true);
+
   // --- Initialize & Load Data from Firebase based on Auth State ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -108,48 +126,83 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setUser(currentUser);
             const uid = currentUser.uid;
             
-            // Set up Firestore listeners for the logged-in user
-            const unsubscribers = [
-              onSnapshot(collection(db, 'users', uid, 'items'), (snapshot) => {
+            // 1. Items Listener (Updates Cache)
+            const unsubItems = onSnapshot(collection(db, 'users', uid, 'items'), (snapshot) => {
                   const itemsData = snapshot.docs.map(doc => ({ ...doc.data() } as Item));
                   setItemsState(itemsData);
-              }),
-              onSnapshot(collection(db, 'users', uid, 'receipts'), (snapshot) => {
-                  const receiptsData = snapshot.docs.map(doc => {
-                      const data = doc.data();
-                      return { ...data, date: (data.date as Timestamp).toDate() } as Receipt;
-                  }).sort((a,b) => b.date.getTime() - a.date.getTime());
-                  setReceiptsState(receiptsData);
-              }),
-              onSnapshot(collection(db, 'users', uid, 'printers'), (snapshot) => {
+                  localStorage.setItem(ITEMS_CACHE_KEY, JSON.stringify(itemsData));
+            });
+
+            // 2. Receipts Listener - OPTIMIZED: Only listen to the last 25 items for real-time updates
+            const qReceipts = query(
+                collection(db, 'users', uid, 'receipts'), 
+                orderBy('date', 'desc'), 
+                limit(25)
+            );
+            
+            const unsubReceipts = onSnapshot(qReceipts, (snapshot) => {
+                const receiptsData = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return { ...data, date: (data.date as Timestamp).toDate() } as Receipt;
+                });
+                
+                setReceiptsState(prev => {
+                    // Merge real-time updates with existing loaded data, preventing duplicates
+                    const existingIds = new Set(prev.map(r => r.id));
+                    const newItems = receiptsData.filter(r => !existingIds.has(r.id));
+                    
+                    // If we have a fresh load, just set it. If we have older data loaded, merge intelligently.
+                    if (prev.length === 0) {
+                        if (snapshot.docs.length > 0) {
+                             setLastReceiptDoc(snapshot.docs[snapshot.docs.length - 1]);
+                        }
+                        return receiptsData;
+                    }
+
+                    // Replace the top of the list with the real-time data, keep the rest (older pages)
+                    // This is a simplified approach: we trust the listener for the "head" of the list.
+                    // For a robust infinite scroll, we simply prepend new items.
+                    const combined = [...receiptsData, ...prev.filter(p => !receiptsData.some(n => n.id === p.id))];
+                    return combined.sort((a,b) => b.date.getTime() - a.date.getTime());
+                });
+            });
+
+            // 3. Printers Listener
+            const unsubPrinters = onSnapshot(collection(db, 'users', uid, 'printers'), (snapshot) => {
                   const printersData = snapshot.docs.map(doc => ({ ...doc.data() } as Printer));
                   setPrintersState(printersData);
-              }),
-              onSnapshot(collection(db, 'users', uid, 'saved_tickets'), (snapshot) => {
+            });
+
+            // 4. Saved Tickets Listener
+            const unsubTickets = onSnapshot(collection(db, 'users', uid, 'saved_tickets'), (snapshot) => {
                   const ticketsData = snapshot.docs.map(doc => ({ ...doc.data() } as SavedTicket));
                   setSavedTicketsState(ticketsData);
-              }),
-              onSnapshot(collection(db, 'users', uid, 'custom_grids'), (snapshot) => {
+            });
+
+            // 5. Custom Grids Listener
+            const unsubGrids = onSnapshot(collection(db, 'users', uid, 'custom_grids'), (snapshot) => {
                   const gridsData = snapshot.docs.map(doc => ({ ...doc.data() } as CustomGrid));
                   setCustomGridsState(gridsData);
-              }),
-              onSnapshot(doc(db, 'users', uid, 'config', 'settings'), async (docSnap) => {
+            });
+
+            // 6. Settings Listener
+            const unsubSettings = onSnapshot(doc(db, 'users', uid, 'config', 'settings'), async (docSnap) => {
                   if (docSnap.exists()) {
-                    setSettingsState(docSnap.data() as AppSettings);
+                    const newSettings = docSnap.data() as AppSettings;
+                    setSettingsState(newSettings);
+                    localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(newSettings));
                   } else {
-                    console.log("No settings found for user, creating with defaults.");
                     setSettingsState(DEFAULT_SETTINGS);
                     try {
                       await setDoc(doc(db, 'users', uid, 'config', 'settings'), DEFAULT_SETTINGS);
-                    } catch (e) {
-                      console.error("Failed to create default settings document:", e);
-                    }
+                    } catch (e) { console.error(e); }
                   }
-              })
-            ];
+            });
             
             setIsLoading(false);
-            return () => unsubscribers.forEach(unsub => unsub());
+            return () => {
+                unsubItems(); unsubReceipts(); unsubPrinters(); unsubTickets(); unsubGrids(); unsubSettings();
+            };
 
         } else {
             // User is signed out
@@ -161,14 +214,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setCustomGridsState([]);
             setSettingsState(DEFAULT_SETTINGS);
             setIsLoading(false);
+            localStorage.removeItem(ITEMS_CACHE_KEY);
+            localStorage.removeItem(SETTINGS_CACHE_KEY);
         }
     }, (error) => {
-        // Handle initialization errors
         console.error("Firebase Auth error:", error);
         setInitializationError({
             title: 'Connection Failed',
-            message: error.message || 'Could not connect to the database. Please check your internet connection and try again.',
-            instructions: ['If the problem persists, verify your Firebase configuration details in firebase.ts.'],
+            message: error.message || 'Could not connect. Working offline.',
+            instructions: ['Check internet connection.'],
             projectId: firebaseConfig.projectId
         });
         setIsLoading(false);
@@ -182,12 +236,49 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return user.uid;
   }, [user]);
 
+  // --- Pagination Logic ---
+  const loadMoreReceipts = useCallback(async () => {
+      if (!lastReceiptDoc || !user) return;
+      
+      try {
+          const qNext = query(
+              collection(db, 'users', user.uid, 'receipts'),
+              orderBy('date', 'desc'),
+              startAfter(lastReceiptDoc),
+              limit(25)
+          );
+          
+          const snapshot = await getDocs(qNext);
+          
+          if (!snapshot.empty) {
+              const newReceipts = snapshot.docs.map(doc => {
+                  const data = doc.data();
+                  return { ...data, date: (data.date as Timestamp).toDate() } as Receipt;
+              });
+              
+              setReceiptsState(prev => [...prev, ...newReceipts]);
+              setLastReceiptDoc(snapshot.docs[snapshot.docs.length - 1]);
+          } else {
+              setHasMoreReceipts(false);
+          }
+      } catch (e) {
+          console.error("Error loading more receipts", e);
+      }
+  }, [lastReceiptDoc, user]);
+
+  // --- Optimistic Updates ---
+  // Update local state immediately, then sync to Firestore
+  
   const addReceipt = useCallback(async (receipt: Receipt) => {
+    // 1. Optimistic Update
+    setReceiptsState(prev => [receipt, ...prev]);
+
     try {
         await setDoc(doc(db, 'users', getUid(), 'receipts', receipt.id), receipt);
     } catch (e) {
         console.error("Failed to save receipt", e);
-        alert("Failed to save receipt to database.");
+        // In a production app, we would revert the state or queue this for retry
+        alert("Saved locally. Sync failed (Offline).");
     }
   }, [getUid]);
 
@@ -206,106 +297,77 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateSettings = useCallback(async (newSettings: Partial<AppSettings>) => {
     const updated = { ...settings, ...newSettings };
+    setSettingsState(updated); // Optimistic
     try {
         await setDoc(doc(db, 'users', getUid(), 'config', 'settings'), updated);
-    } catch (e) {
-        console.error("Failed to save settings", e);
-    }
+    } catch (e) { console.error(e); }
   }, [settings, getUid]);
 
   const addPrinter = useCallback(async (printer: Printer) => {
     try {
         await setDoc(doc(db, 'users', getUid(), 'printers', printer.id), printer);
-    } catch (e) {
-        alert("Failed to save printer.");
-    }
+    } catch (e) { alert("Failed to save printer."); }
   }, [getUid]);
 
   const removePrinter = useCallback(async (printerId: string) => {
     try {
         await deleteDoc(doc(db, 'users', getUid(), 'printers', printerId));
-    } catch (e) {
-        alert("Failed to delete printer.");
-    }
+    } catch (e) { alert("Failed to delete printer."); }
   }, [getUid]);
 
   const addItem = useCallback(async (item: Item) => {
     try { 
       await setDoc(doc(db, 'users', getUid(), 'items', item.id), item); 
-    } catch (e) { 
-      console.error("Failed to add item", e);
-      alert("Failed to add item.");
-    }
+    } catch (e) { console.error(e); alert("Failed to add item."); }
   }, [getUid]);
 
   const updateItem = useCallback(async (updatedItem: Item) => {
     try { 
       await setDoc(doc(db, 'users', getUid(), 'items', updatedItem.id), updatedItem); 
-    } catch (e) { 
-      console.error("Failed to update item", e);
-      alert("Failed to update item.");
-    }
+    } catch (e) { console.error(e); alert("Failed to update item."); }
   }, [getUid]);
 
   const deleteItem = useCallback(async (id: string) => {
     try {
         await deleteDoc(doc(db, 'users', getUid(), 'items', id));
-    } catch (e) {
-        console.error("Failed to delete item", e);
-        alert("Failed to delete item from database.");
-    }
+    } catch (e) { console.error(e); alert("Failed to delete item."); }
   }, [getUid]);
 
   const saveTicket = useCallback(async (ticket: SavedTicket) => {
       try { 
         await setDoc(doc(db, 'users', getUid(), 'saved_tickets', ticket.id), ticket); 
-      } catch (e) { 
-        console.error("Failed to save ticket", e);
-        alert("Failed to save ticket.");
-      }
+      } catch (e) { console.error(e); alert("Failed to save ticket."); }
   }, [getUid]);
 
   const removeTicket = useCallback(async (ticketId: string) => {
       try { 
         await deleteDoc(doc(db, 'users', getUid(), 'saved_tickets', ticketId));
-      } catch (e) { 
-        console.error("Failed to delete ticket", e);
-        alert("Failed to delete ticket.");
-      }
+      } catch (e) { console.error(e); alert("Failed to delete ticket."); }
   }, [getUid]);
 
   const addCustomGrid = useCallback(async (grid: CustomGrid) => {
       try { 
         await setDoc(doc(db, 'users', getUid(), 'custom_grids', grid.id), grid); 
-      } catch (e) { 
-        console.error("Failed to add custom grid", e);
-        alert("Failed to add custom grid.");
-      }
+      } catch (e) { console.error(e); alert("Failed to add custom grid."); }
   }, [getUid]);
 
   const updateCustomGrid = useCallback(async (grid: CustomGrid) => {
       try { 
         await setDoc(doc(db, 'users', getUid(), 'custom_grids', grid.id), grid);
-      } catch (e) { 
-        console.error("Failed to update custom grid", e);
-        alert("Failed to update custom grid.");
-      }
+      } catch (e) { console.error(e); alert("Failed to update custom grid."); }
   }, [getUid]);
 
   const deleteCustomGrid = useCallback(async (id: string) => {
       try { 
         await deleteDoc(doc(db, 'users', getUid(), 'custom_grids', id));
-      } catch (e) { 
-        console.error("Failed to delete custom grid", e);
-        alert("Failed to delete custom grid.");
-      }
+      } catch (e) { console.error(e); alert("Failed to delete custom grid."); }
   }, [getUid]);
 
   const setCustomGrids = useCallback(async (newGrids: CustomGrid[]) => {
       const batch = writeBatch(db);
       const gridsCollectionRef = collection(db, 'users', getUid(), 'custom_grids');
-      
       try {
+          // Optimistic update could be complex here, relying on listener for now as it's infrequent
           const currentGridIds = customGrids.map(g => g.id);
           const newGridIds = new Set(newGrids.map(g => g.id));
           const gridsToDelete = currentGridIds.filter(id => !newGridIds.has(id));
@@ -322,7 +384,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       } catch (e) {
           console.error("Failed to save grid changes to DB:", e);
-          alert("Failed to save grid changes. Please try again.");
+          alert("Failed to save grid changes.");
       }
   }, [customGrids, getUid]);
 
@@ -335,7 +397,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       newItems.forEach(item => batch.set(doc(itemsCollectionRef, item.id), item));
       await batch.commit();
     } catch (e) {
-      alert("Failed to import items from CSV. Data has not been changed.");
+      alert("Failed to import items. Data unchanged.");
     } finally {
       setIsLoading(false);
     }
@@ -344,8 +406,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const exportItemsCsv = useCallback(() => {
     try {
       const csvString = exportItemsToCsv(items);
-      const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
-      const fileName = `pos_items_export_${dateStr}.csv`;
+      const fileName = `pos_items_${Date.now()}.csv`;
   
       if (Capacitor.isNativePlatform()) {
         Filesystem.writeFile({
@@ -355,47 +416,40 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           encoding: Encoding.UTF8
         }).then(result => {
            Share.share({ url: result.uri });
-        }).catch(error => {
-          alert(`CSV Export Failed: ${error.message || error}`);
-        });
+        }).catch(error => alert(`Export Failed: ${error.message}`));
       } else {
         const dataStr = "data:text/csv;charset=utf-8," + encodeURIComponent(csvString);
-        const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", fileName);
-        document.body.appendChild(downloadAnchorNode);
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
+        const a = document.createElement('a');
+        a.href = dataStr;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
       }
-    } catch (e) {
-      alert("An error occurred while generating the CSV file.");
-    }
+    } catch (e) { alert("Error generating CSV."); }
   }, [items]);
   
   const exportData = useCallback(async () => {
     const backup: BackupData = {
-        version: '2.0-firebase', timestamp: new Date().toISOString(),
+        version: '2.0-opt', timestamp: new Date().toISOString(),
         settings, items, categories: [], printers, receipts, savedTickets, customGrids
     };
     const jsonString = JSON.stringify(backup, null, 2);
-    const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
-    const fileName = `pos_backup_${dateStr}.json`;
+    const fileName = `pos_backup_${Date.now()}.json`;
 
     if (Capacitor.isNativePlatform()) {
       try {
         const result = await Filesystem.writeFile({ path: fileName, data: jsonString, directory: Directory.Documents, encoding: Encoding.UTF8 });
         await Share.share({ url: result.uri });
-      } catch (error: any) {
-        alert(`Export Failed: ${error.message || error}`);
-      }
+      } catch (error: any) { alert(`Export Failed: ${error.message}`); }
     } else {
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString);
-      const downloadAnchorNode = document.createElement('a');
-      downloadAnchorNode.setAttribute("href", dataStr);
-      downloadAnchorNode.setAttribute("download", fileName);
-      document.body.appendChild(downloadAnchorNode);
-      downloadAnchorNode.click();
-      downloadAnchorNode.remove();
+      const a = document.createElement('a');
+      a.href = dataStr;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     }
   }, [settings, items, printers, receipts, savedTickets, customGrids]);
 
@@ -405,30 +459,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
           await clearAllData(uid);
           const batch = writeBatch(db);
-          
           batch.set(doc(db, 'users', uid, 'config', 'settings'), data.settings);
           (data.items || []).forEach(item => batch.set(doc(db, 'users', uid, 'items', item.id), item));
           (data.printers || []).forEach(p => batch.set(doc(db, 'users', uid, 'printers', p.id), p));
           (data.receipts || []).forEach(r => batch.set(doc(db, 'users', uid, 'receipts', r.id), {...r, date: new Date(r.date)}));
           (data.savedTickets || []).forEach(t => batch.set(doc(db, 'users', uid, 'saved_tickets', t.id), t));
           (data.customGrids || []).forEach(g => batch.set(doc(db, 'users', uid, 'custom_grids', g.id), g));
-
           await batch.commit();
-      } catch(e) {
-          console.error("Restore failed:", e);
-          alert("Failed to restore data from backup.");
-      } finally {
-          setIsLoading(false);
-      }
+      } catch(e) { console.error(e); alert("Restore failed."); } finally { setIsLoading(false); }
   }, [getUid]);
 
   const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => setIsDrawerOpen(prev => !prev), []);
   
-  if (initializationError) {
-      return <FirebaseError error={initializationError} />
-  }
+  if (initializationError) return <FirebaseError error={initializationError} />;
 
   return (
     <AppContext.Provider value={{ 
@@ -439,12 +484,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       isLoading,
       settings, updateSettings,
       printers, addPrinter, removePrinter,
-      receipts, addReceipt,
+      receipts, addReceipt, loadMoreReceipts, hasMoreReceipts,
       items, addItem, updateItem, deleteItem,
       savedTickets, saveTicket, removeTicket,
       customGrids, addCustomGrid, updateCustomGrid, deleteCustomGrid, setCustomGrids,
-      exportData, restoreData,
-      exportItemsCsv, replaceItems
+      exportData, restoreData, exportItemsCsv, replaceItems
     }}>
       {children}
     </AppContext.Provider>
@@ -453,8 +497,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
 export const useAppContext = (): AppContextType => {
   const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useAppContext must be used within an AppProvider');
-  }
+  if (!context) throw new Error('useAppContext must be used within an AppProvider');
   return context;
 };

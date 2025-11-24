@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { OrderItem, SavedTicket, Item, CustomGrid } from '../types';
 import { useAppContext } from '../context/AppContext';
+import { useDebounce } from '../hooks/useDebounce';
 
 // Modals and Child Components
 import SaveTicketModal from '../components/modals/SaveTicketModal';
@@ -34,6 +35,9 @@ const SalesScreen: React.FC = () => {
   // Main screen view state
   const [salesView, setSalesView] = useState<SalesView>('grid');
   const [searchQuery, setSearchQuery] = useState('');
+  // Use debounced value for heavy filtering operations (300ms delay)
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  
   const [activeGridId, setActiveGridId] = useState<'All' | string>('All');
   
   // Ticket management state
@@ -52,8 +56,7 @@ const SalesScreen: React.FC = () => {
   const [isSelectItemModalOpen, setIsSelectItemModalOpen] = useState(false);
   const [isAddGridModalOpen, setIsAddGridModalOpen] = useState(false);
   const [assigningSlot, setAssigningSlot] = useState<{gridId: string, slotIndex: number} | null>(null);
-  const [itemToRemove, setItemToRemove] = useState<{ slotIndex: number; name: string } | null>(null);
-
+  
   // Universal confirmation modal state
   const [confirmModalState, setConfirmModalState] = useState<{
       isOpen: boolean;
@@ -63,7 +66,6 @@ const SalesScreen: React.FC = () => {
       confirmText?: string;
       confirmButtonClass?: string;
   }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
-
 
   // Mobile landscape state
   const [isTicketVisible, setIsTicketVisible] = useState(false);
@@ -131,20 +133,28 @@ const SalesScreen: React.FC = () => {
     setSalesView('grid'); setPaymentResult(null); setCurrentOrder([]); setEditingTicket(null);
   }, []);
   
+  // Performance Optimization: Memoize filtering logic dependent on Debounced Search
   const itemsForDisplay = useMemo<(Item | null)[]>(() => {
-    const allFilteredItems = items.filter(item => item.name.toLowerCase().includes(searchQuery.trim().toLowerCase()));
-    
-    if (activeGridId === 'All' || searchQuery.trim()) {
-      return allFilteredItems;
+    // If we have a search query, we filter ALL items (ignoring grid tabs)
+    if (debouncedSearchQuery.trim()) {
+        const lowerQuery = debouncedSearchQuery.trim().toLowerCase();
+        return items.filter(item => item.name.toLowerCase().includes(lowerQuery));
     }
     
+    // If active tab is 'All', return everything
+    if (activeGridId === 'All') {
+      return items;
+    }
+    
+    // If active tab is a custom grid, map the IDs to items
     const grid = customGrids.find(g => g.id === activeGridId);
     if (grid) {
       return grid.itemIds.map(itemId => items.find(i => i.id === itemId) || null);
     }
     
+    // Fallback
     return new Array(GRID_SIZE).fill(null);
-  }, [activeGridId, items, customGrids, searchQuery]);
+  }, [activeGridId, items, customGrids, debouncedSearchQuery]);
 
   // --- Grid Management ---
   const handleAddNewGrid = useCallback(() => setIsAddGridModalOpen(true), []);
@@ -256,10 +266,10 @@ const SalesScreen: React.FC = () => {
       <div className={`w-full md:w-[70%] flex-col ${isTicketVisible ? 'hidden md:flex' : 'flex'}`}>
         <SalesHeader openDrawer={openDrawer} onSearchChange={setSearchQuery} />
         <div className="flex-1 flex flex-col p-4 overflow-hidden">
-          <div className="flex-1 overflow-y-auto pr-2">
+          <div className="flex-1 overflow-y-auto pr-2 content-visibility-auto">
             <ItemGrid
               itemsForDisplay={itemsForDisplay}
-              mode={activeGridId === 'All' || searchQuery.trim() ? 'all' : 'grid'}
+              mode={activeGridId === 'All' || debouncedSearchQuery.trim() ? 'all' : 'grid'}
               onAddItemToOrder={addToOrder}
               onAssignItem={handleOpenSelectItemModal}
               onRemoveItemFromGrid={handleRemoveItemFromGrid}
@@ -271,7 +281,7 @@ const SalesScreen: React.FC = () => {
             setActiveGridId={setActiveGridId}
             onAddNew={handleAddNewGrid}
             onManage={() => setIsManageGridsModalOpen(true)}
-            isSearchActive={searchQuery.trim().length > 0}
+            isSearchActive={debouncedSearchQuery.trim().length > 0}
             searchResultsCount={itemsForDisplay.length}
             searchQuery={searchQuery}
           />
