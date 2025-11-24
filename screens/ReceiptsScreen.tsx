@@ -1,11 +1,13 @@
 
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Receipt } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { SearchIcon, PrintIcon, MailIcon, RefundIcon, ArrowLeftIcon, ReceiptIcon as ReceiptIconPlaceholder, MenuIcon, ThreeDotsIcon } from '../constants';
+import { printReceipt } from '../utils/printerHelper';
 
 const ReceiptsScreen: React.FC = () => {
-  const { receipts, openDrawer } = useAppContext();
+  const { receipts, openDrawer, settings, printers } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null);
   const [isDetailView, setIsDetailView] = useState(false); // For mobile view switching
@@ -49,6 +51,7 @@ const ReceiptsScreen: React.FC = () => {
   const ReceiptDetailView = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+    const [isPrinting, setIsPrinting] = useState(false);
 
     useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
@@ -59,6 +62,38 @@ const ReceiptsScreen: React.FC = () => {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    const handlePrintReceipt = async () => {
+        if (!selectedReceipt || isPrinting) return;
+    
+        if (printers.length === 0) {
+            alert("No printer configured. Please go to Settings to add a printer.");
+            return;
+        }
+    
+        setIsPrinting(true);
+    
+        const subtotal = selectedReceipt.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        const tax = settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0;
+        
+        const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
+    
+        const result = await printReceipt({
+            items: selectedReceipt.items,
+            total: selectedReceipt.total,
+            subtotal,
+            tax,
+            receiptId: selectedReceipt.id,
+            paymentMethod: selectedReceipt.paymentMethod,
+            settings,
+            printer,
+        });
+        setIsPrinting(false);
+    
+        if (!result.success) {
+            alert(`Print Failed: ${result.message}`);
+        }
+    };
     
     return selectedReceipt ? (
       <>
@@ -76,8 +111,8 @@ const ReceiptsScreen: React.FC = () => {
             {isMenuOpen && (
                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-700 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 dark:ring-white/10 z-20">
                  <div className="py-1" role="menu" aria-orientation="vertical">
-                   <button className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600" role="menuitem">
-                     <PrintIcon className="h-5 w-5" /> Print
+                   <button onClick={handlePrintReceipt} disabled={isPrinting} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600 disabled:opacity-50" role="menuitem">
+                     <PrintIcon className="h-5 w-5" /> {isPrinting ? 'Printing...' : 'Print'}
                    </button>
                    <button className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600" role="menuitem">
                      <MailIcon className="h-5 w-5" /> Email

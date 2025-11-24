@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { PlusIcon, CloseIcon } from '../../constants';
 import { Item } from '../../types';
@@ -63,7 +64,7 @@ const ItemGrid: React.FC<ItemGridProps> = ({ itemsForDisplay, mode, onAddItemToO
               <div
                 key={`${item.id}-${index}`}
                 onClick={() => onAddItemToOrder(item)}
-                className={`relative w-full rounded-lg overflow-hidden cursor-pointer group shadow-sm border border-slate-200 dark:border-slate-700 bg-gray-100 dark:bg-gray-800 flex flex-col ${isFixedGrid ? 'h-full' : 'aspect-square'}`}
+                className={`relative w-full rounded-lg overflow-hidden cursor-pointer group shadow-sm border border-slate-200 dark:border-slate-700 bg-gray-100 dark:bg-gray-800 ${isFixedGrid ? 'h-full' : 'aspect-square'}`}
                 role="button"
                 aria-label={`Add ${item.name} to order`}
               >
@@ -71,11 +72,11 @@ const ItemGrid: React.FC<ItemGridProps> = ({ itemsForDisplay, mode, onAddItemToO
                 <img 
                   src={item.imageUrl} 
                   alt={item.name} 
-                  className="flex-grow w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   loading="lazy"
                 />
-                <div className="flex-shrink-0 px-2 py-1.5 bg-black/75 flex items-center justify-center min-h-[30%]">
-                  <h3 className="font-medium text-white text-xs md:text-sm leading-tight text-center line-clamp-2" title={item.name}>
+                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gray-900/60 backdrop-blur-sm">
+                  <h3 className="font-semibold text-white text-xs md:text-sm leading-tight text-center line-clamp-2" title={item.name}>
                     {item.name}
                   </h3>
                 </div>
