@@ -1,10 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
+
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Receipt } from '../types';
 import { useAppContext } from '../context/AppContext';
-import { SearchIcon, PrintIcon, MailIcon, RefundIcon, ArrowLeftIcon, ReceiptIcon as ReceiptIconPlaceholder } from '../constants';
+import { SearchIcon, PrintIcon, MailIcon, RefundIcon, ArrowLeftIcon, ReceiptIcon as ReceiptIconPlaceholder, MenuIcon, ThreeDotsIcon } from '../constants';
 
 const ReceiptsScreen: React.FC = () => {
-  const { receipts } = useAppContext();
+  const { receipts, openDrawer } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null);
   const [isDetailView, setIsDetailView] = useState(false); // For mobile view switching
@@ -19,7 +20,7 @@ const ReceiptsScreen: React.FC = () => {
   // 2. Group by date
   const groupedReceipts = useMemo(() => {
     // FIX: Use a more explicitly typed reduce function to ensure correct type inference.
-    return filteredReceipts.reduce<Record<string, Receipt[]>>((acc, receipt) => {
+    return filteredReceipts.reduce((acc: Record<string, Receipt[]>, receipt) => {
       const dateStr = receipt.date.toLocaleDateString('en-GB', {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
       });
@@ -28,7 +29,7 @@ const ReceiptsScreen: React.FC = () => {
       }
       acc[dateStr].push(receipt);
       return acc;
-    }, {});
+    }, {} as Record<string, Receipt[]>);
   }, [filteredReceipts]);
 
   // 3. Select first receipt on load or when filter changes
@@ -45,20 +46,48 @@ const ReceiptsScreen: React.FC = () => {
       setIsDetailView(true);
   };
 
-  const ReceiptDetailView = () => (
-    selectedReceipt ? (
+  const ReceiptDetailView = () => {
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+          setIsMenuOpen(false);
+        }
+      };
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+    
+    return selectedReceipt ? (
       <>
         <div className="flex-shrink-0 h-16 flex justify-between items-center px-4 md:px-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <div className="flex items-center gap-2">
             <button onClick={() => setIsDetailView(false)} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 md:hidden">
                 <ArrowLeftIcon className="h-6 w-6" />
             </button>
-            <h2 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-gray-100">Receipt #{selectedReceipt.id}</h2>
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Receipt #{selectedReceipt.id}</h2>
           </div>
-          <div className="flex items-center gap-1 md:gap-2">
-            <button className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"><PrintIcon className="h-5 w-5" /></button>
-            <button className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"><MailIcon className="h-5 w-5" /></button>
-            <button className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"><RefundIcon className="h-5 w-5" /></button>
+          <div className="relative" ref={menuRef}>
+            <button onClick={() => setIsMenuOpen(prev => !prev)} className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
+              <ThreeDotsIcon className="h-5 w-5" />
+            </button>
+            {isMenuOpen && (
+               <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-700 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 dark:ring-white/10 z-20">
+                 <div className="py-1" role="menu" aria-orientation="vertical">
+                   <button className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600" role="menuitem">
+                     <PrintIcon className="h-5 w-5" /> Print
+                   </button>
+                   <button className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600" role="menuitem">
+                     <MailIcon className="h-5 w-5" /> Email
+                   </button>
+                   <button className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600" role="menuitem">
+                     <RefundIcon className="h-5 w-5" /> Refund
+                   </button>
+                 </div>
+               </div>
+            )}
           </div>
         </div>
         <main className="flex-1 flex justify-center items-start p-4 md:p-8 overflow-y-auto bg-gray-50 dark:bg-gray-900">
@@ -91,20 +120,31 @@ const ReceiptsScreen: React.FC = () => {
         </main>
       </>
     ) : (
-      <div className="hidden md:flex flex-1 justify-center items-center text-center text-gray-500 dark:text-gray-400">
-        <div>
-          <ReceiptIconPlaceholder className="h-16 w-16 mx-auto text-gray-300 dark:text-gray-600" />
-          <p className="mt-4 text-lg">Select a receipt to view details</p>
-          {receipts.length === 0 && <p className="mt-2 text-sm">There are no receipts to show.</p>}
+      <div className="hidden md:flex flex-col flex-1">
+        <div className="flex-shrink-0 h-16 flex justify-between items-center px-4 md:px-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            {/* Empty header for layout consistency */}
+        </div>
+        <div className="flex flex-1 justify-center items-center text-center text-gray-500 dark:text-gray-400">
+            <div>
+            <ReceiptIconPlaceholder className="h-16 w-16 mx-auto text-gray-300 dark:text-gray-600" />
+            <p className="mt-4 text-lg">Select a receipt to view details</p>
+            {receipts.length === 0 && <p className="mt-2 text-sm">There are no receipts to show.</p>}
+            </div>
         </div>
       </div>
     )
-  );
+  };
 
   return (
     <div className="flex h-full bg-gray-100 dark:bg-gray-900 overflow-hidden">
       {/* Left Panel: Transaction Log */}
       <div className={`w-full md:w-1/3 flex-col border-r border-gray-200 dark:border-gray-700 ${isDetailView ? 'hidden md:flex' : 'flex'}`}>
+        <div className="flex-shrink-0 h-16 flex items-center px-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <button onClick={openDrawer} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
+                <MenuIcon className="h-6 w-6" />
+            </button>
+            <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100 ml-4">Receipts</h1>
+        </div>
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div className="relative">
             <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />

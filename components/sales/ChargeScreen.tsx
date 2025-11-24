@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import type { OrderItem } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { printReceipt } from '../../utils/printerHelper';
-import { UserIcon, ArrowLeftIcon, SplitIcon, CheckIcon, PrintIcon } from '../../constants';
+import { UserIcon, ArrowLeftIcon, SplitIcon, CheckIcon, PrintIcon, MailIcon, AnimatedCheckIcon } from '../../constants';
 
 interface ChargeScreenProps {
   orderItems: OrderItem[];
@@ -20,6 +20,7 @@ interface ChargeScreenProps {
 const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, subtotal, onBack, onProcessPayment, onNewSale, paymentResult }) => {
   const { settings, printers } = useAppContext();
   const [cashTendered, setCashTendered] = useState(total);
+  const [isPrinting, setIsPrinting] = useState(false);
   
   // India-specific Smart Suggestions Logic
   const uniqueQuickCash = useMemo(() => {
@@ -57,10 +58,12 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
     setCashTendered(total);
   }, [total]);
 
-  const handlePrintReceipt = () => {
-    if (!paymentResult) return;
+  const handlePrintReceipt = async () => {
+    if (!paymentResult || isPrinting) return;
+    
+    setIsPrinting(true);
     const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
-    printReceipt({
+    const result = await printReceipt({
         items: orderItems,
         total,
         subtotal,
@@ -70,6 +73,11 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
         settings,
         printer,
     });
+    setIsPrinting(false);
+
+    if (!result.success) {
+      alert(`Print Failed: ${result.message}`);
+    }
   };
   
   const StaticTicketPanel = () => (
@@ -152,47 +160,95 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
   );
 
   const ChangeWorkspace = () => {
+    const [email, setEmail] = useState('');
+    const [isSending, setIsSending] = useState(false);
+
     const change = paymentResult?.change || 0;
     const amountTendered = total + change;
+
+    const handleEmailReceipt = () => {
+        if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
+            alert("Please enter a valid email address.");
+            return;
+        }
+        setIsSending(true);
+        console.log(`Emailing receipt to ${email}`);
+        // Simulate sending email
+        setTimeout(() => {
+            setIsSending(false);
+            alert(`Receipt sent to ${email}`);
+            setEmail('');
+        }, 1500);
+    };
     
     return (
-        <>
-            <header className="flex-shrink-0 h-16 flex items-center justify-center px-4 border-b dark:border-slate-700 bg-white dark:bg-slate-800">
-                 <h2 className="text-lg font-semibold text-green-600 dark:text-green-400 flex items-center gap-2">
-                    <CheckIcon className="h-5 w-5" />
+        <div className="flex-1 flex flex-col justify-center items-center p-4 sm:p-6 bg-slate-50 dark:bg-slate-900/50">
+            <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-6 text-center animate-fadeIn">
+                
+                <AnimatedCheckIcon className="h-16 w-16 mx-auto mb-2" />
+
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
                     Transaction Complete
-                 </h2>
-            </header>
-            <div className="flex-1 flex flex-col justify-center items-center p-8">
-                <div className="grid grid-cols-2 gap-8 text-center w-full max-w-lg mb-12">
-                    <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700">
-                        <label className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Paid</label>
-                        <p className="text-4xl md:text-5xl font-bold font-mono text-slate-800 dark:text-slate-100 mt-2">{amountTendered.toFixed(2)}</p>
+                </h2>
+
+                <div className="my-6 space-y-2 text-sm">
+                    <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                        <span>Total:</span>
+                        <span className="font-mono font-medium text-slate-700 dark:text-slate-300">{total.toFixed(2)}</span>
                     </div>
-                    <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700">
-                        <label className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Change</label>
-                        <p className="text-4xl md:text-5xl font-bold font-mono text-emerald-500 mt-2">{change.toFixed(2)}</p>
+                    <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                        <span>{paymentResult?.method === 'Cash' ? 'Tendered:' : 'Paid:'}</span>
+                        <span className="font-mono font-medium text-slate-700 dark:text-slate-300">{amountTendered.toFixed(2)}</span>
                     </div>
                 </div>
-                <div className="w-full max-w-md space-y-4">
+
+                <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-lg p-4">
+                    <label className="text-sm font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Change</label>
+                    <p className="text-4xl sm:text-5xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1 break-all">
+                        {change.toFixed(2)}
+                    </p>
+                </div>
+                
+                <div className="mt-8 space-y-3">
+                    {/* Email Input */}
                     <div className="flex items-center gap-2">
-                        <input type="email" placeholder="Enter email address" className="flex-grow p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 focus:ring-2 focus:ring-indigo-500 dark:text-white" />
-                        <button className="px-4 py-3 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-600 transition-colors">Send</button>
-                    </div>
-                    <button onClick={handlePrintReceipt} className="w-full flex items-center justify-center gap-2 p-4 border-2 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold text-lg rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                        <PrintIcon className="h-6 w-6" />
-                        Print Receipt
-                    </button>
-                    
-                    <div className="pt-6">
-                        <button onClick={onNewSale} className="w-full flex items-center justify-center gap-2 p-4 bg-emerald-500 text-white font-bold text-xl rounded-lg hover:bg-emerald-600 shadow-lg hover:shadow-xl transition-all transform active:scale-[0.98]">
-                            <CheckIcon className="h-6 w-6" />
-                            New Sale
+                        <div className="relative flex-grow">
+                             <MailIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5" />
+                             <input 
+                               type="email" 
+                               value={email}
+                               onChange={(e) => setEmail(e.target.value)}
+                               placeholder="Email receipt..." 
+                               className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700/50 focus:ring-2 focus:ring-indigo-500 dark:text-white" 
+                             />
+                        </div>
+                        <button 
+                            onClick={handleEmailReceipt}
+                            disabled={isSending || !email}
+                            className="px-4 py-3 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-600 transition-colors disabled:bg-indigo-300 dark:disabled:bg-indigo-800/50 disabled:cursor-not-allowed flex-shrink-0"
+                        >
+                            {isSending ? '...' : 'Send'}
                         </button>
                     </div>
+                    
+                    {/* Print Button */}
+                    <button 
+                      onClick={handlePrintReceipt} 
+                      disabled={isPrinting}
+                      className="w-full flex items-center justify-center gap-2 p-3 border-2 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                    >
+                        <PrintIcon className="h-5 w-5" />
+                        {isPrinting ? 'Printing...' : 'Print Receipt'}
+                    </button>
+                    
+                    {/* New Sale Button */}
+                    <button onClick={onNewSale} className="w-full flex items-center justify-center gap-2 p-4 bg-emerald-500 text-white font-bold text-lg rounded-lg hover:bg-emerald-600 shadow-lg hover:shadow-xl transition-all transform active:scale-[0.98]">
+                        <CheckIcon className="h-6 w-6" />
+                        New Sale
+                    </button>
                 </div>
             </div>
-        </>
+        </div>
     );
   };
 

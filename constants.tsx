@@ -163,3 +163,26 @@ export const NAV_LINKS = [
   { path: '/settings', label: 'Settings', Icon: SettingsIcon },
   { path: '/advanced', label: 'Advanced', Icon: AdvancedIcon },
 ];
+
+export const AnimatedCheckIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+        <circle className="stroke-current text-green-100 dark:text-green-900/50" cx="26" cy="26" r="25" fill="none" strokeWidth="2" />
+        <path
+            className="stroke-current text-green-600 dark:text-green-400"
+            fill="none"
+            strokeWidth="3"
+            strokeLinecap="round"
+            style={{
+                strokeDasharray: 48,
+                strokeDashoffset: 48,
+                animation: 'draw-check 0.4s 0.2s ease-out forwards',
+            }}
+            d="M14.1 27.2l7.1 7.2 16.7-16.8"
+        />
+        <style>{`
+            @keyframes draw-check {
+                to { stroke-dashoffset: 0; }
+            }
+        `}</style>
+    </svg>
+);
