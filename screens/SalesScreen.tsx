@@ -283,10 +283,10 @@ const SalesScreen: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-full bg-slate-50 dark:bg-slate-900 font-sans relative">
+    <div className="flex flex-col md:flex-row h-full bg-background font-sans relative">
       <div className={`w-full md:w-[70%] flex-col ${isTicketVisible ? 'hidden md:flex' : 'flex'}`}>
         <SalesHeader openDrawer={openDrawer} onSearchChange={setSearchQuery} />
-        <div className="flex-1 flex flex-col p-4 overflow-hidden">
+        <div className="flex-1 flex flex-col p-3 md:p-4 overflow-hidden">
           <div className="flex-1 overflow-y-auto pr-2 content-visibility-auto">
             <ItemGrid
               itemsForDisplay={itemsForDisplay}
@@ -325,10 +325,10 @@ const SalesScreen: React.FC = () => {
       />
       
       {currentOrder.length > 0 && !isTicketVisible && (
-        <button onClick={() => setIsTicketVisible(true)} className="md:hidden fixed bottom-4 right-4 bg-blue-600 text-white font-bold py-3 px-5 rounded-full shadow-lg flex items-center gap-2 z-20">
+        <button onClick={() => setIsTicketVisible(true)} className="md:hidden fixed bottom-4 right-4 bg-primary text-primary-content font-bold py-3 px-5 rounded-full shadow-lg flex items-center gap-2 z-20">
             <ReceiptIcon className="h-5 w-5" />
             <span>View Order ({currentOrder.reduce((acc, item) => acc + item.quantity, 0)})</span>
-            <span className="font-mono bg-blue-700/50 px-2 py-0.5 rounded-full text-sm">{total.toFixed(2)}</span>
+            <span className="font-mono bg-primary-hover/50 px-2 py-0.5 rounded-full text-sm">{total.toFixed(2)}</span>
         </button>
       )}
 

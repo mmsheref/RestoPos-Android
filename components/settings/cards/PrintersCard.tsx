@@ -12,18 +12,18 @@ interface PrintersCardProps {
 
 const PrintersCard: React.FC<PrintersCardProps> = ({ printers, onAdd, onTest, onRemove, testingPrinterId }) => {
   return (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+    <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Printers</h2>
-        <button onClick={onAdd} className="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">+ Add</button>
+        <h2 className="text-xl font-semibold text-text-primary">Printers</h2>
+        <button onClick={onAdd} className="bg-primary text-primary-content font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover text-sm">+ Add</button>
       </div>
       {printers.length > 0 ? (
         <ul className="space-y-3">
           {printers.map(p => (
-            <li key={p.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+            <li key={p.id} className="flex items-center justify-between p-3 bg-surface-muted rounded-lg">
               <div>
-                <p className="font-medium text-gray-800 dark:text-gray-200">{p.name}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">{p.interfaceType} - {p.address || 'N/A'}</p>
+                <p className="font-medium text-text-primary">{p.name}</p>
+                <p className="text-xs text-text-secondary font-mono">{p.interfaceType} - {p.address || 'N/A'}</p>
               </div>
               <div className="flex items-center gap-1">
                 <button onClick={() => onTest(p)} disabled={testingPrinterId === p.id} className="text-sm bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200 px-3 py-1 rounded hover:bg-gray-300 disabled:opacity-50">
@@ -37,7 +37,7 @@ const PrintersCard: React.FC<PrintersCardProps> = ({ printers, onAdd, onTest, on
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-center text-gray-500 dark:text-gray-400 py-4">No printers configured.</p>
+        <p className="text-sm text-center text-text-secondary py-4">No printers configured.</p>
       )}
     </div>
   );

@@ -7,16 +7,16 @@ interface DataManagementCardProps {
 
 const DataManagementCard: React.FC<DataManagementCardProps> = ({ onExport, onImport }) => {
   return (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-      <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100">Data Management</h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+    <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
+      <h2 className="text-xl font-semibold mb-4 text-text-primary">Data Management</h2>
+      <p className="text-sm text-text-secondary mb-4">
         Export your app data as a JSON file for backup, or restore from a previous backup.
       </p>
       <div className="flex gap-4">
         <button onClick={onImport} className="flex-1 bg-green-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-green-700">
           Import from Backup
         </button>
-        <button onClick={onExport} className="flex-1 bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700">
+        <button onClick={onExport} className="flex-1 bg-primary text-primary-content font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover">
           Export Backup
         </button>
       </div>

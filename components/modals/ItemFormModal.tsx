@@ -133,9 +133,9 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, 
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="bg-surface rounded-lg p-6 shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                    <h2 className="text-xl font-bold text-text-primary">
                         {initialData ? 'Edit Item' : 'Add New Item'}
                     </h2>
                     {initialData && onDelete && (
@@ -156,7 +156,7 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, 
                     <div className="flex flex-col items-center justify-center mb-6">
                         <div 
                             onClick={triggerFileSelect}
-                            className="relative w-32 h-32 rounded-lg bg-slate-100 dark:bg-slate-700 border-2 border-dashed border-slate-300 dark:border-slate-500 flex items-center justify-center cursor-pointer overflow-hidden group hover:border-indigo-500 transition-colors"
+                            className="relative w-32 h-32 rounded-lg bg-surface-muted border-2 border-dashed border-border flex items-center justify-center cursor-pointer overflow-hidden group hover:border-primary transition-colors"
                         >
                             {imageUrl ? (
                                 <>
@@ -177,7 +177,7 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, 
                                 </>
                             ) : (
                                 <div className="text-center p-2">
-                                    <span className="text-xs text-slate-500 dark:text-slate-400">Tap to add photo</span>
+                                    <span className="text-xs text-text-secondary">Tap to add photo</span>
                                 </div>
                             )}
                             
@@ -194,36 +194,36 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, 
                             accept="image/*"
                             className="hidden"
                         />
-                        <button type="button" onClick={triggerFileSelect} className="mt-2 text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:underline">
+                        <button type="button" onClick={triggerFileSelect} className="mt-2 text-sm text-primary font-medium hover:underline">
                             {imageUrl ? 'Change Photo' : 'Select from Gallery'}
                         </button>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Item Name</label>
+                        <label className="block text-sm font-medium text-text-secondary mb-1">Item Name</label>
                         <input 
                             required
                             type="text" 
                             value={name} 
                             onChange={e => setName(e.target.value)} 
-                            className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                            className="w-full p-2 border border-border rounded bg-background text-text-primary focus:ring-2 focus:ring-primary"
                         />
                     </div>
                     
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Category (Optional)</label>
+                        <label className="block text-sm font-medium text-text-secondary mb-1">Category (Optional)</label>
                         <input 
                             type="text" 
                             value={category} 
                             onChange={e => setCategory(e.target.value)} 
                             placeholder="e.g. Starters, Drinks"
-                            className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                            className="w-full p-2 border border-border rounded bg-background text-text-primary focus:ring-2 focus:ring-primary"
                         />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Price</label>
+                            <label className="block text-sm font-medium text-text-secondary mb-1">Price</label>
                             <input 
                                 required
                                 type="number" 
@@ -231,26 +231,26 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, 
                                 step="0.01"
                                 value={price} 
                                 onChange={e => setPrice(e.target.value)} 
-                                className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                                className="w-full p-2 border border-border rounded bg-background text-text-primary focus:ring-2 focus:ring-primary"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Stock</label>
+                            <label className="block text-sm font-medium text-text-secondary mb-1">Stock</label>
                             <input 
                                 type="number" 
                                 value={stock} 
                                 onChange={e => setStock(e.target.value)} 
-                                className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                                className="w-full p-2 border border-border rounded bg-background text-text-primary focus:ring-2 focus:ring-primary"
                             />
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-3 pt-4 border-t dark:border-slate-700">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded">Cancel</button>
+                    <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-text-secondary hover:bg-surface-muted rounded">Cancel</button>
                         <button 
                             type="submit" 
                             disabled={isProcessing}
-                            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed"
+                            className="px-6 py-2 bg-primary text-primary-content rounded hover:bg-primary-hover disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             {isProcessing ? 'Processing...' : 'Save Item'}
                         </button>

@@ -32,27 +32,27 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, onEdit, onDelete }) => {
     return (
         <tr 
             onClick={() => onEdit(item)}
-            className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group"
+            className="hover:bg-surface-muted transition-colors cursor-pointer group"
         >
             <td className="px-6 py-4 whitespace-nowrap">
                 {item.imageUrl && !imgError ? (
                     <img 
-                        className="h-10 w-10 rounded-md object-cover bg-gray-200" 
+                        className="h-10 w-10 rounded-md object-cover bg-surface-muted" 
                         src={item.imageUrl} 
                         alt={item.name} 
                         onError={() => setImgError(true)} 
                     />
                 ) : (
-                    <div className="h-10 w-10 rounded-md bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500">
+                    <div className="h-10 w-10 rounded-md bg-surface-muted flex items-center justify-center text-text-muted">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                     </div>
                 )}
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{item.name}</td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.price.toFixed(2)}</td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.stock}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-text-primary">{item.name}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">{item.price.toFixed(2)}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">{item.stock}</td>
             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <button 
                     onClick={(e) => {
@@ -169,18 +169,18 @@ const ItemsScreen: React.FC = () => {
   };
 
   return (
-    <div className="p-6 dark:bg-gray-900 min-h-full flex flex-col">
+    <div className="p-6 bg-background min-h-full flex flex-col">
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 self-start md:self-center">Menu Items</h1>
+        <h1 className="text-3xl font-bold text-text-primary self-start md:self-center">Menu Items</h1>
         <div className="flex w-full md:w-auto items-center gap-2">
             <div className="relative flex-grow md:flex-grow-0">
-                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted h-5 w-5" />
                 <input 
                     type="text" 
                     placeholder="Search items..." 
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="pl-10 pr-4 py-2 border rounded-lg w-full md:w-64 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                    className="pl-10 pr-4 py-2 border rounded-lg w-full md:w-64 bg-surface border-border text-text-primary focus:ring-2 focus:ring-primary"
                 />
             </div>
             <button
@@ -199,29 +199,29 @@ const ItemsScreen: React.FC = () => {
             </button>
             <button
               onClick={handleAddItem}
-              className="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0 shadow-sm"
+              className="bg-primary text-primary-content font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors flex-shrink-0 shadow-sm"
             >
               + Add Item
             </button>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden flex-grow border border-gray-200 dark:border-gray-700">
+      <div className="bg-surface rounded-lg shadow-sm overflow-hidden flex-grow border border-border">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-700">
+          <table className="min-w-full divide-y divide-border">
+            <thead className="bg-surface-muted">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Image</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Name</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Price</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Stock</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Image</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Name</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Price</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Stock</th>
                 <th scope="col" className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="bg-surface divide-y divide-border">
               {filteredItems.length === 0 ? (
                   <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                      <td colSpan={5} className="px-6 py-12 text-center text-text-secondary">
                           {search ? 'No items found matching your search.' : 'No items available. Add your first item!'}
                       </td>
                   </tr>

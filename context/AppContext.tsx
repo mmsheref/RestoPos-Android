@@ -323,12 +323,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       // Identify and batch additions/updates
       for (const [index, newGrid] of newGrids.entries()) {
-          const oldGrid = oldGridsMap.get(newGrid.id);
+          // FIX: Renamed `oldGrid` to `existingGrid` to avoid potential scope confusion with the loop variable above and to resolve a TypeScript type inference issue.
+          // FIX: Explicitly cast the type of `existingGrid` to resolve the TypeScript error where its type was inferred as `unknown`.
+          const existingGrid = oldGridsMap.get(newGrid.id) as CustomGrid | undefined;
           const newGridWithOrder = { ...newGrid, order: index };
 
           // Add to batch only if it's a new grid or if its name/order has changed.
           // This minimizes write operations, saving cost and improving performance.
-          if (!oldGrid || oldGrid.name !== newGridWithOrder.name || oldGrid.order !== newGridWithOrder.order) {
+          if (!existingGrid || existingGrid.name !== newGridWithOrder.name || existingGrid.order !== newGridWithOrder.order) {
               batch.set(doc(gridsRef, newGrid.id), newGridWithOrder);
           }
       }

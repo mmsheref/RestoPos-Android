@@ -92,8 +92,8 @@ const SettingsScreen: React.FC = () => {
   };
 
   return (
-    <div className="p-6 pb-24 dark:bg-gray-900 min-h-full">
-      <h1 className="text-3xl font-bold mb-6 text-gray-800 dark:text-gray-100">Settings</h1>
+    <div className="p-6 pb-24 bg-background min-h-full">
+      <h1 className="text-3xl font-bold mb-6 text-text-primary">Settings</h1>
       <div className="space-y-8 max-w-2xl mx-auto">
         
         <AppearanceCard theme={theme} setTheme={setTheme} />

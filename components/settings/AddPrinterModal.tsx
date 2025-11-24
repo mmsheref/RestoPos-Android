@@ -95,63 +95,63 @@ const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ isOpen, onClose, onSa
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-xl w-full max-w-md overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center mb-4 border-b dark:border-slate-700 pb-2">
-          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Add Printer</h2>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+      <div className="bg-surface rounded-lg p-6 shadow-xl w-full max-w-md overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-4 border-b border-border pb-2">
+          <h2 className="text-xl font-bold text-text-primary">Add Printer</h2>
+          <button onClick={onClose} className="text-text-muted hover:text-text-primary">
             <CloseIcon className="h-6 w-6" />
           </button>
         </div>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Printer Name</label>
-            <input type="text" value={printerName} onChange={(e) => setPrinterName(e.target.value)} placeholder="e.g. Kitchen Printer" className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-indigo-500 dark:bg-slate-700 dark:text-white" />
+            <label className="block text-sm font-medium text-text-secondary mb-1">Printer Name</label>
+            <input type="text" value={printerName} onChange={(e) => setPrinterName(e.target.value)} placeholder="e.g. Kitchen Printer" className="w-full p-2 border border-border rounded-md focus:ring-2 focus:ring-primary bg-background text-text-primary" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Interface</label>
-              <select value={printerInterface} onChange={(e) => { setPrinterInterface(e.target.value as PrinterInterfaceType); setFoundDevices([]); setIsScanning(false); }} className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-indigo-500 dark:bg-slate-700 dark:text-white">
+              <label className="block text-sm font-medium text-text-secondary mb-1">Interface</label>
+              <select value={printerInterface} onChange={(e) => { setPrinterInterface(e.target.value as PrinterInterfaceType); setFoundDevices([]); setIsScanning(false); }} className="w-full p-2 border border-border rounded-md focus:ring-2 focus:ring-primary bg-background text-text-primary">
                 <option value="Bluetooth">Bluetooth</option>
                 <option value="Ethernet">Ethernet</option>
                 <option value="USB">USB</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Paper Width</label>
-              <select value={paperWidth} onChange={(e) => setPaperWidth(e.target.value as PrinterPaperWidth)} className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-indigo-500 dark:bg-slate-700 dark:text-white">
+              <label className="block text-sm font-medium text-text-secondary mb-1">Paper Width</label>
+              <select value={paperWidth} onChange={(e) => setPaperWidth(e.target.value as PrinterPaperWidth)} className="w-full p-2 border border-border rounded-md focus:ring-2 focus:ring-primary bg-background text-text-primary">
                 <option value="58mm">58mm</option>
                 <option value="80mm">80mm</option>
               </select>
             </div>
           </div>
           {printerInterface === 'Bluetooth' && (
-            <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+            <div className="bg-surface-muted rounded-lg p-3 border border-border">
               <div className="flex justify-between items-center mb-2">
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">Available Devices</label>
+                <label className="block text-sm font-bold text-text-secondary">Available Devices</label>
                 <button onClick={handleStartScan} disabled={isScanning} className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-600 dark:text-white px-3 py-1.5 rounded font-medium hover:bg-blue-200 dark:hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center gap-1">
                   {isScanning ? (<><span className="animate-spin h-3 w-3 border-2 border-current border-t-transparent rounded-full"></span>Scanning...</>) : (<><svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>Scan</>)}
                 </button>
               </div>
               {foundDevices.length > 0 ? (
-                <ul className="mb-4 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-600 max-h-32 overflow-y-auto">
+                <ul className="mb-4 bg-surface rounded border border-border max-h-32 overflow-y-auto">
                   {foundDevices.map((device) => (
-                    <li key={device.address}><button onClick={() => handleSelectDevice(device)} className="w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex justify-between items-center border-b border-slate-100 dark:border-slate-700 last:border-0 transition-colors"><div className="truncate"><div className="font-medium text-slate-800 dark:text-slate-200">{device.name}</div><div className="text-xs text-slate-500">{device.address}</div></div><span className="text-xs text-indigo-600 dark:text-indigo-400 font-medium px-2 py-1 bg-indigo-50 dark:bg-indigo-900/20 rounded">Select</span></button></li>
+                    <li key={device.address}><button onClick={() => handleSelectDevice(device)} className="w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex justify-between items-center border-b border-border last:border-0 transition-colors"><div className="truncate"><div className="font-medium text-text-primary">{device.name}</div><div className="text-xs text-text-secondary">{device.address}</div></div><span className="text-xs text-indigo-600 dark:text-indigo-400 font-medium px-2 py-1 bg-indigo-50 dark:bg-indigo-900/20 rounded">Select</span></button></li>
                   ))}
                 </ul>
-              ) : (!isScanning && <div className="text-xs text-slate-400 italic mb-3 text-center">No devices found. Press scan.</div>)}
-              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide mt-3">Manual Address</label>
-              <input type="text" value={printerAddress} onChange={(e) => setPrinterAddress(e.target.value)} placeholder="00:11:22:33:44:55" className="w-full p-2 text-sm border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-indigo-500 dark:bg-slate-800 dark:text-white font-mono" />
+              ) : (!isScanning && <div className="text-xs text-text-muted italic mb-3 text-center">No devices found. Press scan.</div>)}
+              <label className="block text-xs font-medium text-text-muted mb-1 uppercase tracking-wide mt-3">Manual Address</label>
+              <input type="text" value={printerAddress} onChange={(e) => setPrinterAddress(e.target.value)} placeholder="00:11:22:33:44:55" className="w-full p-2 text-sm border border-border rounded-md focus:ring-2 focus:ring-primary bg-background text-text-primary font-mono" />
             </div>
           )}
           {printerInterface === 'Ethernet' && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">IP Address</label>
-              <input type="text" value={printerAddress} onChange={(e) => setPrinterAddress(e.target.value)} placeholder="192.168.1.100" className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-indigo-500 dark:bg-slate-700 dark:text-white font-mono" />
+              <label className="block text-sm font-medium text-text-secondary mb-1">IP Address</label>
+              <input type="text" value={printerAddress} onChange={(e) => setPrinterAddress(e.target.value)} placeholder="192.168.1.100" className="w-full p-2 border border-border rounded-md focus:ring-2 focus:ring-primary bg-background text-text-primary font-mono" />
             </div>
           )}
           <div className="pt-4 flex gap-3">
-            <button onClick={onClose} className="flex-1 py-2 bg-slate-100 dark:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-500">Cancel</button>
-            <button onClick={handleSavePrinter} className="flex-1 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 shadow-md">Save Printer</button>
+            <button onClick={onClose} className="flex-1 py-2 bg-surface-muted text-text-secondary rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">Cancel</button>
+            <button onClick={handleSavePrinter} className="flex-1 py-2 bg-primary text-primary-content font-semibold rounded-lg hover:bg-primary-hover shadow-md">Save Printer</button>
           </div>
         </div>
       </div>

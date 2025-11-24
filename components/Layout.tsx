@@ -33,16 +33,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
 
   return (
-    <div className="relative h-screen w-full overflow-x-hidden bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col">
+    <div className="relative h-screen w-full overflow-x-hidden bg-background text-text-primary flex flex-col">
       {!isSalesScreen && !isReceiptsScreen && <Header 
         title={finalTitle} 
         onMenuClick={openDrawer}
       />}
       <NavDrawer />
       <main
-        className={`flex-1 flex flex-col shadow-lg overflow-hidden relative ${isDrawerOpen ? 'translate-x-64' : 'translate-x-0'}`}
+        className={`flex-1 flex flex-col shadow-lg overflow-hidden relative transition-transform duration-300 ease-in-out ${isDrawerOpen ? 'translate-x-64' : 'translate-x-0'}`}
       >
-        <div className={`flex-1 overflow-y-auto w-full ${isSalesScreen ? '' : 'bg-white dark:bg-gray-900'}`}>
+        <div className={`flex-1 overflow-y-auto w-full`}>
           {children}
         </div>
       </main>

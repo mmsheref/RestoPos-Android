@@ -22,7 +22,7 @@ const SalesHeader: React.FC<SalesHeaderProps> = ({ openDrawer, onSearchChange })
   };
 
   return (
-    <header className="bg-white dark:bg-slate-800 shadow-sm w-full z-10 flex-shrink-0 h-16 flex items-center justify-between px-4">
+    <header className="bg-surface shadow-sm w-full z-10 flex-shrink-0 h-16 flex items-center justify-between px-4">
       {isSearching ? (
         <div className="flex items-center w-full">
           <input
@@ -30,12 +30,12 @@ const SalesHeader: React.FC<SalesHeaderProps> = ({ openDrawer, onSearchChange })
             placeholder="Search all items..."
             value={searchQuery}
             onChange={handleQueryChange}
-            className="w-full h-full px-2 bg-transparent focus:outline-none text-lg text-gray-800 dark:text-slate-100"
+            className="w-full h-full px-2 bg-transparent focus:outline-none text-lg text-text-primary"
             autoFocus
           />
           <button
             onClick={handleCloseSearch}
-            className="p-2 text-gray-500 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-100"
+            className="p-2 text-text-muted hover:text-text-primary"
             aria-label="Close search"
           >
             <CloseIcon className="h-6 w-6" />
@@ -43,13 +43,13 @@ const SalesHeader: React.FC<SalesHeaderProps> = ({ openDrawer, onSearchChange })
         </div>
       ) : (
         <div className="flex items-center justify-between w-full">
-          <button onClick={openDrawer} className="p-2 text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white">
+          <button onClick={openDrawer} className="p-2 text-text-secondary hover:text-text-primary">
             <MenuIcon className="h-6 w-6" />
           </button>
-          <h1 className="text-xl font-semibold text-gray-800 dark:text-slate-100">
+          <h1 className="text-xl font-semibold text-text-primary">
             Sales
           </h1>
-          <button onClick={() => setIsSearching(true)} className="p-2 text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white">
+          <button onClick={() => setIsSearching(true)} className="p-2 text-text-secondary hover:text-text-primary">
             <SearchIcon className="h-5 w-5" />
           </button>
         </div>

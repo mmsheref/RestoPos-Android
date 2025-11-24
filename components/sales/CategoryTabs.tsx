@@ -21,7 +21,7 @@ const CategoryTabs: React.FC<CategoryTabsProps> = ({
 
   if (isSearchActive) {
     return (
-      <div className="flex-shrink-0 pt-2 text-center text-slate-500 dark:text-slate-400">
+      <div className="flex-shrink-0 pt-2 text-center text-text-secondary">
         Showing {searchResultsCount} results for "{searchQuery}"
       </div>
     );
@@ -32,8 +32,8 @@ const CategoryTabs: React.FC<CategoryTabsProps> = ({
         onClick={() => setActiveGridId(id)}
         className={`flex-shrink-0 whitespace-nowrap px-5 py-3 border-b-2 text-sm font-medium transition-colors duration-200 focus:outline-none ${
         activeGridId === id
-            ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
-            : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:border-slate-600'
+            ? 'border-primary text-primary'
+            : 'border-transparent text-text-secondary hover:text-text-primary hover:border-gray-300 dark:hover:border-gray-600'
         }`}
     >
         {name}
@@ -42,7 +42,7 @@ const CategoryTabs: React.FC<CategoryTabsProps> = ({
 
   return (
     <nav className="flex-shrink-0 pt-2">
-      <div className="border-b border-slate-200 dark:border-slate-700">
+      <div className="border-b border-border">
         <div className="flex -mb-px">
           {/* Scrollable Grids */}
           <div className="flex overflow-x-auto">
@@ -51,7 +51,7 @@ const CategoryTabs: React.FC<CategoryTabsProps> = ({
             ))}
             <button
               onClick={onAddNew}
-              className="flex-shrink-0 whitespace-nowrap px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 flex items-center gap-1.5"
+              className="flex-shrink-0 whitespace-nowrap px-4 py-3 border-b-2 border-transparent text-text-secondary hover:text-primary flex items-center gap-1.5"
               title="Add new grid"
             >
               <PlusIcon className="h-4 w-4" />
@@ -62,7 +62,7 @@ const CategoryTabs: React.FC<CategoryTabsProps> = ({
           <div className="flex items-center ml-auto pl-4">
             <button
               onClick={onManage}
-              className="flex-shrink-0 whitespace-nowrap px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 flex items-center gap-1.5"
+              className="flex-shrink-0 whitespace-nowrap px-4 py-3 border-b-2 border-transparent text-text-secondary hover:text-primary flex items-center gap-1.5"
               title="Manage grids"
             >
               <PencilIcon className="h-4 w-4" />

@@ -10,35 +10,95 @@
       // CONFIG: Add dark mode support using a class
       tailwind.config = {
         darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              // Light & Dark theme colors for semantic use
+              background: 'var(--color-background)',
+              surface: 'var(--color-surface)',
+              'surface-muted': 'var(--color-surface-muted)',
+              
+              primary: 'var(--color-primary)',
+              'primary-hover': 'var(--color-primary-hover)',
+              'primary-content': 'var(--color-primary-content)',
+              
+              'text-primary': 'var(--color-text-primary)',
+              'text-secondary': 'var(--color-text-secondary)',
+              'text-muted': 'var(--color-text-muted)',
+
+              border: 'var(--color-border)',
+            }
+          }
+        }
       }
     </script>
     <style>
-      /* Simple scrollbar styling for a cleaner look */
+      /* --- NEW THEME & COLOR PALETTE --- */
       :root {
-        --scrollbar-track: #f1f1f1;
-        --scrollbar-thumb: #888;
-        --scrollbar-thumb-hover: #555;
+        --color-background: #F8F9FA; /* slate-50 */
+        --color-surface: #FFFFFF; /* white */
+        --color-surface-muted: #F1F3F5; /* slate-100 */
+        --color-border: #E9ECEF; /* slate-200 */
+
+        --color-primary: #4338CA; /* indigo-700 */
+        --color-primary-hover: #3730A3; /* indigo-800 */
+        --color-primary-content: #FFFFFF;
+
+        --color-text-primary: #1F2937; /* slate-800 */
+        --color-text-secondary: #4B5563; /* slate-600 */
+        --color-text-muted: #9CA3AF; /* slate-400 */
+
+        --scrollbar-track: #F1F1F1;
+        --scrollbar-thumb: #A8A29E; /* stone-400 */
+        --scrollbar-thumb-hover: #78716C; /* stone-500 */
       }
+      
       html.dark {
-        --scrollbar-track: #2d3748; /* gray-800 */
-        --scrollbar-thumb: #718096; /* gray-500 */
-        --scrollbar-thumb-hover: #a0aec0; /* gray-400 */
+        --color-background: #0B1120; /* near-black */
+        --color-surface: #111827; /* gray-900 */
+        --color-surface-muted: #1F2937; /* gray-800 */
+        --color-border: #374151; /* gray-700 */
+        
+        --color-primary: #6366F1; /* indigo-500 */
+        --color-primary-hover: #4F46E5; /* indigo-600 */
+        --color-primary-content: #FFFFFF;
+        
+        --color-text-primary: #F3F4F6; /* gray-100 */
+        --color-text-secondary: #D1D5DB; /* gray-300 */
+        --color-text-muted: #6B7280; /* gray-500 */
+
+        --scrollbar-track: #1F2937;
+        --scrollbar-thumb: #4B5563;
+        --scrollbar-thumb-hover: #6B7280;
       }
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+
+      /* Base body styles for the new theme */
+      body {
+        background-color: var(--color-background);
+        color: var(--color-text-primary);
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
       }
-      ::-webkit-scrollbar-track {
-        background: var(--scrollbar-track);
+      
+      input, textarea {
+        -webkit-user-select: text;
+        -moz-user-select: text;
+        -ms-user-select: text;
+        user-select: text;
       }
-      ::-webkit-scrollbar-thumb {
-        background: var(--scrollbar-thumb);
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: var(--scrollbar-thumb-hover);
-      }
-      /* Animation for modals and pop-ups */
+
+      /* Scrollbar styling */
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+      ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+
+      /* Animation for modals */
       @keyframes fadeIn {
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
@@ -46,20 +106,7 @@
       .animate-fadeIn {
         animation: fadeIn 0.3s ease-out forwards;
       }
-      /* Disable text selection for a more native-app feel */
-      body {
-        -webkit-user-select: none; /* Safari */
-        -moz-user-select: none; /* Firefox */
-        -ms-user-select: none; /* IE10+/Edge */
-        user-select: none; /* Standard */
-      }
-      /* Re-enable for inputs where it's expected */
-      input, textarea {
-        -webkit-user-select: text;
-        -moz-user-select: text;
-        -ms-user-select: text;
-        user-select: text;
-      }
+
     </style>
   <script type="importmap">
 {
@@ -87,7 +134,7 @@
     }
   </script>
 </head>
-  <body class="bg-gray-100 dark:bg-gray-900 antialiased">
+  <body class="antialiased">
     <div id="root"></div>
     <script src="capacitor.js"></script>
     <script type="module" src="/index.tsx"></script>
