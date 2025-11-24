@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import type { Item } from '../types';
 import { useAppContext } from '../context/AppContext';
@@ -18,7 +19,6 @@ const generateId = () => {
     });
 };
 
-// FIX: Refactored ItemRow to use a props interface and React.FC to fix typing issue with the 'key' prop.
 // Refactored Row Component: Row click edits, Delete button is separate/protected
 interface ItemRowProps {
   item: Item;
@@ -27,18 +27,28 @@ interface ItemRowProps {
 }
 
 const ItemRow: React.FC<ItemRowProps> = ({ item, onEdit, onDelete }) => {
+    const [imgError, setImgError] = useState(false);
+
     return (
         <tr 
             onClick={() => onEdit(item)}
             className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group"
         >
             <td className="px-6 py-4 whitespace-nowrap">
-                <img 
-                    className="h-10 w-10 rounded-md object-cover bg-gray-200" 
-                    src={item.imageUrl} 
-                    alt={item.name} 
-                    onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/40')} 
-                />
+                {item.imageUrl && !imgError ? (
+                    <img 
+                        className="h-10 w-10 rounded-md object-cover bg-gray-200" 
+                        src={item.imageUrl} 
+                        alt={item.name} 
+                        onError={() => setImgError(true)} 
+                    />
+                ) : (
+                    <div className="h-10 w-10 rounded-md bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                )}
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{item.name}</td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.price.toFixed(2)}</td>
@@ -89,11 +99,9 @@ const ItemsScreen: React.FC = () => {
   };
 
   const handleDeleteItem = (itemId: string) => {
-      console.log(`[ItemsScreen] User initiated delete for item ID: ${itemId}.`);
       deleteItem(itemId);
       
       if (editingItem?.id === itemId) {
-          console.log(`[ItemsScreen] Closing edit modal because the item being edited was deleted.`);
           setIsModalOpen(false);
           setEditingItem(undefined);
       }
@@ -108,7 +116,8 @@ const ItemsScreen: React.FC = () => {
               name: itemData.name || 'New Item',
               price: itemData.price || 0,
               stock: itemData.stock || 0,
-              imageUrl: itemData.imageUrl || 'https://via.placeholder.com/150'
+              imageUrl: itemData.imageUrl || '',
+              category: itemData.category || ''
           } as Item);
       }
       setIsModalOpen(false);

@@ -15,7 +15,6 @@ import {
     signInWithEmailAndPassword,
     signOut
 } from 'firebase/auth';
-// IMPORT the config from the separate file (which CI/CD will generate)
 import { firebaseConfig } from './firebaseConfig';
 
 // Re-export config so AppContext can use it for error handling

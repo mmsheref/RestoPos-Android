@@ -1,76 +1,146 @@
-
-
-
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { Receipt } from '../types';
 import { useAppContext } from '../context/AppContext';
+import { SearchIcon, PrintIcon, MailIcon, RefundIcon, ArrowLeftIcon, ReceiptIcon as ReceiptIconPlaceholder } from '../constants';
 
 const ReceiptsScreen: React.FC = () => {
   const { receipts } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null);
+  const [isDetailView, setIsDetailView] = useState(false); // For mobile view switching
 
+  // 1. Filter and sort receipts
   const filteredReceipts = useMemo(() => {
     return receipts
       .filter(receipt => receipt.id.toLowerCase().includes(searchTerm.toLowerCase()))
       .sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [searchTerm, receipts]);
 
-  return (
-    <div className="p-6 dark:bg-gray-900 min-h-full">
-      <h1 className="text-3xl font-bold mb-6 text-gray-800 dark:text-gray-100">Receipts</h1>
-      <div className="mb-6">
-        <input
-          type="text"
-          placeholder="Search by Receipt ID..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full max-w-sm p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400"
-        />
-      </div>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-700">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Payment</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredReceipts.map((receipt) => (
-                <tr key={receipt.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" onClick={() => setSelectedReceipt(receipt)}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{receipt.id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{receipt.date.toLocaleString()}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{receipt.total.toFixed(2)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{receipt.paymentMethod}</td>
-                </tr>
+  // 2. Group by date
+  const groupedReceipts = useMemo(() => {
+    // FIX: Use a more explicitly typed reduce function to ensure correct type inference.
+    return filteredReceipts.reduce<Record<string, Receipt[]>>((acc, receipt) => {
+      const dateStr = receipt.date.toLocaleDateString('en-GB', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      });
+      if (!acc[dateStr]) {
+        acc[dateStr] = [];
+      }
+      acc[dateStr].push(receipt);
+      return acc;
+    }, {});
+  }, [filteredReceipts]);
+
+  // 3. Select first receipt on load or when filter changes
+  useEffect(() => {
+    if (filteredReceipts.length > 0 && !filteredReceipts.some(r => r.id === selectedReceipt?.id)) {
+        setSelectedReceipt(filteredReceipts[0]);
+    } else if (filteredReceipts.length === 0) {
+        setSelectedReceipt(null);
+    }
+  }, [filteredReceipts, selectedReceipt]);
+
+  const handleSelectReceipt = (receipt: Receipt) => {
+      setSelectedReceipt(receipt);
+      setIsDetailView(true);
+  };
+
+  const ReceiptDetailView = () => (
+    selectedReceipt ? (
+      <>
+        <div className="flex-shrink-0 h-16 flex justify-between items-center px-4 md:px-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setIsDetailView(false)} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 md:hidden">
+                <ArrowLeftIcon className="h-6 w-6" />
+            </button>
+            <h2 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-gray-100">Receipt #{selectedReceipt.id}</h2>
+          </div>
+          <div className="flex items-center gap-1 md:gap-2">
+            <button className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"><PrintIcon className="h-5 w-5" /></button>
+            <button className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"><MailIcon className="h-5 w-5" /></button>
+            <button className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"><RefundIcon className="h-5 w-5" /></button>
+          </div>
+        </div>
+        <main className="flex-1 flex justify-center items-start p-4 md:p-8 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+          <div className="w-full max-w-md bg-white dark:bg-slate-800 shadow-lg rounded-lg p-6 md:p-8 font-sans">
+            <p className="text-4xl md:text-5xl font-bold text-center text-gray-800 dark:text-gray-100">₹{selectedReceipt.total.toFixed(2)}</p>
+            <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400 mt-4">
+              <span>Cashier: Admin</span>
+              <span>Terminal: POS 1</span>
+            </div>
+            <hr className="my-6 dark:border-gray-600" />
+            <ul className="space-y-3">
+              {selectedReceipt.items.map(item => (
+                <li key={item.id} className="flex justify-between items-start">
+                  <div>
+                    <p className="font-semibold text-gray-800 dark:text-gray-200">{item.name}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{item.quantity} x ₹{item.price.toFixed(2)}</p>
+                  </div>
+                  <p className="font-semibold text-gray-800 dark:text-gray-200">₹{(item.quantity * item.price).toFixed(2)}</p>
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+            <hr className="my-6 dark:border-gray-600" />
+            <div className="space-y-2 text-sm text-gray-500 dark:text-gray-400">
+              <div className="flex justify-between"><p>Payment Method</p><p className="font-medium text-gray-700 dark:text-gray-300">{selectedReceipt.paymentMethod}</p></div>
+              <div className="flex justify-between"><p>Date</p><p>{selectedReceipt.date.toLocaleDateString()}</p></div>
+              <div className="flex justify-between"><p>Time</p><p>{selectedReceipt.date.toLocaleTimeString()}</p></div>
+              <div className="flex justify-between"><p>Receipt ID</p><p>#{selectedReceipt.id}</p></div>
+            </div>
+          </div>
+        </main>
+      </>
+    ) : (
+      <div className="hidden md:flex flex-1 justify-center items-center text-center text-gray-500 dark:text-gray-400">
+        <div>
+          <ReceiptIconPlaceholder className="h-16 w-16 mx-auto text-gray-300 dark:text-gray-600" />
+          <p className="mt-4 text-lg">Select a receipt to view details</p>
+          {receipts.length === 0 && <p className="mt-2 text-sm">There are no receipts to show.</p>}
         </div>
       </div>
-      {/* A simple modal could be implemented here to show receipt details */}
-      {selectedReceipt && (
-         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedReceipt(null)}>
-           <div className="bg-white dark:bg-gray-800 rounded-lg p-8 max-w-md w-full text-gray-800 dark:text-gray-200" onClick={e => e.stopPropagation()}>
-             <h2 className="text-2xl font-bold mb-4">Receipt Details: {selectedReceipt.id}</h2>
-             <p><strong>Date:</strong> {selectedReceipt.date.toLocaleString()}</p>
-             <p><strong>Total:</strong> {selectedReceipt.total.toFixed(2)}</p>
-             <p><strong>Payment:</strong> {selectedReceipt.paymentMethod}</p>
-             <h3 className="font-bold mt-4 mb-2">Items:</h3>
-             <ul>
-              {selectedReceipt.items.map(item => (
-                <li key={item.id}>{item.quantity}x {item.name}</li>
-              ))}
-             </ul>
-             <button onClick={() => setSelectedReceipt(null)} className="mt-6 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">Close</button>
-           </div>
-         </div>
-      )}
+    )
+  );
+
+  return (
+    <div className="flex h-full bg-gray-100 dark:bg-gray-900 overflow-hidden">
+      {/* Left Panel: Transaction Log */}
+      <div className={`w-full md:w-1/3 flex-col border-r border-gray-200 dark:border-gray-700 ${isDetailView ? 'hidden md:flex' : 'flex'}`}>
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <div className="relative">
+            <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <input type="text" placeholder="Search by Receipt ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500" />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {Object.keys(groupedReceipts).length > 0 ? Object.entries(groupedReceipts).map(([date, receiptsInGroup]) => (
+            <div key={date}>
+              <h3 className="px-4 py-2 text-sm font-semibold text-green-700 dark:text-green-400 bg-gray-50 dark:bg-gray-800/50 sticky top-0 z-10">{date}</h3>
+              <ul>
+                {receiptsInGroup.map((receipt) => (
+                  <li key={receipt.id}>
+                    <button onClick={() => handleSelectReceipt(receipt)} className={`w-full text-left p-4 border-b border-gray-200 dark:border-gray-700/50 flex justify-between items-center transition-colors duration-150 ${selectedReceipt?.id === receipt.id ? 'bg-blue-100/50 dark:bg-slate-700' : 'hover:bg-gray-50 dark:hover:bg-slate-800'}`}>
+                      <div>
+                        <p className="font-bold text-lg text-gray-800 dark:text-gray-100">₹{receipt.total.toFixed(2)}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{receipt.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+                      <p className="text-sm text-gray-400 dark:text-gray-500 font-mono">#{receipt.id}</p>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )) : (
+            <div className="flex justify-center items-center h-full text-center text-gray-400 dark:text-gray-500 p-4">
+                <p>No receipts found for your search.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Right Panel: Digital Receipt */}
+      <div className={`w-full md:w-2/3 flex-col ${isDetailView ? 'flex' : 'hidden md:flex'}`}>
+        <ReceiptDetailView />
+      </div>
     </div>
   );
 };
