@@ -157,14 +157,13 @@ export const RefundIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
-export const QrCodeIcon: React.FC<{ className?: string }> = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <rect x="3" y="3" width="6" height="6" />
-        <rect x="15" y="3" width="6" height="6" />
-        <rect x="3" y="15" width="6" height="6" />
-        <path d="M15 15h6v6h-6z" />
+export const UpiIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <rect x="3" y="6" width="18" height="12" rx="2" />
+        <text x="12" y="15.5" textAnchor="middle" fontSize="9" fontWeight="bold" fill="currentColor" stroke="none">UPI</text>
     </svg>
 );
+
 
 export const CashBillIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -218,8 +217,8 @@ export const PaymentMethodIcon: React.FC<{ iconName: PaymentTypeIcon | undefined
     switch (iconName) {
         case 'cash':
             return <CashBillIcon className={className} />;
-        case 'qr':
-            return <QrCodeIcon className={className} />;
+        case 'upi':
+            return <UpiIcon className={className} />;
         case 'card':
             return <CardIcon className={className} />;
         default:

@@ -150,8 +150,8 @@ const SalesScreen: React.FC = () => {
     if (activeGridId === 'All') return items;
     const grid = customGrids.find(g => g.id === activeGridId);
     if (grid) {
-        // FIX: Defensively handle cases where itemIds might be missing to prevent crash.
-        const itemIds = grid.itemIds || new Array(GRID_SIZE).fill(null);
+        // FIX: More robustly handle cases where itemIds might be missing or not an array.
+        const itemIds = Array.isArray(grid.itemIds) ? grid.itemIds : new Array(GRID_SIZE).fill(null);
         return itemIds.map(itemId => items.find(i => i.id === itemId) || null);
     }
     return new Array(GRID_SIZE).fill(null);
@@ -182,8 +182,8 @@ const SalesScreen: React.FC = () => {
       if (!assigningSlot) return;
       const gridToUpdate = customGrids.find(g => g.id === assigningSlot.gridId);
       if (gridToUpdate) {
-          // FIX: Defensively handle cases where itemIds might be missing from a grid object to prevent crash.
-          const currentItemIds = gridToUpdate.itemIds || new Array(GRID_SIZE).fill(null);
+          // FIX: More robustly handle cases where itemIds might be missing or not an array.
+          const currentItemIds = Array.isArray(gridToUpdate.itemIds) ? gridToUpdate.itemIds : new Array(GRID_SIZE).fill(null);
           const newItemIds = [...currentItemIds];
           newItemIds[assigningSlot.slotIndex] = item.id;
           updateCustomGrid({ ...gridToUpdate, itemIds: newItemIds });
@@ -196,8 +196,8 @@ const SalesScreen: React.FC = () => {
     if (activeGridId === 'All') return;
     const gridToUpdate = customGrids.find(g => g.id === activeGridId);
     if (gridToUpdate) {
-        // FIX: Defensively handle cases where itemIds might be missing from a grid object to prevent crash.
-        const currentItemIds = gridToUpdate.itemIds || new Array(GRID_SIZE).fill(null);
+        // FIX: More robustly handle cases where itemIds might be missing or not an array.
+        const currentItemIds = Array.isArray(gridToUpdate.itemIds) ? gridToUpdate.itemIds : new Array(GRID_SIZE).fill(null);
         const newItemIds = [...currentItemIds];
         newItemIds[slotIndex] = null;
         updateCustomGrid({ ...gridToUpdate, itemIds: newItemIds });

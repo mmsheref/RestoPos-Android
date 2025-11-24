@@ -13,7 +13,7 @@ export interface OrderItem extends Item {
   quantity: number;
 }
 
-export type PaymentTypeIcon = 'cash' | 'qr' | 'card' | 'generic';
+export type PaymentTypeIcon = 'cash' | 'upi' | 'card' | 'generic';
 export type PaymentMethodType = 'cash' | 'other';
 
 export interface PaymentType {

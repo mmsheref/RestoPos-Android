@@ -55,16 +55,27 @@ export const getFirebaseErrorMessage = (error: any): string => {
 
 // --- Data Operations ---
 export const clearAllData = async (uid: string) => {
-    const collections = ['items', 'receipts', 'printers', 'saved_tickets', 'custom_grids', 'config'];
+    const collectionsToDelete = ['items', 'receipts', 'printers', 'saved_tickets', 'custom_grids', 'config'];
     const batch = writeBatch(db);
-    
-    for (const coll of collections) {
-        const collRef = collection(db, 'users', uid, coll);
-        const snapshot = await getDocs(collRef);
-        snapshot.docs.forEach(doc => batch.delete(doc.ref));
-    }
-    
+
+    // Create an array of promises, each fetching documents from a collection.
+    const snapshotPromises = collectionsToDelete.map(collName => 
+        getDocs(collection(db, 'users', uid, collName))
+    );
+
+    // Wait for all read operations to complete in parallel, improving performance.
+    const snapshots = await Promise.all(snapshotPromises);
+
+    // Add all delete operations to the batch from the resolved snapshots.
+    snapshots.forEach(snapshot => {
+        snapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+    });
+
+    // Execute the single batched write to delete all documents efficiently.
     await batch.commit();
-}
+};
+
 
 export { db, auth };

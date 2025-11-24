@@ -9,7 +9,7 @@ interface AddPaymentTypeModalProps {
   onSave: (paymentType: Omit<PaymentType, 'id' | 'enabled'>) => void;
 }
 
-const ICONS: PaymentTypeIcon[] = ['cash', 'qr', 'card', 'generic'];
+const ICONS: PaymentTypeIcon[] = ['cash', 'upi', 'card', 'generic'];
 
 const AddPaymentTypeModal: React.FC<AddPaymentTypeModalProps> = ({ isOpen, onClose, onSave }) => {
   const [name, setName] = useState('');

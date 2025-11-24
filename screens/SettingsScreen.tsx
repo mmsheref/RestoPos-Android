@@ -204,6 +204,15 @@ const SettingsScreen: React.FC = () => {
                <input type="file" accept="application/json, .json" ref={jsonFileInputRef} onChange={handleFileChange} className="hidden" />
            </div>
         </div>
+
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-4 border-b dark:border-gray-700 pb-2 text-gray-800 dark:text-gray-100">About</h2>
+          <div className="text-center text-gray-600 dark:text-gray-400 space-y-2">
+            <p className="text-lg font-bold text-gray-800 dark:text-gray-200">Restaurant POS</p>
+            <p className="text-sm">Version 2.1.0</p>
+            <p className="mt-4 text-xs">Developed with ❤️ by Ameer</p>
+          </div>
+        </div>
       </div>
 
       <AddPrinterModal isOpen={isPrinterModalOpen} onClose={() => setIsPrinterModalOpen(false)} onSave={(newPrinter) => { addPrinter(newPrinter); setIsPrinterModalOpen(false); }} />
