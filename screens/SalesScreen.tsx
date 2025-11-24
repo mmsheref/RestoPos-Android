@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { OrderItem, SavedTicket, Item, CustomGrid } from '../types';
 import { useAppContext } from '../context/AppContext';
@@ -150,9 +151,13 @@ const SalesScreen: React.FC = () => {
     if (activeGridId === 'All') return items;
     const grid = customGrids.find(g => g.id === activeGridId);
     if (grid) {
-        // FIX: More robustly handle cases where itemIds might be missing or not an array.
-        const itemIds = Array.isArray(grid.itemIds) ? grid.itemIds : new Array(GRID_SIZE).fill(null);
-        return itemIds.map(itemId => items.find(i => i.id === itemId) || null);
+        // BUG FIX: Ensure itemIds is always a fixed-size array to prevent crashes.
+        const sourceIds = Array.isArray(grid.itemIds) ? grid.itemIds : [];
+        const finalItemIds = new Array(GRID_SIZE).fill(null);
+        for(let i = 0; i < Math.min(sourceIds.length, GRID_SIZE); i++) {
+            finalItemIds[i] = sourceIds[i];
+        }
+        return finalItemIds.map(itemId => items.find(i => i.id === itemId) || null);
     }
     return new Array(GRID_SIZE).fill(null);
   }, [activeGridId, items, customGrids, debouncedSearchQuery]);
@@ -182,9 +187,12 @@ const SalesScreen: React.FC = () => {
       if (!assigningSlot) return;
       const gridToUpdate = customGrids.find(g => g.id === assigningSlot.gridId);
       if (gridToUpdate) {
-          // FIX: More robustly handle cases where itemIds might be missing or not an array.
-          const currentItemIds = Array.isArray(gridToUpdate.itemIds) ? gridToUpdate.itemIds : new Array(GRID_SIZE).fill(null);
-          const newItemIds = [...currentItemIds];
+          // BUG FIX: Ensure we start with a safe, full-sized array before modification.
+          const sourceIds = Array.isArray(gridToUpdate.itemIds) ? gridToUpdate.itemIds : [];
+          const newItemIds = new Array(GRID_SIZE).fill(null);
+          for(let i = 0; i < Math.min(sourceIds.length, GRID_SIZE); i++) {
+              newItemIds[i] = sourceIds[i];
+          }
           newItemIds[assigningSlot.slotIndex] = item.id;
           updateCustomGrid({ ...gridToUpdate, itemIds: newItemIds });
       }
@@ -196,9 +204,12 @@ const SalesScreen: React.FC = () => {
     if (activeGridId === 'All') return;
     const gridToUpdate = customGrids.find(g => g.id === activeGridId);
     if (gridToUpdate) {
-        // FIX: More robustly handle cases where itemIds might be missing or not an array.
-        const currentItemIds = Array.isArray(gridToUpdate.itemIds) ? gridToUpdate.itemIds : new Array(GRID_SIZE).fill(null);
-        const newItemIds = [...currentItemIds];
+        // BUG FIX: Ensure we start with a safe, full-sized array before modification.
+        const sourceIds = Array.isArray(gridToUpdate.itemIds) ? gridToUpdate.itemIds : [];
+        const newItemIds = new Array(GRID_SIZE).fill(null);
+        for(let i = 0; i < Math.min(sourceIds.length, GRID_SIZE); i++) {
+            newItemIds[i] = sourceIds[i];
+        }
         newItemIds[slotIndex] = null;
         updateCustomGrid({ ...gridToUpdate, itemIds: newItemIds });
     }
