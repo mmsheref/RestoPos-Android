@@ -17,6 +17,7 @@ import CategoryTabs from '../components/sales/CategoryTabs';
 import Ticket from '../components/sales/Ticket';
 import ChargeScreen from '../components/sales/ChargeScreen';
 import { ReceiptIcon } from '../constants';
+import ItemGridContextMenu from '../components/sales/ItemGridContextMenu';
 
 const GRID_SIZE = 20; // 5 columns * 4 rows
 
@@ -66,6 +67,14 @@ const SalesScreen: React.FC = () => {
       confirmText?: string;
       confirmButtonClass?: string;
   }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  
+  // New context menu state
+  const [contextMenuState, setContextMenuState] = useState<{
+      isOpen: boolean;
+      position: { top: number, left: number };
+      item: Item | null;
+      slotIndex: number;
+  }>({ isOpen: false, position: { top: 0, left: 0 }, item: null, slotIndex: -1 });
 
   // Mobile landscape state
   const [isTicketVisible, setIsTicketVisible] = useState(false);
@@ -133,26 +142,14 @@ const SalesScreen: React.FC = () => {
     setSalesView('grid'); setPaymentResult(null); setCurrentOrder([]); setEditingTicket(null);
   }, []);
   
-  // Performance Optimization: Memoize filtering logic dependent on Debounced Search
   const itemsForDisplay = useMemo<(Item | null)[]>(() => {
-    // If we have a search query, we filter ALL items (ignoring grid tabs)
     if (debouncedSearchQuery.trim()) {
         const lowerQuery = debouncedSearchQuery.trim().toLowerCase();
         return items.filter(item => item.name.toLowerCase().includes(lowerQuery));
     }
-    
-    // If active tab is 'All', return everything
-    if (activeGridId === 'All') {
-      return items;
-    }
-    
-    // If active tab is a custom grid, map the IDs to items
+    if (activeGridId === 'All') return items;
     const grid = customGrids.find(g => g.id === activeGridId);
-    if (grid) {
-      return grid.itemIds.map(itemId => items.find(i => i.id === itemId) || null);
-    }
-    
-    // Fallback
+    if (grid) return grid.itemIds.map(itemId => items.find(i => i.id === itemId) || null);
     return new Array(GRID_SIZE).fill(null);
   }, [activeGridId, items, customGrids, debouncedSearchQuery]);
 
@@ -191,33 +188,13 @@ const SalesScreen: React.FC = () => {
 
   const handleRemoveItemFromGrid = useCallback((slotIndex: number) => {
     if (activeGridId === 'All') return;
-    const grid = customGrids.find(g => g.id === activeGridId);
-    if (!grid) return;
-    const itemId = grid.itemIds[slotIndex];
-    const item = items.find(i => i.id === itemId);
-    if (!item) return;
-
-    setConfirmModalState({
-        isOpen: true,
-        title: "Confirm Removal",
-        message: (
-            <>
-                <p>Are you sure you want to remove "<strong>{item.name}</strong>" from this grid slot?</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">The item itself will not be deleted from your menu.</p>
-            </>
-        ),
-        onConfirm: () => {
-            const gridToUpdate = customGrids.find(g => g.id === activeGridId);
-            if (gridToUpdate) {
-                const newItemIds = [...gridToUpdate.itemIds];
-                newItemIds[slotIndex] = null;
-                updateCustomGrid({ ...gridToUpdate, itemIds: newItemIds });
-            }
-        },
-        confirmText: "Remove",
-        confirmButtonClass: "bg-red-600 hover:bg-red-700",
-    });
-  }, [activeGridId, customGrids, items, updateCustomGrid]);
+    const gridToUpdate = customGrids.find(g => g.id === activeGridId);
+    if (gridToUpdate) {
+        const newItemIds = [...gridToUpdate.itemIds];
+        newItemIds[slotIndex] = null;
+        updateCustomGrid({ ...gridToUpdate, itemIds: newItemIds });
+    }
+  }, [activeGridId, customGrids, updateCustomGrid]);
 
   const handleClearTicket = useCallback(() => {
     setCurrentOrder([]);
@@ -231,7 +208,6 @@ const SalesScreen: React.FC = () => {
           setEditingTicket(ticket);
           setIsOpenTicketsModalOpen(false);
       };
-
       if (currentOrder.length > 0) {
           setConfirmModalState({
               isOpen: true,
@@ -257,6 +233,32 @@ const SalesScreen: React.FC = () => {
       });
   };
 
+  // --- Context Menu Handlers ---
+  const handleItemLongPress = useCallback((item: Item, slotIndex: number, event: React.MouseEvent | React.TouchEvent) => {
+    event.preventDefault();
+    const getCoords = (e: React.MouseEvent | React.TouchEvent) => {
+        if ('touches' in e) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        return { x: e.clientX, y: e.clientY };
+    }
+    const { x, y } = getCoords(event);
+    setContextMenuState({ isOpen: true, position: { top: y, left: x }, item, slotIndex });
+  }, []);
+
+  const closeContextMenu = useCallback(() => {
+    setContextMenuState(prev => ({ ...prev, isOpen: false }));
+  }, []);
+  
+  const handleContextRemove = useCallback(() => {
+    if (contextMenuState.item) handleRemoveItemFromGrid(contextMenuState.slotIndex);
+    closeContextMenu();
+  }, [contextMenuState, handleRemoveItemFromGrid, closeContextMenu]);
+  
+  const handleContextChange = useCallback(() => {
+    if (contextMenuState.item) handleOpenSelectItemModal(contextMenuState.slotIndex);
+    closeContextMenu();
+  }, [contextMenuState, handleOpenSelectItemModal, closeContextMenu]);
+
+
   if (salesView === 'payment') {
     return <ChargeScreen total={total} tax={tax} subtotal={subtotal} onBack={() => setSalesView('grid')} onProcessPayment={handleProcessPayment} onNewSale={handleNewSale} paymentResult={paymentResult} orderItems={currentOrder} />;
   }
@@ -272,7 +274,7 @@ const SalesScreen: React.FC = () => {
               mode={activeGridId === 'All' || debouncedSearchQuery.trim() ? 'all' : 'grid'}
               onAddItemToOrder={addToOrder}
               onAssignItem={handleOpenSelectItemModal}
-              onRemoveItemFromGrid={handleRemoveItemFromGrid}
+              onItemLongPress={handleItemLongPress}
             />
           </div>
           <CategoryTabs
@@ -316,6 +318,13 @@ const SalesScreen: React.FC = () => {
       <SelectItemModal isOpen={isSelectItemModalOpen} onClose={() => setIsSelectItemModalOpen(false)} onSelect={handleSelectItem} allItems={items} />
       <ManageGridsModal isOpen={isManageGridsModalOpen} onClose={() => setIsManageGridsModalOpen(false)} initialGrids={customGrids} onSave={handleSaveGrids} />
       <AddGridModal isOpen={isAddGridModalOpen} onClose={() => setIsAddGridModalOpen(false)} onSave={handleSaveNewGrid} />
+      
+      <ItemGridContextMenu 
+        state={contextMenuState}
+        onClose={closeContextMenu}
+        onRemove={handleContextRemove}
+        onChange={handleContextChange}
+      />
       
       <ConfirmModal
         isOpen={confirmModalState.isOpen}

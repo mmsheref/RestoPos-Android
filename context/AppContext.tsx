@@ -179,8 +179,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   setSavedTicketsState(ticketsData);
             });
 
-            // 5. Custom Grids Listener
-            const unsubGrids = onSnapshot(collection(db, 'users', uid, 'custom_grids'), (snapshot) => {
+            // 5. Custom Grids Listener - FIX: Order by the 'order' field to maintain user-defined sequence
+            const qGrids = query(collection(db, 'users', uid, 'custom_grids'), orderBy('order'));
+            const unsubGrids = onSnapshot(qGrids, (snapshot) => {
                   const gridsData = snapshot.docs.map(doc => ({ ...doc.data() } as CustomGrid));
                   setCustomGridsState(gridsData);
             });
@@ -346,10 +347,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [getUid]);
 
   const addCustomGrid = useCallback(async (grid: CustomGrid) => {
-      try { 
-        await setDoc(doc(db, 'users', getUid(), 'custom_grids', grid.id), grid); 
+      try {
+        const gridWithOrder = { ...grid, order: customGrids.length };
+        await setDoc(doc(db, 'users', getUid(), 'custom_grids', grid.id), gridWithOrder); 
       } catch (e) { console.error(e); alert("Failed to add custom grid."); }
-  }, [getUid]);
+  }, [getUid, customGrids.length]);
 
   const updateCustomGrid = useCallback(async (grid: CustomGrid) => {
       try { 
@@ -367,7 +369,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const batch = writeBatch(db);
       const gridsCollectionRef = collection(db, 'users', getUid(), 'custom_grids');
       try {
-          // Optimistic update could be complex here, relying on listener for now as it's infrequent
           const currentGridIds = customGrids.map(g => g.id);
           const newGridIds = new Set(newGrids.map(g => g.id));
           const gridsToDelete = currentGridIds.filter(id => !newGridIds.has(id));
@@ -376,8 +377,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               batch.delete(doc(gridsCollectionRef, id));
           });
 
-          newGrids.forEach(grid => {
-              batch.set(doc(gridsCollectionRef, grid.id), grid);
+          // FIX: Add the order index to each grid before committing
+          newGrids.forEach((grid, index) => {
+              const gridWithOrder = { ...grid, order: index };
+              batch.set(doc(gridsCollectionRef, grid.id), gridWithOrder);
           });
           
           await batch.commit();

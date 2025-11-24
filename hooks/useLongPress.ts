@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 
 // --- Helper Hook for Long Press ---
 export const useLongPress = (
-  onLongPress: (target: EventTarget) => void,
+  onLongPress: (event: React.TouchEvent | React.MouseEvent) => void,
   onClick: () => void,
   { shouldPreventDefault = true, delay = 300 } = {}
 ) => {
@@ -17,7 +17,7 @@ export const useLongPress = (
         target.current = event.target;
       }
       timeout.current = setTimeout(() => {
-        onLongPress(event.target);
+        onLongPress(event);
         setLongPressTriggered(true);
       }, delay);
     },

@@ -50,6 +50,7 @@ export interface CustomGrid {
   id: string;
   name: string;
   itemIds: (string | null)[]; // Array of 20 items (5x4 grid), null for empty
+  order?: number;
 }
 
 export interface BackupData {
