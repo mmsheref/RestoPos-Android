@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { OrderItem, SavedTicket, Item, CustomGrid } from '../types';
 import { useAppContext } from '../context/AppContext';
@@ -52,6 +53,11 @@ const SalesScreen: React.FC = () => {
   // Payment state
   const [paymentResult, setPaymentResult] = useState<{ method: string, change: number, receiptId: string } | null>(null);
 
+  // Pagination & Scroll State
+  const [displayLimit, setDisplayLimit] = useState(40);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
   // Modal states
   const [isManageGridsModalOpen, setIsManageGridsModalOpen] = useState(false);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
@@ -85,6 +91,14 @@ const SalesScreen: React.FC = () => {
     else setHeaderTitle('Sales');
   }, [editingTicket, currentOrder.length, setHeaderTitle, salesView]);
 
+  // Reset pagination and scroll position when category or search changes
+  useEffect(() => {
+    setDisplayLimit(40);
+    if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [activeGridId, debouncedSearchQuery]);
+
   const handleQuantityClick = useCallback((item: OrderItem) => {
     setEditingQuantityItemId(item.lineItemId);
     setTempQuantity(item.quantity.toString());
@@ -93,7 +107,6 @@ const SalesScreen: React.FC = () => {
   const handleQuantityChangeCommit = useCallback(() => {
     if (!editingQuantityItemId) return;
     const newQuantity = parseInt(tempQuantity, 10);
-    // The context function handles the logic for quantity <= 0
     updateOrderItemQuantity(editingQuantityItemId, newQuantity);
     setEditingQuantityItemId(null);
   }, [editingQuantityItemId, tempQuantity, updateOrderItemQuantity]);
@@ -133,6 +146,38 @@ const SalesScreen: React.FC = () => {
     }
     return new Array(GRID_SIZE).fill(null);
   }, [activeGridId, items, customGrids, debouncedSearchQuery]);
+
+  const paginatedItems = useMemo(() => {
+      // Only paginate "All" view or Search results to allow infinite scroll. 
+      // Fixed grids (custom grids) are small (20 items) and shouldn't be sliced.
+      if (activeGridId !== 'All' && !debouncedSearchQuery.trim()) {
+          return itemsForDisplay;
+      }
+      return itemsForDisplay.slice(0, displayLimit);
+  }, [itemsForDisplay, displayLimit, activeGridId, debouncedSearchQuery]);
+
+  // Infinite Scroll Observer
+  useEffect(() => {
+    if ((activeGridId !== 'All' && !debouncedSearchQuery.trim()) || paginatedItems.length >= itemsForDisplay.length) {
+        return; 
+    }
+
+    const observer = new IntersectionObserver(
+        (entries) => {
+            if (entries[0].isIntersecting) {
+                setDisplayLimit((prev) => prev + 20);
+            }
+        },
+        { threshold: 0.1, rootMargin: '100px' }
+    );
+
+    if (loadMoreRef.current) {
+        observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [paginatedItems.length, itemsForDisplay.length, activeGridId, debouncedSearchQuery]);
+
 
   const handleAddNewGrid = useCallback(() => setIsAddGridModalOpen(true), []);
   const handleSaveNewGrid = useCallback((name: string) => {
@@ -255,7 +300,7 @@ const SalesScreen: React.FC = () => {
       <div className={`w-full md:w-[70%] flex-col ${isTicketVisible ? 'hidden md:flex' : 'flex'}`}>
         <SalesHeader openDrawer={openDrawer} onSearchChange={setSearchQuery} />
         <div className="flex-1 flex flex-col p-3 md:p-4 overflow-hidden">
-          <div className="flex-1 overflow-y-auto pr-2 content-visibility-auto">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto pr-2 content-visibility-auto">
             {items.length === 0 && !debouncedSearchQuery.trim() ? (
               <div className="flex flex-col items-center justify-center h-full text-center text-text-secondary p-4">
                 <div className="max-w-md">
@@ -274,11 +319,12 @@ const SalesScreen: React.FC = () => {
               </div>
             ) : (
               <ItemGrid
-                itemsForDisplay={itemsForDisplay}
+                itemsForDisplay={paginatedItems}
                 mode={activeGridId === 'All' || debouncedSearchQuery.trim() ? 'all' : 'grid'}
                 onAddItemToOrder={addToOrder}
                 onAssignItem={handleOpenSelectItemModal}
                 onItemLongPress={handleItemLongPress}
+                loadMoreRef={(activeGridId === 'All' || debouncedSearchQuery.trim()) ? loadMoreRef : undefined}
               />
             )}
           </div>

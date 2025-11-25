@@ -10,9 +10,10 @@ interface ItemGridProps {
   onAddItemToOrder: (item: Item) => void;
   onAssignItem: (slotIndex: number) => void;
   onItemLongPress: (item: Item, slotIndex: number, event: React.MouseEvent | React.TouchEvent) => void;
+  loadMoreRef?: React.RefObject<HTMLDivElement>;
 }
 
-const ItemGrid: React.FC<ItemGridProps> = ({ itemsForDisplay, mode, onAddItemToOrder, onAssignItem, onItemLongPress }) => {
+const ItemGrid: React.FC<ItemGridProps> = ({ itemsForDisplay, mode, onAddItemToOrder, onAssignItem, onItemLongPress, loadMoreRef }) => {
   const isFixedGrid = mode === 'grid';
 
   const gridContainerClasses = isFixedGrid ? 'h-full' : '';
@@ -54,6 +55,12 @@ const ItemGrid: React.FC<ItemGridProps> = ({ itemsForDisplay, mode, onAddItemToO
           );
         })}
       </div>
+      {/* Sentinel for infinite scrolling */}
+      {loadMoreRef && itemsForDisplay.length > 0 && (
+          <div ref={loadMoreRef} className="h-20 w-full flex items-center justify-center mt-4">
+              <div className="w-2 h-2 bg-surface-muted rounded-full"></div>
+          </div>
+      )}
     </div>
   );
 };

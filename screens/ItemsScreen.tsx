@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import type { Item } from '../types';
 import { useAppContext } from '../context/AppContext';
 import ItemFormModal from '../components/modals/ItemFormModal';
@@ -27,7 +27,8 @@ interface ItemRowProps {
   onDelete: (item: Item) => void;
 }
 
-const ItemRow: React.FC<ItemRowProps> = ({ item, onEdit, onDelete }) => {
+// Memoized to prevent re-renders of all rows when list length changes
+const ItemRow = React.memo<ItemRowProps>(({ item, onEdit, onDelete }) => {
     const [imgError, setImgError] = useState(false);
 
     return (
@@ -42,6 +43,7 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, onEdit, onDelete }) => {
                         src={item.imageUrl} 
                         alt={item.name} 
                         onError={() => setImgError(true)} 
+                        loading="lazy"
                     />
                 ) : (
                     <div className="h-10 w-10 rounded-md bg-surface-muted flex items-center justify-center text-text-muted">
@@ -70,13 +72,17 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, onEdit, onDelete }) => {
             </td>
         </tr>
     );
-};
+});
 
 const ItemsScreen: React.FC = () => {
   const { items, addItem, updateItem, deleteItem, exportItemsCsv, replaceItems } = useAppContext();
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | undefined>(undefined);
+
+  // Pagination State for Performance
+  const [displayLimit, setDisplayLimit] = useState(20);
+  const loadMoreRef = useRef<HTMLTableRowElement>(null);
 
   // CSV import state
   const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState(false);
@@ -92,19 +98,47 @@ const ItemsScreen: React.FC = () => {
       );
   }, [items, search]);
 
+  // Reset pagination when search changes
+  useEffect(() => {
+    setDisplayLimit(20);
+  }, [search]);
+
+  // Infinite Scroll Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+        (entries) => {
+            if (entries[0].isIntersecting && displayLimit < filteredItems.length) {
+                setDisplayLimit(prev => Math.min(prev + 20, filteredItems.length));
+            }
+        },
+        { threshold: 0.1, rootMargin: '200px' }
+    );
+
+    if (loadMoreRef.current) {
+        observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [filteredItems.length, displayLimit]);
+
+  const displayedItems = useMemo(() => {
+      return filteredItems.slice(0, displayLimit);
+  }, [filteredItems, displayLimit]);
+
   const handleAddItem = () => {
     setEditingItem(undefined);
     setIsModalOpen(true);
   };
 
-  const handleEditItem = (item: Item) => {
+  // useCallback ensures these don't change on every render, allowing ItemRow memoization to work
+  const handleEditItem = useCallback((item: Item) => {
     setEditingItem(item);
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const handleDeleteRequest = (item: Item) => {
+  const handleDeleteRequest = useCallback((item: Item) => {
     setConfirmDeleteModal({ isOpen: true, item: item });
-  };
+  }, []);
   
   const handleDeleteItem = (itemId: string) => {
       deleteItem(itemId);
@@ -177,8 +211,8 @@ const ItemsScreen: React.FC = () => {
   };
 
   return (
-    <div className="p-6 bg-background h-full flex flex-col">
-      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+    <div className="p-6 bg-background h-full flex flex-col min-h-0">
+      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 flex-shrink-0">
         <h1 className="text-3xl font-bold text-text-primary self-start md:self-center">Menu Items</h1>
         <div className="flex w-full md:w-auto items-center gap-2">
             <div className="relative flex-grow md:flex-grow-0">
@@ -214,9 +248,9 @@ const ItemsScreen: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-surface rounded-lg shadow-sm flex-grow border border-border overflow-auto">
-        <table className="min-w-full divide-y divide-border">
-          <thead className="bg-surface-muted sticky top-0 z-10">
+      <div className="bg-surface rounded-lg shadow-sm flex-grow border border-border overflow-auto min-h-0">
+        <table className="min-w-full divide-y divide-border relative">
+          <thead className="bg-surface-muted sticky top-0 z-20 shadow-sm">
             <tr>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Image</th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Name</th>
@@ -233,14 +267,24 @@ const ItemsScreen: React.FC = () => {
                     </td>
                 </tr>
             ) : (
-              filteredItems.map((item) => (
-                  <ItemRow 
-                      key={item.id} 
-                      item={item} 
-                      onEdit={handleEditItem} 
-                      onDelete={handleDeleteRequest} 
-                  />
-              ))
+                <>
+                  {displayedItems.map((item) => (
+                      <ItemRow 
+                          key={item.id} 
+                          item={item} 
+                          onEdit={handleEditItem} 
+                          onDelete={handleDeleteRequest} 
+                      />
+                  ))}
+                  {/* Sentinel Row for Infinite Scroll */}
+                  {displayLimit < filteredItems.length && (
+                      <tr ref={loadMoreRef} className="bg-surface-muted/30">
+                          <td colSpan={5} className="py-4 text-center text-sm text-text-muted">
+                              Loading more items...
+                          </td>
+                      </tr>
+                  )}
+                </>
             )}
           </tbody>
         </table>

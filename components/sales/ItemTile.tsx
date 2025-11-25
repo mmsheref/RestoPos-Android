@@ -12,21 +12,19 @@ interface ItemTileProps {
     isFixedGrid: boolean;
 }
 
-const ItemTile: React.FC<ItemTileProps> = ({ item, mode, onAddItemToOrder, onItemLongPress, index, isFixedGrid }) => {
+const ItemTile: React.FC<ItemTileProps> = React.memo(({ item, mode, onAddItemToOrder, onItemLongPress, index, isFixedGrid }) => {
     const lastClickTime = useRef(0);
 
     // This debounce handler prevents rapid-fire clicks that can occur from a single touch event on some devices.
-    // The delay is set to be very short to feel instant to the user but still block ghost clicks.
     const handleDebouncedClick = () => {
         const now = Date.now();
-        if (now - lastClickTime.current < 100) { // OPTIMIZATION: Reduced delay from 300ms to 100ms for a snappier feel.
+        if (now - lastClickTime.current < 100) { 
             return;
         }
         lastClickTime.current = now;
         onAddItemToOrder(item);
     };
     
-    // Correct usage of the hook: at the top level of a component.
     const longPressEvents = useLongPress(
         (e) => {
             if (mode === 'grid') {
@@ -54,6 +52,7 @@ const ItemTile: React.FC<ItemTileProps> = ({ item, mode, onAddItemToOrder, onIte
                     alt={item.name} 
                     className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-110 z-0"
                     loading="lazy"
+                    decoding="async"
                 />
                 <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 backdrop-blur-sm z-10">
                     <h3 className="font-semibold text-white text-xs md:text-sm leading-tight text-center line-clamp-2" title={item.name}>
@@ -76,6 +75,6 @@ const ItemTile: React.FC<ItemTileProps> = ({ item, mode, onAddItemToOrder, onIte
             </div>
         );
     }
-};
+});
 
 export default ItemTile;
