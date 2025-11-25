@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { PencilIcon, PlusIcon } from '../../constants';
+import { PencilIcon, PlusIcon, GridIcon } from '../../constants';
 import { CustomGrid } from '../../types';
 
 interface CategoryTabsProps {
@@ -59,16 +59,25 @@ const CategoryTabs: React.FC<CategoryTabsProps> = ({
           </div>
           
           {/* Fixed Buttons on the Right */}
-          <div className="flex items-center ml-auto pl-4">
+          <div className="flex items-center ml-auto pl-2">
             <button
               onClick={onManage}
-              className="flex-shrink-0 whitespace-nowrap px-4 py-3 border-b-2 border-transparent text-text-secondary hover:text-primary flex items-center gap-1.5"
+              className="flex-shrink-0 whitespace-nowrap px-3 py-3 border-b-2 border-transparent text-text-secondary hover:text-primary"
               title="Manage grids"
             >
-              <PencilIcon className="h-4 w-4" />
-              <span className="text-sm font-medium">Manage</span>
+              <PencilIcon className="h-5 w-5" />
             </button>
-            <TabButton id="All" name="All Items" />
+            <button
+                onClick={() => setActiveGridId('All')}
+                className={`flex-shrink-0 whitespace-nowrap px-3 py-3 border-b-2 text-sm font-medium transition-colors duration-200 focus:outline-none ${
+                activeGridId === 'All'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-text-secondary hover:text-text-primary'
+                }`}
+                title="All Items"
+            >
+                <GridIcon className="h-5 w-5" />
+            </button>
           </div>
         </div>
       </div>

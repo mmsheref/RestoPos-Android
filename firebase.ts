@@ -7,8 +7,6 @@ import {
   doc, 
   getDocs, 
   writeBatch,
-  enableNetwork,
-  disableNetwork
 } from 'firebase/firestore';
 import { 
     getAuth, 
@@ -75,4 +73,4 @@ export const clearAllData = async (uid: string) => {
 };
 
 
-export { db, auth, enableNetwork, disableNetwork };
+export { db, auth };

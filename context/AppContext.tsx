@@ -7,7 +7,7 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { exportItemsToCsv } from '../utils/csvHelper';
-import { db, signOutUser, clearAllData, firebaseConfig, auth, enableNetwork, disableNetwork } from '../firebase';
+import { db, signOutUser, clearAllData, firebaseConfig, auth } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, query, orderBy, limit, startAfter, getDocs, getDoc, QueryDocumentSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import FirebaseError from '../components/FirebaseError';
@@ -86,18 +86,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   const [lastReceiptDoc, setLastReceiptDoc] = useState<QueryDocumentSnapshot | null>(null);
   const [hasMoreReceipts, setHasMoreReceipts] = useState(true);
-
-  const manualSync = useCallback(async () => {
-    console.log("Attempting manual sync...");
-    try {
-        await disableNetwork(db);
-        await enableNetwork(db);
-        alert("Data sync initiated.");
-    } catch (e) {
-        console.error("Manual sync failed:", e);
-        alert("Failed to force sync. Check your connection.");
-    }
-  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -275,7 +263,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   const addReceipt = useCallback(async (receipt: Receipt) => {
     setReceiptsState(prev => [receipt, ...prev].sort((a,b) => b.date.getTime() - a.date.getTime()));
-    try { await setDoc(doc(db, 'users', getUid(), 'receipts', receipt.id), receipt); } 
+    try { 
+        await setDoc(doc(db, 'users', getUid(), 'receipts', receipt.id), receipt);
+    } 
     catch (e) { console.error("Failed to save receipt", e); alert("Saved locally. Sync failed (Offline).");}
   }, [getUid]);
 
@@ -528,7 +518,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       headerTitle, setHeaderTitle,
       theme, setTheme,
       showOnboarding, completeOnboarding,
-      isLoading, manualSync,
+      isLoading,
       settings, updateSettings,
       printers, addPrinter, removePrinter,
       paymentTypes, addPaymentType, updatePaymentType, removePaymentType,

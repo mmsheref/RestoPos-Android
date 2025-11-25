@@ -136,7 +136,15 @@
 </head>
   <body class="antialiased">
     <div id="root"></div>
-    <script src="capacitor.js"></script>
+    <script>
+      // Conditionally load capacitor.js only when running in a native Capacitor container.
+      // This avoids a "404 Not Found" error during web development with Vite.
+      if (navigator.userAgent.includes('Capacitor')) {
+        // Use document.write to inject the script synchronously, ensuring it loads and executes
+        // before the main application bundle (index.tsx).
+        document.write('<script type="module" src="/capacitor.js"><\/script>');
+      }
+    </script>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

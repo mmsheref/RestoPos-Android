@@ -1,3 +1,4 @@
+
 import React, { useRef } from 'react';
 import { Item } from '../../types';
 import { useLongPress } from '../../hooks/useLongPress';
@@ -15,9 +16,10 @@ const ItemTile: React.FC<ItemTileProps> = ({ item, mode, onAddItemToOrder, onIte
     const lastClickTime = useRef(0);
 
     // This debounce handler prevents rapid-fire clicks that can occur from a single touch event on some devices.
+    // The delay is set to be very short to feel instant to the user but still block ghost clicks.
     const handleDebouncedClick = () => {
         const now = Date.now();
-        if (now - lastClickTime.current < 300) { // 300ms debounce delay
+        if (now - lastClickTime.current < 100) { // OPTIMIZATION: Reduced delay from 300ms to 100ms for a snappier feel.
             return;
         }
         lastClickTime.current = now;
