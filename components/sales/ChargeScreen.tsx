@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { OrderItem, PaymentType } from '../../types';
 import { useAppContext } from '../../context/AppContext';
@@ -77,12 +76,13 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
         <h1 className="text-7xl font-bold font-mono text-text-primary mb-8">{total.toFixed(2)}</h1>
         <div className="w-full max-w-md space-y-4">
           {otherPaymentTypes.map(pt => (
-            <button key={pt.id} onClick={() => handleProcessOtherPayment(pt.name)} className="w-full text-left p-4 bg-surface rounded-lg shadow-md border border-border flex items-center justify-between hover:ring-2 hover:ring-primary transition-all">
-              <span className="flex items-center gap-3 font-bold text-lg text-text-primary">
-                <PaymentMethodIcon iconName={pt.icon} className="h-6 w-6"/>
-                {pt.name}
-              </span>
-              <span className="text-sm font-medium text-white bg-primary px-3 py-1 rounded-full">Pay</span>
+            <button 
+              key={pt.id} 
+              onClick={() => handleProcessOtherPayment(pt.name)} 
+              className="w-full p-4 bg-primary text-primary-content font-bold rounded-lg shadow-md text-lg hover:bg-primary-hover transition-colors flex items-center justify-center gap-3"
+            >
+              <PaymentMethodIcon iconName={pt.icon} className="h-6 w-6"/>
+              <span>{pt.name}</span>
             </button>
           ))}
           

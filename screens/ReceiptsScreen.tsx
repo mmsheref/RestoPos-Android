@@ -6,7 +6,7 @@ import { printReceipt } from '../utils/printerHelper';
 import { useDebounce } from '../hooks/useDebounce';
 
 const ReceiptsScreen: React.FC = () => {
-  const { receipts, openDrawer, settings, printers, loadMoreReceipts, hasMoreReceipts, paymentTypes, syncState } = useAppContext();
+  const { receipts, openDrawer, settings, printers, loadMoreReceipts, hasMoreReceipts, paymentTypes, isSyncing, isOnline } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   
@@ -180,8 +180,8 @@ const ReceiptsScreen: React.FC = () => {
                 <MenuIcon className="h-6 w-6" />
             </button>
             <div className="flex items-center gap-2 ml-4">
-              {syncState === 'syncing' && <SyncIcon className="h-5 w-5 text-primary" title="Syncing pending changes..." />}
-              {syncState === 'offline' && <OfflineIcon className="h-5 w-5 text-red-500" title="Offline: Changes are saved locally." />}
+              {!isOnline && <OfflineIcon className="h-5 w-5 text-red-500" title="Offline: Changes are saved locally." />}
+              {isOnline && isSyncing && <SyncIcon className="h-5 w-5 text-primary" title="Syncing..." />}
               <h1 className="text-xl font-semibold text-text-primary">Receipts</h1>
             </div>
         </div>

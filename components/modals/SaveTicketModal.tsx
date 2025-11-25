@@ -31,9 +31,9 @@ const SaveTicketModal: React.FC<SaveTicketModalProps> = ({ isOpen, onClose, onSa
         {tables.length > 0 && (
           <>
             <p className="text-sm font-medium text-text-secondary mb-2">Quick Select</p>
-            <div className="grid grid-cols-4 gap-2 mb-4">
+            <div className="flex flex-col gap-2 mb-4 max-h-48 overflow-y-auto pr-2">
                 {tables.map(table => (
-                    <button key={table.id} onClick={() => onSave(table.name)} className="p-3 bg-surface-muted rounded-md text-text-secondary font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900/50 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">
+                    <button key={table.id} onClick={() => onSave(table.name)} className="w-full text-left p-3 bg-surface-muted rounded-md text-text-secondary font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900/50 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">
                         {table.name}
                     </button>
                 ))}

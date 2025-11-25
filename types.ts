@@ -150,7 +150,8 @@ export interface AppContextType {
   
   // Data
   isLoading: boolean;
-  syncState: 'online' | 'syncing' | 'offline';
+  isSyncing: boolean;
+  isOnline: boolean;
   manualSync: () => Promise<void>;
   settings: AppSettings;
   updateSettings: (newSettings: Partial<AppSettings>) => void;

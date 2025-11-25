@@ -77,10 +77,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [hasMoreReceipts, setHasMoreReceipts] = useState(true);
 
   // --- New, Smarter Sync State ---
-  const [syncState, setSyncState] = useState<AppContextType['syncState']>('online');
-  const [hasPendingWrites, setHasPendingWrites] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const pendingWritesRef = useRef(new Set<string>());
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -93,18 +92,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
   }, []);
 
-  useEffect(() => {
-    if (!isOnline) {
-      setSyncState('offline');
-    } else if (hasPendingWrites) {
-      setSyncState('syncing');
-    } else {
-      setSyncState('online');
-    }
-  }, [isOnline, hasPendingWrites]);
+  const triggerSyncIndicator = useCallback(() => {
+    if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+    setIsSyncing(true);
+    syncTimeoutRef.current = setTimeout(() => {
+      setIsSyncing(false);
+    }, 1500);
+  }, []);
 
   const manualSync = useCallback(async () => {
     console.log("Attempting manual sync...");
+    triggerSyncIndicator(); // Provide immediate visual feedback
     try {
         await disableNetwork(db);
         await enableNetwork(db);
@@ -113,16 +111,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         console.error("Manual sync failed:", e);
         alert("Failed to force sync. Check your connection.");
     }
-  }, []);
-
-  const updatePendingWrites = useCallback((collectionName: string, hasWrites: boolean) => {
-    if (hasWrites) {
-      pendingWritesRef.current.add(collectionName);
-    } else {
-      pendingWritesRef.current.delete(collectionName);
-    }
-    setHasPendingWrites(pendingWritesRef.current.size > 0);
-  }, []);
+  }, [triggerSyncIndicator]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -133,7 +122,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const createListener = (collectionName: string, callback: (snapshot: any) => void) => {
                 const collRef = collection(db, 'users', uid, collectionName);
                 return onSnapshot(collRef, (snapshot) => {
-                    updatePendingWrites(collectionName, snapshot.metadata.hasPendingWrites);
+                    if (!snapshot.metadata.hasPendingWrites && !snapshot.metadata.fromCache) {
+                        triggerSyncIndicator();
+                    }
                     callback(snapshot);
                 });
             };
@@ -141,7 +132,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const createOrderedListener = (collectionName: string, orderField: string, callback: (snapshot: any) => void) => {
                 const q = query(collection(db, 'users', uid, collectionName), orderBy(orderField));
                 return onSnapshot(q, (snapshot) => {
-                    updatePendingWrites(collectionName, snapshot.metadata.hasPendingWrites);
+                    if (!snapshot.metadata.hasPendingWrites && !snapshot.metadata.fromCache) {
+                        triggerSyncIndicator();
+                    }
                     callback(snapshot);
                 });
             };
@@ -154,7 +147,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             const qReceipts = query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(25));
             const unsubReceipts = onSnapshot(qReceipts, (snapshot) => {
-                updatePendingWrites('receipts', snapshot.metadata.hasPendingWrites);
+                if (!snapshot.metadata.hasPendingWrites && !snapshot.metadata.fromCache) {
+                    triggerSyncIndicator();
+                }
                 const receiptsData = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
                 setReceiptsState(prev => {
                     const existingIds = new Set(prev.map(r => r.id));
@@ -175,7 +170,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const unsubTables = createOrderedListener('tables', 'order', (snapshot) => setTablesState(snapshot.docs.map(doc => doc.data() as Table)));
 
             const unsubSettings = onSnapshot(doc(db, 'users', uid, 'config', 'settings'), async (docSnap) => {
-                  updatePendingWrites('config', docSnap.metadata.hasPendingWrites);
+                  if (!docSnap.metadata.hasPendingWrites && !docSnap.metadata.fromCache) {
+                        triggerSyncIndicator();
+                  }
                   if (docSnap.exists()) {
                     const newSettings = docSnap.data() as AppSettings;
                     setSettingsState(newSettings);
@@ -224,7 +221,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     return () => unsubscribe();
-  }, [updatePendingWrites]);
+  }, [triggerSyncIndicator]);
 
   const getUid = useCallback(() => {
     if (!user) throw new Error("User not authenticated");
@@ -546,7 +543,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       isDrawerOpen, openDrawer, closeDrawer, toggleDrawer, 
       headerTitle, setHeaderTitle,
       theme, setTheme,
-      isLoading, syncState, manualSync,
+      isLoading, isSyncing, isOnline, manualSync,
       settings, updateSettings,
       printers, addPrinter, removePrinter,
       paymentTypes, addPaymentType, updatePaymentType, removePaymentType,

@@ -7,7 +7,7 @@ import SettingsContent from '../components/settings/SettingsContent';
 export type SettingsCategory = 'appearance' | 'financial' | 'payment_types' | 'tables' | 'printers' | 'store_info' | 'data' | 'about';
 
 const SettingsScreen: React.FC = () => {
-    const { openDrawer, syncState } = useAppContext();
+    const { openDrawer, isSyncing, isOnline } = useAppContext();
     const [activeCategory, setActiveCategory] = useState<SettingsCategory>('appearance');
     
     // State to manage view on mobile (list vs detail)
@@ -40,8 +40,8 @@ const SettingsScreen: React.FC = () => {
                         <MenuIcon className="h-6 w-6" />
                     </button>
                     <div className="flex items-center gap-2 ml-4">
-                        {syncState === 'syncing' && <SyncIcon className="h-5 w-5 text-primary" title="Syncing pending changes..." />}
-                        {syncState === 'offline' && <OfflineIcon className="h-5 w-5 text-red-500" title="Offline: Changes are saved locally." />}
+                        {!isOnline && <OfflineIcon className="h-5 w-5 text-red-500" title="Offline: Changes are saved locally." />}
+                        {isOnline && isSyncing && <SyncIcon className="h-5 w-5 text-primary" title="Syncing..." />}
                         <h1 className="text-xl font-semibold text-text-primary">Settings</h1>
                     </div>
                 </div>
