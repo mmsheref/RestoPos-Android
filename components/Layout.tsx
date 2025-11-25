@@ -23,6 +23,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const finalTitle = location.pathname === '/sales' && headerTitle ? headerTitle : baseTitle;
   const isSalesScreen = location.pathname === '/sales';
   const isReceiptsScreen = location.pathname === '/receipts';
+  const isSettingsScreen = location.pathname === '/settings';
 
   useEffect(() => {
     // Reset header title when navigating away from the sales screen
@@ -34,7 +35,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div className="relative h-screen w-full overflow-x-hidden bg-background text-text-primary flex flex-col">
-      {!isSalesScreen && !isReceiptsScreen && <Header 
+      {!isSalesScreen && !isReceiptsScreen && !isSettingsScreen && <Header 
         title={finalTitle} 
         onMenuClick={openDrawer}
       />}

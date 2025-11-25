@@ -1,12 +1,8 @@
-
-
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { OrderItem, SavedTicket } from '../../types';
-import { ThreeDotsIcon, TrashIcon, ArrowLeftIcon } from '../../constants';
+import { ThreeDotsIcon, TrashIcon, ArrowLeftIcon, SyncIcon } from '../../constants';
 import { printBill } from '../../utils/printerHelper';
-
-// Define a leaner item type for what addToOrder expects from the grid
-type SimpleItem = { id: string; name: string; price: number };
+import { useAppContext } from '../../context/AppContext';
 
 interface TicketProps {
     className?: string;
@@ -26,9 +22,9 @@ interface TicketProps {
     tempQuantity: string;
     setEditingQuantityItemId: (id: string | null) => void;
     setTempQuantity: (qty: string) => void;
-    removeFromOrder: (id: string) => void;
-    addToOrder: (item: SimpleItem) => void;
-    deleteLineItem: (id: string) => void;
+    removeFromOrder: (lineItemId: string) => void;
+    deleteLineItem: (lineItemId: string) => void;
+    updateOrderItemQuantity: (lineItemId: string, newQuantity: number) => void;
     handleQuantityClick: (item: OrderItem) => void;
     handleQuantityChangeCommit: () => void;
     handleQuantityInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -46,11 +42,13 @@ const Ticket: React.FC<TicketProps> = (props) => {
   const {
     className, onClose,
     currentOrder, editingTicket, savedTickets, settings, total, subtotal, tax, printers,
-    editingQuantityItemId, tempQuantity, removeFromOrder, addToOrder, deleteLineItem,
+    editingQuantityItemId, tempQuantity, setEditingQuantityItemId, setTempQuantity, 
+    removeFromOrder, deleteLineItem, updateOrderItemQuantity,
     handleQuantityClick, handleQuantityChangeCommit, handleQuantityInputChange, handleQuantityInputKeyDown,
     handlePrimarySaveAction, onCharge, onOpenTickets, onSaveTicket, onClearTicket
   } = props;
   
+  const { manualSync } = useAppContext();
   const [isTicketMenuOpen, setTicketMenuOpen] = useState(false);
   const [isClearConfirmVisible, setIsClearConfirmVisible] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -69,23 +67,18 @@ const Ticket: React.FC<TicketProps> = (props) => {
   }, []);
   
   useEffect(() => {
-    // When confirm state becomes visible, ensure menu is closed.
     if (isClearConfirmVisible) {
         setTicketMenuOpen(false);
     }
   }, [isClearConfirmVisible]);
 
-  // Bug fix 1: Auto-scroll on new item
   useEffect(() => {
-    // Only scroll down when an item is added, not removed or quantity changed
     if (listContainerRef.current && currentOrder.length > prevOrderLength.current) {
         const container = listContainerRef.current;
-        // Using `setTimeout` to ensure the DOM has updated with the new item before scrolling
         setTimeout(() => {
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
         }, 0);
     }
-    // Update the ref to the current length for the next render
     prevOrderLength.current = currentOrder.length;
   }, [currentOrder]);
 
@@ -93,6 +86,9 @@ const Ticket: React.FC<TicketProps> = (props) => {
   const handleTicketAction = async (action: string) => {
     setTicketMenuOpen(false);
     switch (action) {
+      case 'sync':
+        manualSync();
+        break;
       case 'clear':
         if (currentOrder.length === 0 && !editingTicket) return;
         setIsClearConfirmVisible(true);
@@ -192,6 +188,10 @@ const Ticket: React.FC<TicketProps> = (props) => {
                     className="absolute right-0 mt-2 w-56 bg-surface rounded-md shadow-lg ring-1 ring-black ring-opacity-5 dark:ring-white/10 z-20"
                 >
                     <div className="py-1">
+                        <button onClick={() => handleTicketAction('sync')} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-text-primary hover:bg-surface-muted">
+                            <SyncIcon className="h-4 w-4" /> Sync Data
+                        </button>
+                        <div className="border-t border-border my-1"></div>
                         <button onClick={() => handleTicketAction('clear')} className="w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-surface-muted">Clear Ticket</button>
                         <button onClick={() => handleTicketAction('print')} disabled={isPrinting} className="w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-surface-muted disabled:opacity-50">
                           {isPrinting ? 'Printing...' : 'Print Bill'}
@@ -225,23 +225,23 @@ const Ticket: React.FC<TicketProps> = (props) => {
           ) : (
             <ul className="space-y-2 overflow-x-hidden">
               {currentOrder.map(item => (
-                <li key={item.id} className="relative group bg-surface flex items-center text-sm p-2 rounded-lg shadow-sm border border-border">
+                <li key={item.lineItemId} className="relative group bg-surface flex items-center text-sm p-2 rounded-lg shadow-sm border border-border">
                   <div className="flex-grow">
                       <p className="font-semibold text-text-primary">{item.name}</p>
                       <p className="text-text-secondary">{item.price.toFixed(2)}</p>
                   </div>
                   <div className="flex items-center justify-center gap-2 mx-4">
-                      <button onPointerDown={(e) => e.stopPropagation()} onClick={() => removeFromOrder(item.id)} className="h-7 w-7 bg-surface-muted text-lg rounded-full text-text-secondary hover:bg-red-200 dark:hover:bg-red-500/50 hover:text-red-700 transition-colors" aria-label={`Remove one ${item.name}`}>-</button>
-                      {editingQuantityItemId === item.id ? (
+                      <button onPointerDown={(e) => e.stopPropagation()} onClick={() => removeFromOrder(item.lineItemId)} className="h-7 w-7 bg-surface-muted text-lg rounded-full text-text-secondary hover:bg-red-200 dark:hover:bg-red-500/50 hover:text-red-700 transition-colors" aria-label={`Remove one ${item.name}`}>-</button>
+                      {editingQuantityItemId === item.lineItemId ? (
                           <input type="tel" value={tempQuantity} onChange={handleQuantityInputChange} onBlur={handleQuantityChangeCommit} onKeyDown={handleQuantityInputKeyDown} onPointerDown={(e) => e.stopPropagation()} className="font-mono w-10 text-center text-base text-text-primary bg-background border border-primary rounded-md ring-1 ring-primary" autoFocus onFocus={(e) => e.target.select()} />
                       ) : (
                           <span onClick={() => handleQuantityClick(item)} onPointerDown={(e) => e.stopPropagation()} className="font-mono w-10 text-center text-base text-text-primary cursor-pointer rounded-md hover:bg-surface-muted p-1" aria-label="Edit quantity" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') handleQuantityClick(item)}}>{item.quantity}</span>
                       )}
-                      <button onPointerDown={(e) => e.stopPropagation()} onClick={() => addToOrder(item)} className="h-7 w-7 bg-surface-muted text-lg rounded-full text-text-secondary hover:bg-green-200 dark:hover:bg-green-500/50 hover:text-green-700 transition-colors" aria-label={`Add one ${item.name}`}>+</button>
+                      <button onPointerDown={(e) => e.stopPropagation()} onClick={() => updateOrderItemQuantity(item.lineItemId, item.quantity + 1)} className="h-7 w-7 bg-surface-muted text-lg rounded-full text-text-secondary hover:bg-green-200 dark:hover:bg-green-500/50 hover:text-green-700 transition-colors" aria-label={`Add one ${item.name}`}>+</button>
                   </div>
                   <p className="w-16 font-semibold text-text-primary text-right">{(item.price * item.quantity).toFixed(2)}</p>
                   <button 
-                    onClick={() => deleteLineItem(item.id)} 
+                    onClick={() => deleteLineItem(item.lineItemId)} 
                     className="ml-2 p-2 text-text-muted hover:text-red-500 rounded-full transition-colors"
                     aria-label={`Delete ${item.name}`}
                   >
@@ -260,8 +260,8 @@ const Ticket: React.FC<TicketProps> = (props) => {
           </div>
           <div className={`flex items-center gap-4 ${isClearConfirmVisible ? 'opacity-50 pointer-events-none' : ''}`}>
             {renderActionButtons()}
-            <button onClick={onCharge} disabled={currentOrder.length === 0} className="w-full bg-emerald-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-emerald-600 disabled:bg-gray-300 disabled:dark:bg-gray-600 disabled:dark:text-gray-400 disabled:cursor-not-allowed disabled:shadow-none flex justify-between items-center px-4">
-              <span>Charge</span><span className="font-mono">{total.toFixed(2)}</span>
+            <button onClick={onCharge} disabled={currentOrder.length === 0} className="w-full bg-emerald-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-emerald-600 disabled:bg-gray-300 disabled:dark:bg-gray-600 disabled:dark:text-gray-400 disabled:cursor-not-allowed disabled:shadow-none flex justify-center items-center">
+              Charge
             </button>
           </div>
         </div>

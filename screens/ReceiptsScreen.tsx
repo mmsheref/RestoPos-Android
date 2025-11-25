@@ -1,13 +1,12 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Receipt, PaymentTypeIcon } from '../types';
 import { useAppContext } from '../context/AppContext';
-import { SearchIcon, PrintIcon, MailIcon, RefundIcon, ArrowLeftIcon, ReceiptIcon as ReceiptIconPlaceholder, MenuIcon, ThreeDotsIcon, PaymentMethodIcon } from '../constants';
+import { SearchIcon, PrintIcon, MailIcon, RefundIcon, ArrowLeftIcon, ReceiptIcon as ReceiptIconPlaceholder, MenuIcon, ThreeDotsIcon, PaymentMethodIcon, SyncIcon } from '../constants';
 import { printReceipt } from '../utils/printerHelper';
 import { useDebounce } from '../hooks/useDebounce';
 
 const ReceiptsScreen: React.FC = () => {
-  const { receipts, openDrawer, settings, printers, loadMoreReceipts, hasMoreReceipts, paymentTypes } = useAppContext();
+  const { receipts, openDrawer, settings, printers, loadMoreReceipts, hasMoreReceipts, paymentTypes, isSyncing } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   
@@ -180,7 +179,10 @@ const ReceiptsScreen: React.FC = () => {
             <button onClick={openDrawer} className="p-2 -ml-2 text-text-secondary hover:text-text-primary">
                 <MenuIcon className="h-6 w-6" />
             </button>
-            <h1 className="text-xl font-semibold text-text-primary ml-4">Receipts</h1>
+            <div className="flex items-center gap-2 ml-4">
+              {isSyncing && <SyncIcon className="h-5 w-5 text-primary" />}
+              <h1 className="text-xl font-semibold text-text-primary">Receipts</h1>
+            </div>
         </div>
         <div className="p-4 border-b border-border flex-shrink-0">
           <div className="relative">

@@ -1,31 +1,31 @@
 
 import React, { useState } from 'react';
-import { PaymentType, PaymentTypeIcon, PaymentMethodType } from '../../types';
+import { PaymentType, PaymentTypeIcon } from '../../types';
 import { CloseIcon, PaymentMethodIcon } from '../../constants';
 
 interface AddPaymentTypeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (paymentType: Omit<PaymentType, 'id' | 'enabled'>) => void;
+  onSave: (paymentType: Omit<PaymentType, 'id' | 'enabled' | 'type'>) => void;
 }
 
-const ICONS: PaymentTypeIcon[] = ['cash', 'upi', 'card', 'generic'];
+const ICONS: PaymentTypeIcon[] = ['upi', 'card', 'generic'];
 
 const AddPaymentTypeModal: React.FC<AddPaymentTypeModalProps> = ({ isOpen, onClose, onSave }) => {
   const [name, setName] = useState('');
   const [icon, setIcon] = useState<PaymentTypeIcon>('generic');
-  const [type, setType] = useState<PaymentMethodType>('other');
 
   const handleSave = () => {
     if (!name.trim()) {
       alert("Please enter a payment type name.");
       return;
     }
-    onSave({ name, icon, type });
-    // Reset form
+    // The `type` (behavior) is no longer selected here; it's handled automatically in the context.
+    onSave({ name, icon });
+    
+    // Reset form for next use
     setName('');
     setIcon('generic');
-    setType('other');
   };
 
   if (!isOpen) return null;
@@ -49,25 +49,19 @@ const AddPaymentTypeModal: React.FC<AddPaymentTypeModalProps> = ({ isOpen, onClo
             <label className="block text-sm font-medium text-text-secondary mb-2">Icon</label>
             <div className="grid grid-cols-4 gap-2">
               {ICONS.map(iconName => (
-                <button key={iconName} onClick={() => setIcon(iconName)} className={`p-3 rounded-lg border-2 flex flex-col items-center justify-center gap-1 capitalize text-xs transition-colors ${icon === iconName ? 'bg-indigo-100 dark:bg-indigo-900/50 border-primary text-primary' : 'bg-surface-muted border-transparent hover:border-border text-text-secondary'}`}>
+                <button 
+                  key={iconName} 
+                  onClick={() => setIcon(iconName)} 
+                  title={iconName}
+                  className={`p-3 rounded-lg border-2 flex flex-col items-center justify-center gap-1 capitalize text-xs transition-colors ${
+                    icon === iconName 
+                      ? 'bg-indigo-100 dark:bg-indigo-900/50 border-primary text-primary' 
+                      : 'bg-surface-muted border-transparent hover:border-border text-text-secondary'
+                  }`}
+                >
                   <PaymentMethodIcon iconName={iconName} className="h-6 w-6" />
-                  {iconName}
                 </button>
               ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">Behavior</label>
-            <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => setType('other')} className={`p-3 rounded-lg border-2 text-left ${type === 'other' ? 'bg-indigo-100 dark:bg-indigo-900/50 border-primary' : 'bg-surface-muted border-transparent'}`}>
-                    <span className="font-semibold text-sm text-text-primary">Standard</span>
-                    <p className="text-xs text-text-secondary">Charges the exact total.</p>
-                </button>
-                 <button onClick={() => setType('cash')} className={`p-3 rounded-lg border-2 text-left ${type === 'cash' ? 'bg-indigo-100 dark:bg-indigo-900/50 border-primary' : 'bg-surface-muted border-transparent'}`}>
-                    <span className="font-semibold text-sm text-text-primary">Cash</span>
-                    <p className="text-xs text-text-secondary">Allows calculating change.</p>
-                </button>
             </div>
           </div>
           

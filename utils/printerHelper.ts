@@ -85,6 +85,26 @@ const createLine = (left: string, right: string, width: number): string => {
 
 const createDivider = (width: number): string => '-'.repeat(width) + '\n';
 
+/**
+ * A helper function to consolidate an array of order items.
+ * It combines multiple lines of the same item into a single line with a summed quantity.
+ */
+const consolidateItems = (items: OrderItem[]): OrderItem[] => {
+    // Using a Map to preserve insertion order of unique items
+    const consolidated = new Map<string, OrderItem>();
+    items.forEach(item => {
+        const existing = consolidated.get(item.id);
+        if (existing) {
+            consolidated.set(item.id, { ...existing, quantity: existing.quantity + item.quantity });
+        } else {
+            // Add a copy to avoid mutating the original item from the Map
+            consolidated.set(item.id, { ...item }); 
+        }
+    });
+    return Array.from(consolidated.values());
+};
+
+
 // --- NEW Bill/Receipt Interfaces ---
 interface PrintBillArgs {
   items: OrderItem[];
@@ -177,6 +197,7 @@ export const printBill = async (args: PrintBillArgs): Promise<{ success: boolean
     
     const paperWidthChars = printer.paperWidth === '80mm' ? 48 : 32;
     const divider = createDivider(paperWidthChars);
+    const consolidatedItems = consolidateItems(items);
 
     let data = COMMANDS.INIT;
     if(settings.storeName) data += COMMANDS.CENTER + COMMANDS.BOLD_ON + settings.storeName.toUpperCase() + '\n' + COMMANDS.BOLD_OFF;
@@ -186,7 +207,7 @@ export const printBill = async (args: PrintBillArgs): Promise<{ success: boolean
     if(ticketName) data += `Ticket: ${ticketName}\n`;
     data += divider;
 
-    items.forEach(item => {
+    consolidatedItems.forEach(item => {
         const lineTotal = (item.price * item.quantity).toFixed(2);
         const namePart = item.name.length > (paperWidthChars - 10) ? item.name.substring(0, paperWidthChars - 10) : item.name;
         data += createLine(namePart, `${lineTotal}`, paperWidthChars);
@@ -217,6 +238,7 @@ export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: b
     const divider = createDivider(paperWidthChars);
     const now = new Date();
     const formattedDate = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+    const consolidatedItems = consolidateItems(items);
 
     // 1. Header
     let data = COMMANDS.INIT;
@@ -229,7 +251,7 @@ export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: b
     data += divider;
     
     // 3. Items
-    items.forEach(item => {
+    consolidatedItems.forEach(item => {
         const lineTotal = (item.price * item.quantity).toFixed(2);
         const namePart = item.name.length > (paperWidthChars - 12) ? item.name.substring(0, paperWidthChars - 12) : item.name;
         data += createLine(namePart, `${lineTotal}`, paperWidthChars);

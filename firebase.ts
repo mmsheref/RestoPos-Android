@@ -1,4 +1,3 @@
-
 import { initializeApp } from 'firebase/app';
 import { 
   initializeFirestore,
@@ -7,7 +6,9 @@ import {
   collection, 
   doc, 
   getDocs, 
-  writeBatch 
+  writeBatch,
+  enableNetwork,
+  disableNetwork
 } from 'firebase/firestore';
 import { 
     getAuth, 
@@ -58,24 +59,20 @@ export const clearAllData = async (uid: string) => {
     const collectionsToDelete = ['items', 'receipts', 'printers', 'saved_tickets', 'custom_grids', 'config'];
     const batch = writeBatch(db);
 
-    // Create an array of promises, each fetching documents from a collection.
     const snapshotPromises = collectionsToDelete.map(collName => 
         getDocs(collection(db, 'users', uid, collName))
     );
 
-    // Wait for all read operations to complete in parallel, improving performance.
     const snapshots = await Promise.all(snapshotPromises);
 
-    // Add all delete operations to the batch from the resolved snapshots.
     snapshots.forEach(snapshot => {
         snapshot.docs.forEach(doc => {
             batch.delete(doc.ref);
         });
     });
 
-    // Execute the single batched write to delete all documents efficiently.
     await batch.commit();
 };
 
 
-export { db, auth };
+export { db, auth, enableNetwork, disableNetwork };

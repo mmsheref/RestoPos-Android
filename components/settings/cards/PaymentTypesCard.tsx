@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { PaymentType } from '../../../types';
 import { PaymentMethodIcon, TrashIcon } from '../../../constants';
@@ -10,7 +11,9 @@ interface PaymentTypesCardProps {
 }
 
 const PaymentTypesCard: React.FC<PaymentTypesCardProps> = ({ paymentTypes, onAdd, onToggle, onRemove }) => {
-  const isDefault = (id: string) => ['cash', 'upi'].includes(id);
+  // The 'cash' payment type is a fundamental part of the app's logic for calculating change 
+  // and should not be removable. Other default types like UPI can be managed by the user.
+  const isCash = (id: string) => id === 'cash';
 
   return (
     <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
@@ -26,7 +29,7 @@ const PaymentTypesCard: React.FC<PaymentTypesCardProps> = ({ paymentTypes, onAdd
               <span className="font-medium text-text-primary">{pt.name}</span>
             </div>
             <div className="flex items-center gap-2">
-              {!isDefault(pt.id) && (
+              {!isCash(pt.id) && (
                 <button onClick={() => onRemove(pt.id)} className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-full">
                   <TrashIcon className="h-4 w-4" />
                 </button>

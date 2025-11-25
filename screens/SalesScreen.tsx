@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { OrderItem, SavedTicket, Item, CustomGrid } from '../types';
 import { useAppContext } from '../context/AppContext';
@@ -31,19 +29,20 @@ const SalesScreen: React.FC = () => {
   const { 
       setHeaderTitle, openDrawer, settings, printers, addReceipt, 
       items, customGrids, addCustomGrid, updateCustomGrid, setCustomGrids,
-      savedTickets, saveTicket, removeTicket
+      savedTickets, saveTicket, removeTicket,
+      // Global Ticket State
+      currentOrder, addToOrder, removeFromOrder, deleteLineItem, 
+      updateOrderItemQuantity, clearOrder, loadOrder
   } = useAppContext();
 
   // Main screen view state
   const [salesView, setSalesView] = useState<SalesView>('grid');
   const [searchQuery, setSearchQuery] = useState('');
-  // Use debounced value for heavy filtering operations (300ms delay)
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   
   const [activeGridId, setActiveGridId] = useState<'All' | string>('All');
   
   // Ticket management state
-  const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
   const [editingTicket, setEditingTicket] = useState<SavedTicket | null>(null);
   const [editingQuantityItemId, setEditingQuantityItemId] = useState<string | null>(null);
   const [tempQuantity, setTempQuantity] = useState<string>('');
@@ -59,7 +58,6 @@ const SalesScreen: React.FC = () => {
   const [isAddGridModalOpen, setIsAddGridModalOpen] = useState(false);
   const [assigningSlot, setAssigningSlot] = useState<{gridId: string, slotIndex: number} | null>(null);
   
-  // Universal confirmation modal state
   const [confirmModalState, setConfirmModalState] = useState<{
       isOpen: boolean;
       title: string;
@@ -69,7 +67,6 @@ const SalesScreen: React.FC = () => {
       confirmButtonClass?: string;
   }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
   
-  // New context menu state
   const [contextMenuState, setContextMenuState] = useState<{
       isOpen: boolean;
       position: { top: number, left: number };
@@ -77,7 +74,6 @@ const SalesScreen: React.FC = () => {
       slotIndex: number;
   }>({ isOpen: false, position: { top: 0, left: 0 }, item: null, slotIndex: -1 });
 
-  // Mobile landscape state
   const [isTicketVisible, setIsTicketVisible] = useState(false);
   
   useEffect(() => {
@@ -87,46 +83,18 @@ const SalesScreen: React.FC = () => {
     else setHeaderTitle('Sales');
   }, [editingTicket, currentOrder.length, setHeaderTitle, salesView]);
 
-  const addToOrder = useCallback((item: Item) => {
-    setCurrentOrder(current => {
-      const existing = current.find(i => i.id === item.id);
-      if (existing) {
-        return current.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
-      }
-      return [...current, { ...item, quantity: 1 }];
-    });
-  }, []);
-
-  const removeFromOrder = useCallback((itemId: string) => {
-    setCurrentOrder(current => {
-      const existing = current.find(i => i.id === itemId);
-      if (existing && existing.quantity > 1) {
-        return current.map(i => i.id === itemId ? { ...i, quantity: i.quantity - 1 } : i);
-      }
-      return current.filter(i => i.id !== itemId);
-    });
-  }, []);
-
-  const deleteLineItem = useCallback((itemId: string) => {
-    setCurrentOrder(prev => prev.filter(i => i.id !== itemId));
-    if (editingQuantityItemId === itemId) setEditingQuantityItemId(null);
-  }, [editingQuantityItemId]);
-
   const handleQuantityClick = useCallback((item: OrderItem) => {
-    setEditingQuantityItemId(item.id);
+    setEditingQuantityItemId(item.lineItemId);
     setTempQuantity(item.quantity.toString());
   }, []);
 
   const handleQuantityChangeCommit = useCallback(() => {
     if (!editingQuantityItemId) return;
     const newQuantity = parseInt(tempQuantity, 10);
-    if (isNaN(newQuantity) || newQuantity <= 0) {
-        setCurrentOrder(prev => prev.filter(i => i.id !== editingQuantityItemId));
-    } else {
-        setCurrentOrder(prev => prev.map(i => i.id === editingQuantityItemId ? { ...i, quantity: newQuantity } : i));
-    }
+    // The context function handles the logic for quantity <= 0
+    updateOrderItemQuantity(editingQuantityItemId, newQuantity);
     setEditingQuantityItemId(null);
-  }, [editingQuantityItemId, tempQuantity]);
+  }, [editingQuantityItemId, tempQuantity, updateOrderItemQuantity]);
 
   const subtotal = useMemo(() => currentOrder.reduce((sum, item) => sum + item.price * item.quantity, 0), [currentOrder]);
   const tax = useMemo(() => settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0, [subtotal, settings]);
@@ -140,8 +108,11 @@ const SalesScreen: React.FC = () => {
   }, [addReceipt, currentOrder, editingTicket, removeTicket, total]);
   
   const handleNewSale = useCallback(() => {
-    setSalesView('grid'); setPaymentResult(null); setCurrentOrder([]); setEditingTicket(null);
-  }, []);
+    setSalesView('grid'); 
+    setPaymentResult(null); 
+    clearOrder(); 
+    setEditingTicket(null);
+  }, [clearOrder]);
   
   const itemsForDisplay = useMemo<(Item | null)[]>(() => {
     if (debouncedSearchQuery.trim()) {
@@ -151,7 +122,6 @@ const SalesScreen: React.FC = () => {
     if (activeGridId === 'All') return items;
     const grid = customGrids.find(g => g.id === activeGridId);
     if (grid) {
-        // BUG FIX: Ensure itemIds is always a fixed-size array to prevent crashes.
         const sourceIds = Array.isArray(grid.itemIds) ? grid.itemIds : [];
         const finalItemIds = new Array(GRID_SIZE).fill(null);
         for(let i = 0; i < Math.min(sourceIds.length, GRID_SIZE); i++) {
@@ -162,7 +132,6 @@ const SalesScreen: React.FC = () => {
     return new Array(GRID_SIZE).fill(null);
   }, [activeGridId, items, customGrids, debouncedSearchQuery]);
 
-  // --- Grid Management ---
   const handleAddNewGrid = useCallback(() => setIsAddGridModalOpen(true), []);
   const handleSaveNewGrid = useCallback((name: string) => {
       addCustomGrid({ id: generateId(), name, itemIds: new Array(GRID_SIZE).fill(null) });
@@ -187,7 +156,6 @@ const SalesScreen: React.FC = () => {
       if (!assigningSlot) return;
       const gridToUpdate = customGrids.find(g => g.id === assigningSlot.gridId);
       if (gridToUpdate) {
-          // BUG FIX: Ensure we start with a safe, full-sized array before modification.
           const sourceIds = Array.isArray(gridToUpdate.itemIds) ? gridToUpdate.itemIds : [];
           const newItemIds = new Array(GRID_SIZE).fill(null);
           for(let i = 0; i < Math.min(sourceIds.length, GRID_SIZE); i++) {
@@ -204,7 +172,6 @@ const SalesScreen: React.FC = () => {
     if (activeGridId === 'All') return;
     const gridToUpdate = customGrids.find(g => g.id === activeGridId);
     if (gridToUpdate) {
-        // BUG FIX: Ensure we start with a safe, full-sized array before modification.
         const sourceIds = Array.isArray(gridToUpdate.itemIds) ? gridToUpdate.itemIds : [];
         const newItemIds = new Array(GRID_SIZE).fill(null);
         for(let i = 0; i < Math.min(sourceIds.length, GRID_SIZE); i++) {
@@ -216,14 +183,14 @@ const SalesScreen: React.FC = () => {
   }, [activeGridId, customGrids, updateCustomGrid]);
 
   const handleClearTicket = useCallback(() => {
-    setCurrentOrder([]);
+    clearOrder();
     setEditingTicket(null);
     setEditingQuantityItemId(null);
-  }, []);
+  }, [clearOrder]);
 
   const handleLoadTicket = (ticket: SavedTicket) => {
       const loadAction = () => {
-          setCurrentOrder(ticket.items);
+          loadOrder(ticket.items);
           setEditingTicket(ticket);
           setIsOpenTicketsModalOpen(false);
       };
@@ -252,7 +219,6 @@ const SalesScreen: React.FC = () => {
       });
   };
 
-  // --- Context Menu Handlers ---
   const handleItemLongPress = useCallback((item: Item, slotIndex: number, event: React.MouseEvent | React.TouchEvent) => {
     event.preventDefault();
     const getCoords = (e: React.MouseEvent | React.TouchEvent) => {
@@ -314,11 +280,20 @@ const SalesScreen: React.FC = () => {
         onClose={() => setIsTicketVisible(false)} currentOrder={currentOrder} editingTicket={editingTicket}
         savedTickets={savedTickets} settings={settings} total={total} subtotal={subtotal} tax={tax}
         editingQuantityItemId={editingQuantityItemId} tempQuantity={tempQuantity} setEditingQuantityItemId={setEditingQuantityItemId}
-        setTempQuantity={setTempQuantity} removeFromOrder={removeFromOrder} addToOrder={addToOrder} deleteLineItem={deleteLineItem}
+        setTempQuantity={setTempQuantity} removeFromOrder={removeFromOrder} deleteLineItem={deleteLineItem}
+        updateOrderItemQuantity={updateOrderItemQuantity}
         handleQuantityClick={handleQuantityClick} handleQuantityChangeCommit={handleQuantityChangeCommit}
         handleQuantityInputChange={(e) => /^\d*$/.test(e.target.value) && setTempQuantity(e.target.value)}
         handleQuantityInputKeyDown={(e) => { if (e.key === 'Enter') handleQuantityChangeCommit(); else if (e.key === 'Escape') setEditingQuantityItemId(null); }}
-        handlePrimarySaveAction={() => editingTicket ? (saveTicket({ ...editingTicket, items: currentOrder }), setCurrentOrder([]), setEditingTicket(null)) : setIsSaveModalOpen(true)}
+        handlePrimarySaveAction={() => {
+            if (editingTicket) {
+                saveTicket({ ...editingTicket, items: currentOrder });
+                clearOrder();
+                setEditingTicket(null);
+            } else {
+                setIsSaveModalOpen(true);
+            }
+        }}
         onCharge={() => setSalesView('payment')} onOpenTickets={() => setIsOpenTicketsModalOpen(true)}
         onSaveTicket={() => setIsSaveModalOpen(true)} printers={printers}
         onClearTicket={handleClearTicket}
@@ -332,7 +307,17 @@ const SalesScreen: React.FC = () => {
         </button>
       )}
 
-      <SaveTicketModal isOpen={isSaveModalOpen} onClose={() => setIsSaveModalOpen(false)} onSave={(name) => { saveTicket({ id: `T${Date.now()}`, name, items: currentOrder }); setCurrentOrder([]); setEditingTicket(null); setIsSaveModalOpen(false); }} editingTicket={editingTicket} />
+      <SaveTicketModal 
+        isOpen={isSaveModalOpen} 
+        onClose={() => setIsSaveModalOpen(false)} 
+        onSave={(name) => { 
+            saveTicket({ id: `T${Date.now()}`, name, items: currentOrder }); 
+            clearOrder(); 
+            setEditingTicket(null); 
+            setIsSaveModalOpen(false); 
+        }} 
+        editingTicket={editingTicket} 
+      />
       <OpenTicketsModal isOpen={isOpenTicketsModalOpen} tickets={savedTickets} onClose={() => setIsOpenTicketsModalOpen(false)} onLoadTicket={handleLoadTicket} onDeleteTicket={handleDeleteTicket} />
       <SelectItemModal isOpen={isSelectItemModalOpen} onClose={() => setIsSelectItemModalOpen(false)} onSelect={handleSelectItem} allItems={items} />
       <ManageGridsModal isOpen={isManageGridsModalOpen} onClose={() => setIsManageGridsModalOpen(false)} initialGrids={customGrids} onSave={handleSaveGrids} />
