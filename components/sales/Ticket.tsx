@@ -223,18 +223,43 @@ const Ticket: React.FC<TicketProps> = (props) => {
                       <p className="text-text-secondary">{item.price.toFixed(2)}</p>
                   </div>
                   <div className="flex items-center justify-center gap-2 mx-4">
-                      <button onPointerDown={(e) => e.stopPropagation()} onClick={() => removeFromOrder(item.lineItemId)} className="h-7 w-7 bg-surface-muted text-lg rounded-full text-text-secondary hover:bg-red-200 dark:hover:bg-red-500/50 hover:text-red-700 transition-colors" aria-label={`Remove one ${item.name}`}>-</button>
+                      <button 
+                        onPointerDown={(e) => e.stopPropagation()} 
+                        onClick={(e) => {
+                            e.currentTarget.blur();
+                            removeFromOrder(item.lineItemId);
+                        }} 
+                        className="h-7 w-7 bg-surface-muted text-lg rounded-full text-text-secondary hover:bg-red-200 dark:hover:bg-red-500/50 hover:text-red-700 transition-colors focus:outline-none" 
+                        aria-label={`Remove one ${item.name}`}
+                      >
+                        -
+                      </button>
+                      
                       {editingQuantityItemId === item.lineItemId ? (
                           <input type="tel" value={tempQuantity} onChange={handleQuantityInputChange} onBlur={handleQuantityChangeCommit} onKeyDown={handleQuantityInputKeyDown} onPointerDown={(e) => e.stopPropagation()} className="font-mono w-10 text-center text-base text-text-primary bg-background border border-primary rounded-md ring-1 ring-primary" autoFocus onFocus={(e) => e.target.select()} />
                       ) : (
                           <span onClick={() => handleQuantityClick(item)} onPointerDown={(e) => e.stopPropagation()} className="font-mono w-10 text-center text-base text-text-primary cursor-pointer rounded-md hover:bg-surface-muted p-1" aria-label="Edit quantity" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') handleQuantityClick(item)}}>{item.quantity}</span>
                       )}
-                      <button onPointerDown={(e) => e.stopPropagation()} onClick={() => updateOrderItemQuantity(item.lineItemId, item.quantity + 1)} className="h-7 w-7 bg-surface-muted text-lg rounded-full text-text-secondary hover:bg-green-200 dark:hover:bg-green-500/50 hover:text-green-700 transition-colors" aria-label={`Add one ${item.name}`}>+</button>
+                      
+                      <button 
+                        onPointerDown={(e) => e.stopPropagation()} 
+                        onClick={(e) => {
+                            e.currentTarget.blur();
+                            updateOrderItemQuantity(item.lineItemId, item.quantity + 1);
+                        }} 
+                        className="h-7 w-7 bg-surface-muted text-lg rounded-full text-text-secondary hover:bg-green-200 dark:hover:bg-green-500/50 hover:text-green-700 transition-colors focus:outline-none" 
+                        aria-label={`Add one ${item.name}`}
+                      >
+                        +
+                      </button>
                   </div>
                   <p className="w-16 font-semibold text-text-primary text-right">{(item.price * item.quantity).toFixed(2)}</p>
                   <button 
-                    onClick={() => deleteLineItem(item.lineItemId)} 
-                    className="ml-2 p-2 text-text-muted hover:text-red-500 rounded-full transition-colors"
+                    onClick={(e) => {
+                        e.currentTarget.blur();
+                        deleteLineItem(item.lineItemId);
+                    }} 
+                    className="ml-2 p-2 text-text-muted hover:text-red-500 rounded-full transition-colors focus:outline-none"
                     aria-label={`Delete ${item.name}`}
                   >
                       <TrashIcon className="h-5 w-5" />
