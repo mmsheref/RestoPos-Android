@@ -16,7 +16,7 @@ const NavDrawer: React.FC = () => {
         />
       )}
       <aside
-        className={`fixed top-0 left-0 h-screen w-64 bg-neutral-800 text-white z-40 flex flex-col shadow-2xl transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 h-screen w-64 bg-neutral-800 text-white z-40 flex flex-col shadow-2xl transform transition-transform duration-300 ease-in-out will-change-transform ${
           isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
