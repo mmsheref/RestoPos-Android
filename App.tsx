@@ -3,11 +3,6 @@ import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import Layout from './components/Layout';
-import SalesScreen from './screens/SalesScreen';
-import ReceiptsScreen from './screens/ReceiptsScreen';
-import ItemsScreen from './screens/ItemsScreen';
-import SettingsScreen from './screens/SettingsScreen';
-import AdvancedScreen from './screens/AdvancedScreen';
 import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
@@ -40,19 +35,12 @@ const AppRoutes: React.FC = () => {
         );
     }
 
+    // With the new persistent layout, we render the Layout component for all authenticated routes.
+    // The Layout component itself will handle showing/hiding screens based on the path.
     return (
-        <Layout>
-            <Routes>
-                <Route index element={<Navigate to="/sales" replace />} />
-                <Route path="/" element={<Navigate to="/sales" replace />} />
-                <Route path="/sales" element={<SalesScreen />} />
-                <Route path="/receipts" element={<ReceiptsScreen />} />
-                <Route path="/items" element={<ItemsScreen />} />
-                <Route path="/settings" element={<SettingsScreen />} />
-                <Route path="/advanced" element={<AdvancedScreen />} />
-                <Route path="*" element={<Navigate to="/sales" replace />} />
-            </Routes>
-        </Layout>
+        <Routes>
+           <Route path="/*" element={<Layout />} />
+        </Routes>
     );
 };
 

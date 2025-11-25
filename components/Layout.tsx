@@ -1,41 +1,51 @@
 
 import React, { ReactNode, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Navigate } from 'react-router-dom';
 import Header from './Header';
 import NavDrawer from './NavDrawer';
 import { useAppContext } from '../context/AppContext';
 import { NAV_LINKS } from '../constants';
 
-interface LayoutProps {
-  children: ReactNode;
-}
+// Import all screens that will be persistently rendered
+import SalesScreen from '../screens/SalesScreen';
+import ReceiptsScreen from '../screens/ReceiptsScreen';
+import ItemsScreen from '../screens/ItemsScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import AdvancedScreen from '../screens/AdvancedScreen';
 
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+
+const Layout: React.FC = () => {
   const { 
     isDrawerOpen, openDrawer, 
     headerTitle, setHeaderTitle, 
   } = useAppContext();
   const location = useLocation();
+  const { pathname } = location;
 
-  const currentLink = NAV_LINKS.find(link => link.path === location.pathname);
+  const currentLink = NAV_LINKS.find(link => link.path === pathname);
   const baseTitle = currentLink ? currentLink.label : 'Sales';
   
-  const finalTitle = location.pathname === '/sales' && headerTitle ? headerTitle : baseTitle;
-  const isSalesScreen = location.pathname === '/sales';
-  const isReceiptsScreen = location.pathname === '/receipts';
-  const isSettingsScreen = location.pathname === '/settings';
+  const finalTitle = pathname === '/sales' && headerTitle ? headerTitle : baseTitle;
+  
+  // Determine which screens need custom header handling (or no header)
+  const showDefaultHeader = !['/sales', '/receipts', '/settings'].includes(pathname);
 
   useEffect(() => {
-    // Reset header title when navigating away from the sales screen
-    if(location.pathname !== '/sales') {
+    // Reset any screen-specific header titles when navigating away
+    if(pathname !== '/sales') {
         setHeaderTitle('');
     }
-  }, [location.pathname, setHeaderTitle]);
+  }, [pathname, setHeaderTitle]);
 
+  // Handle default route and unknown routes within the authenticated layout
+  const validPaths = ['/sales', '/receipts', '/items', '/settings', '/advanced'];
+  if (!validPaths.includes(pathname)) {
+      return <Navigate to="/sales" replace />;
+  }
 
   return (
     <div className="relative h-screen w-full overflow-x-hidden bg-background text-text-primary flex flex-col">
-      {!isSalesScreen && !isReceiptsScreen && !isSettingsScreen && <Header 
+      {showDefaultHeader && <Header 
         title={finalTitle} 
         onMenuClick={openDrawer}
       />}
@@ -43,9 +53,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <main
         className={`flex-1 flex flex-col shadow-lg overflow-hidden relative transition-transform duration-300 ease-in-out ${isDrawerOpen ? 'translate-x-64' : 'translate-x-0'}`}
       >
-        <div className={`flex-1 overflow-y-auto w-full`}>
-          {children}
-        </div>
+        {/* Persistent Screen Rendering: All screens are rendered, but only the active one is visible. */}
+        <div className={pathname === '/sales' ? 'h-full' : 'hidden'}><SalesScreen /></div>
+        <div className={pathname === '/receipts' ? 'h-full' : 'hidden'}><ReceiptsScreen /></div>
+        <div className={pathname === '/items' ? 'h-full' : 'hidden'}><ItemsScreen /></div>
+        <div className={pathname === '/settings' ? 'h-full' : 'hidden'}><SettingsScreen /></div>
+        <div className={pathname === '/advanced' ? 'h-full' : 'hidden'}><AdvancedScreen /></div>
       </main>
     </div>
   );

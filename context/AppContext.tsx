@@ -20,7 +20,8 @@ const DEFAULT_SETTINGS: AppSettings = {
     taxRate: 5, 
     storeName: 'My Restaurant',
     storeAddress: '123 Food Street, Flavor Town',
-    receiptFooter: 'Follow us @myrestaurant'
+    receiptFooter: 'Follow us @myrestaurant',
+    instagramHandle: ''
 };
 
 interface FirebaseErrorState {
@@ -93,17 +94,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setUser(currentUser);
             const uid = currentUser.uid;
 
-            // --- OPTIMIZATION: Fetch-once for configuration data ---
-            const fetchInitialConfig = async () => {
+            // --- OPTIMIZATION: Fetch low-frequency data ONCE on startup. ---
+            // This function fetches all configuration and primary data in parallel.
+            const fetchAllDataOnce = async () => {
               try {
-                // Settings
+                // Settings Doc (special case, might need initialization)
                 const settingsSnap = await getDoc(doc(db, 'users', uid, 'config', 'settings'));
                 if (settingsSnap.exists()) {
                     const newSettings = settingsSnap.data() as AppSettings;
                     setSettingsState(newSettings);
                     localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(newSettings));
                 } else {
-                    // Initialize default settings and payment types for new users
+                    // Initialize default settings, payment types, and tables for a new user.
                     await setDoc(doc(db, 'users', uid, 'config', 'settings'), DEFAULT_SETTINGS);
                     setSettingsState(DEFAULT_SETTINGS);
                     
@@ -122,31 +124,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     await batch.commit();
                 }
 
-                // Other configs
-                const printersSnap = await getDocs(collection(db, 'users', uid, 'printers'));
-                setPrintersState(printersSnap.docs.map(doc => doc.data() as Printer));
-                
-                const paymentTypesSnap = await getDocs(collection(db, 'users', uid, 'payment_types'));
-                setPaymentTypesState(paymentTypesSnap.docs.map(doc => doc.data() as PaymentType));
+                // Fetch all other collections in parallel for speed.
+                const [
+                    itemsSnap,
+                    printersSnap,
+                    paymentTypesSnap,
+                    tablesSnap,
+                    ticketsSnap,
+                    gridsSnap
+                ] = await Promise.all([
+                    getDocs(collection(db, 'users', uid, 'items')),
+                    getDocs(collection(db, 'users', uid, 'printers')),
+                    getDocs(collection(db, 'users', uid, 'payment_types')),
+                    getDocs(query(collection(db, 'users', uid, 'tables'), orderBy('order'))),
+                    getDocs(collection(db, 'users', uid, 'saved_tickets')),
+                    getDocs(query(collection(db, 'users', uid, 'custom_grids'), orderBy('order')))
+                ]);
 
-                const tablesQuery = query(collection(db, 'users', uid, 'tables'), orderBy('order'));
-                const tablesSnap = await getDocs(tablesQuery);
+                const itemsData = itemsSnap.docs.map(doc => doc.data() as Item);
+                setItemsState(itemsData);
+                localStorage.setItem(ITEMS_CACHE_KEY, JSON.stringify(itemsData));
+
+                setPrintersState(printersSnap.docs.map(doc => doc.data() as Printer));
+                setPaymentTypesState(paymentTypesSnap.docs.map(doc => doc.data() as PaymentType));
                 setTablesState(tablesSnap.docs.map(doc => doc.data() as Table));
+                setSavedTicketsState(ticketsSnap.docs.map(doc => doc.data() as SavedTicket));
+                setCustomGridsState(gridsSnap.docs.map(doc => doc.data() as CustomGrid));
 
               } catch (e) {
-                  console.error("Error fetching initial configuration:", e);
+                  console.error("Error fetching initial data:", e);
               }
             };
             
-            fetchInitialConfig();
+            fetchAllDataOnce();
 
-            // --- REAL-TIME LISTENERS for dynamic data ---
-            const unsubItems = onSnapshot(collection(db, 'users', uid, 'items'), (snapshot) => {
-                  const itemsData = snapshot.docs.map(doc => ({ ...doc.data() } as Item));
-                  setItemsState(itemsData);
-                  localStorage.setItem(ITEMS_CACHE_KEY, JSON.stringify(itemsData));
-            });
-
+            // --- REAL-TIME LISTENER for HIGH-FREQUENCY data ONLY (Receipts) ---
             const qReceipts = query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(25));
             const unsubReceipts = onSnapshot(qReceipts, (snapshot) => {
                 const receiptsData = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
@@ -155,13 +167,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     return combined.sort((a,b) => b.date.getTime() - a.date.getTime());
                 });
                 if (snapshot.docs.length > 0) setLastReceiptDoc(snapshot.docs[snapshot.docs.length - 1]);
+                if (snapshot.docs.length < 25) setHasMoreReceipts(false); else setHasMoreReceipts(true);
             });
-
-            const unsubTickets = onSnapshot(collection(db, 'users', uid, 'saved_tickets'), (snapshot) => setSavedTicketsState(snapshot.docs.map(doc => doc.data() as SavedTicket)));
-            const unsubGrids = onSnapshot(query(collection(db, 'users', uid, 'custom_grids'), orderBy('order')), (snapshot) => setCustomGridsState(snapshot.docs.map(doc => doc.data() as CustomGrid)));
             
             setIsLoading(false);
-            return () => { unsubItems(); unsubReceipts(); unsubTickets(); unsubGrids(); };
+            return () => { 
+              unsubReceipts(); // Clean up the single listener on logout.
+            };
 
         } else {
             setUser(null);
@@ -262,7 +274,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [lastReceiptDoc, user]);
   
   const addReceipt = useCallback(async (receipt: Receipt) => {
-    setReceiptsState(prev => [receipt, ...prev].sort((a,b) => b.date.getTime() - a.date.getTime()));
+    // Optimistic UI update
+    setReceiptsState(prev => [receipt, ...prev].sort((a,b) => b.date.getTime() - a.date.getTime()).slice(0, 50));
     try { 
         await setDoc(doc(db, 'users', getUid(), 'receipts', receipt.id), receipt);
     } 
@@ -323,17 +336,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [getUid]);
 
   const addItem = useCallback(async (item: Item) => {
+    setItemsState(prev => [...prev, item]); // Optimistic Update
     try { await setDoc(doc(db, 'users', getUid(), 'items', item.id), item); } 
     catch (e) { console.error(e); alert("Failed to add item."); }
   }, [getUid]);
 
   const updateItem = useCallback(async (updatedItem: Item) => {
+    setItemsState(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i)); // Optimistic Update
     try { await setDoc(doc(db, 'users', getUid(), 'items', updatedItem.id), updatedItem); } 
     catch (e) { console.error(e); alert("Failed to update item."); }
   }, [getUid]);
 
   const deleteItem = useCallback(async (id: string) => {
     const uid = getUid();
+    // Optimistic UI updates
+    setItemsState(prev => prev.filter(i => i.id !== id));
+    setCustomGridsState(prev => prev.map(grid => ({
+      ...grid,
+      itemIds: Array.isArray(grid.itemIds) ? grid.itemIds.map(itemId => itemId === id ? null : itemId) : []
+    })));
+
     const batch = writeBatch(db);
     batch.delete(doc(db, 'users', uid, 'items', id));
     const gridsToUpdate = customGrids.filter(grid => Array.isArray(grid.itemIds) && grid.itemIds.includes(id));
@@ -347,52 +369,66 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch (e) {
       console.error("Failed to delete item and clean up grids:", e);
       alert("Failed to delete item.");
+      // NOTE: A rollback mechanism would be ideal here in a production app.
     }
   }, [getUid, customGrids]);
 
   const saveTicket = useCallback(async (ticket: SavedTicket) => {
+      setSavedTicketsState(prev => [...prev.filter(t => t.id !== ticket.id), ticket]);
       try { await setDoc(doc(db, 'users', getUid(), 'saved_tickets', ticket.id), ticket); } 
       catch (e) { console.error(e); alert("Failed to save ticket."); }
   }, [getUid]);
 
   const removeTicket = useCallback(async (ticketId: string) => {
+      setSavedTicketsState(prev => prev.filter(t => t.id !== ticketId));
       try { await deleteDoc(doc(db, 'users', getUid(), 'saved_tickets', ticketId)); } 
       catch (e) { console.error(e); alert("Failed to delete ticket."); }
   }, [getUid]);
 
   const addCustomGrid = useCallback(async (grid: CustomGrid) => {
-      try { await setDoc(doc(db, 'users', getUid(), 'custom_grids', grid.id), { ...grid, order: customGrids.length }); } 
+      const newGridWithOrder = { ...grid, order: customGrids.length };
+      setCustomGridsState(prev => [...prev, newGridWithOrder]);
+      try { await setDoc(doc(db, 'users', getUid(), 'custom_grids', grid.id), newGridWithOrder); } 
       catch (e) { console.error(e); alert("Failed to add custom grid."); }
   }, [getUid, customGrids.length]);
 
   const updateCustomGrid = useCallback(async (grid: CustomGrid) => {
+      setCustomGridsState(prev => prev.map(g => g.id === grid.id ? grid : g));
       try { await setDoc(doc(db, 'users', getUid(), 'custom_grids', grid.id), grid); } 
       catch (e) { console.error(e); alert("Failed to update custom grid."); }
   }, [getUid]);
 
   const deleteCustomGrid = useCallback(async (id: string) => {
+      setCustomGridsState(prev => prev.filter(g => g.id !== id));
       try { await deleteDoc(doc(db, 'users', getUid(), 'custom_grids', id)); } 
       catch (e) { console.error(e); alert("Failed to delete custom grid."); }
   }, [getUid]);
 
   const setCustomGrids = useCallback(async (newGrids: CustomGrid[]) => {
+      const newGridsWithOrder = newGrids.map((g, i) => ({ ...g, order: i }));
+      setCustomGridsState(newGridsWithOrder); // Optimistic UI Update
+      
       const batch = writeBatch(db);
       const gridsRef = collection(db, 'users', getUid(), 'custom_grids');
       const oldGridsMap = new Map(customGrids.map(g => [g.id, g]));
-      const newGridsMap = new Map(newGrids.map(g => [g.id, g]));
+
+      // Delete grids that are no longer present
       for (const oldGrid of customGrids) {
-          if (!newGridsMap.has(oldGrid.id)) batch.delete(doc(gridsRef, oldGrid.id));
-      }
-      for (const [index, newGrid] of newGrids.entries()) {
-          const existingGrid = oldGridsMap.get(newGrid.id) as CustomGrid | undefined;
-          const newGridWithOrder = { ...newGrid, order: index };
-          if (!existingGrid || existingGrid.name !== newGridWithOrder.name || existingGrid.order !== newGridWithOrder.order) {
-              batch.set(doc(gridsRef, newGrid.id), newGridWithOrder);
+          if (!newGrids.some(g => g.id === oldGrid.id)) {
+              batch.delete(doc(gridsRef, oldGrid.id));
           }
       }
-      try {
-          await batch.commit();
-      } catch (e) { console.error("Failed to save grid changes to DB:", e); alert("Failed to save grid changes."); }
+      
+      // Set/Update grids
+      for (const newGrid of newGridsWithOrder) {
+          const existingGrid = oldGridsMap.get(newGrid.id) as CustomGrid | undefined;
+          if (!existingGrid || existingGrid.name !== newGrid.name || existingGrid.order !== newGrid.order) {
+              batch.set(doc(gridsRef, newGrid.id), newGrid, { merge: true });
+          }
+      }
+
+      try { await batch.commit(); } 
+      catch (e) { console.error("Failed to save grid changes to DB:", e); alert("Failed to save grid changes."); }
   }, [customGrids, getUid]);
   
   // Table Management
@@ -416,22 +452,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [getUid]);
   
   const setTables = useCallback(async (newTables: Table[]) => {
+    const newTablesWithOrder = newTables.map((t, i) => ({ ...t, order: i }));
+    setTablesState(newTablesWithOrder); // Optimistic update
+    
     const batch = writeBatch(db);
     const tablesRef = collection(db, 'users', getUid(), 'tables');
     const oldTablesMap = new Map(tables.map(t => [t.id, t]));
-    newTables.forEach((table, index) => {
-        const newTableWithOrder = { ...table, order: index };
-        const oldTable = oldTablesMap.get(table.id) as Table | undefined;
-        if (!oldTable || oldTable.name !== newTableWithOrder.name || oldTable.order !== newTableWithOrder.order) {
-            batch.set(doc(tablesRef, table.id), newTableWithOrder);
-        }
-    });
+    
+    // Delete removed tables
     tables.forEach(oldTable => {
         if (!newTables.find(newTable => newTable.id === oldTable.id)) {
             batch.delete(doc(tablesRef, oldTable.id));
         }
     });
-    setTablesState(newTables.map((t, i) => ({ ...t, order: i })));
+
+    // Set/Update tables
+    newTablesWithOrder.forEach((table) => {
+        const oldTable = oldTablesMap.get(table.id) as Table | undefined;
+        if (!oldTable || oldTable.name !== table.name || oldTable.order !== table.order) {
+            batch.set(doc(tablesRef, table.id), table, { merge: true });
+        }
+    });
+
     try { await batch.commit(); } 
     catch(e) { console.error(e); alert("Failed to save table changes."); }
   }, [getUid, tables]);
@@ -439,15 +481,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const replaceItems = useCallback(async (newItems: Item[]) => {
     setIsLoading(true);
+    setItemsState(newItems); // Optimistic Update
     const batch = writeBatch(db);
     const itemsRef = collection(db, 'users', getUid(), 'items');
     try {
-      items.forEach(item => batch.delete(doc(itemsRef, item.id)));
-      newItems.forEach(item => batch.set(doc(itemsRef, item.id), item));
+      // Get all existing items to delete them
+      const snapshot = await getDocs(itemsRef);
+      snapshot.docs.forEach(doc => batch.delete(doc.ref));
+      // Add all new items
+      newItems.forEach(item => batch.set(doc(itemsRef), item));
       await batch.commit();
     } catch (e) { alert("Failed to import items. Data unchanged."); } 
     finally { setIsLoading(false); }
-  }, [items, getUid]);
+  }, [getUid]);
 
   const exportItemsCsv = useCallback(() => {
     try {

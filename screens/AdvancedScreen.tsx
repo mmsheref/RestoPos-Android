@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { AppSettings } from '../types';
@@ -68,6 +67,22 @@ const AdvancedScreen: React.FC = () => {
                 placeholder="e.g., Thank you! Find us @yourshop"
                 className="mt-1 block w-full p-2 border border-border rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm bg-background"
               />
+            </div>
+            <div>
+              <label htmlFor="instagramHandle" className="block text-sm font-medium text-text-secondary">Instagram Handle (for QR Code)</label>
+              <div className="mt-1 flex rounded-md shadow-sm">
+                 <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-border bg-surface-muted text-text-muted text-sm">@</span>
+                 <input
+                    type="text"
+                    name="instagramHandle"
+                    id="instagramHandle"
+                    value={formData.instagramHandle || ''}
+                    onChange={handleChange}
+                    placeholder="yourshop"
+                    className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md focus:ring-primary focus:border-primary sm:text-sm border-border bg-background"
+                 />
+              </div>
+               <p className="mt-2 text-xs text-text-muted">Enter your handle to print a scannable QR code on receipts.</p>
             </div>
           </div>
           <div className="flex justify-end mt-6">

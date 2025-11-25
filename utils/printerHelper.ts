@@ -36,6 +36,32 @@ const COMMANDS = {
 };
 
 /**
+ * Generates the ESC/POS command sequence for printing a QR code.
+ * This sends commands to use the printer's built-in QR code generation, which is fast and reliable.
+ */
+const generateQrCodeCommands = (data: string): string => {
+  const dataBytes = new TextEncoder().encode(data);
+  const len = dataBytes.length + 3;
+  const pL = len % 256;
+  const pH = len / 256;
+
+  let qrCommands = '';
+  // Set QR code model - Model 2 is common and robust
+  qrCommands += GS + '(k' + '\x04\x00\x31\x41\x32\x00';
+  // Set QR code module size - 3 is a good default
+  qrCommands += GS + '(k' + '\x03\x00\x31\x43\x03';
+  // Set QR code error correction level - L (7%) is usually fine for URLs
+  qrCommands += GS + '(k' + '\x03\x00\x31\x45\x30';
+  // Store QR code data
+  qrCommands += GS + '(k' + String.fromCharCode(pL) + String.fromCharCode(pH) + '\x31\x50\x30' + data;
+  // Print the QR code
+  qrCommands += GS + '(k' + '\x03\x00\x31\x51\x30';
+
+  return qrCommands;
+};
+
+
+/**
  * Connects to a specific Bluetooth device.
  */
 const connectToPrinter = (address: string): Promise<void> => {
@@ -272,6 +298,16 @@ export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: b
     // 6. Footer
     if(settings.receiptFooter) data += '\n' + COMMANDS.CENTER + settings.receiptFooter + '\n';
     data += COMMANDS.CENTER + 'Thank you for your visit!\n';
+    
+    // 7. QR Code for Instagram
+    if (settings.instagramHandle) {
+        const instaUrl = `https://www.instagram.com/${settings.instagramHandle}`;
+        data += '\n' + COMMANDS.CENTER;
+        data += 'Follow us on Instagram!\n';
+        data += generateQrCodeCommands(instaUrl);
+        data += '\n';
+    }
+
     data += '\n';
     data += createLine(formattedDate, receiptId, paperWidthChars);
 
