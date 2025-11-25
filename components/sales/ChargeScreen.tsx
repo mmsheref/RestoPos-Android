@@ -172,9 +172,30 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
   const hasBeenFocused = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
   
-  const enabledPaymentTypes = useMemo(() => paymentTypes.filter(p => p.enabled), [paymentTypes]);
-  const cashPaymentType = useMemo(() => enabledPaymentTypes.find(p => p.type === 'cash'), [enabledPaymentTypes]);
-  const otherPaymentTypes = useMemo(() => enabledPaymentTypes.filter(p => p.type !== 'cash'), [enabledPaymentTypes]);
+  // FIX: Guarantees a default 'Cash' payment type is always available unless explicitly disabled by the user.
+  // This prevents the cash option from disappearing if the payment types haven't loaded from Firestore yet or are missing.
+  const cashPaymentType = useMemo(() => {
+    const config = paymentTypes.find(p => p.id === 'cash');
+    // If 'cash' is explicitly configured and disabled, hide it.
+    if (config && !config.enabled) {
+      return undefined;
+    }
+    // If 'cash' is configured and enabled, use that configuration.
+    if (config) {
+      return config;
+    }
+    // If 'cash' is not configured at all (e.g., new user, data issue), provide a default fallback.
+    return {
+      id: 'cash',
+      name: 'Cash',
+      icon: 'cash',
+      type: 'cash',
+      enabled: true,
+    };
+  }, [paymentTypes]);
+
+  const otherPaymentTypes = useMemo(() => paymentTypes.filter(p => p.id !== 'cash' && p.enabled), [paymentTypes]);
+
 
   const uniqueQuickCash = useMemo(() => {
     const suggestions = new Set<number>();

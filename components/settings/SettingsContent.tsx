@@ -1,8 +1,7 @@
-
 import React, { useState, useRef } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { SettingsCategory } from '../../screens/SettingsScreen';
-import { Printer, BackupData, PaymentType } from '../../types';
+import { Printer, BackupData, PaymentType, Table } from '../../types';
 import { testPrint } from '../../utils/printerHelper';
 import { ArrowLeftIcon } from '../../constants';
 
@@ -11,6 +10,7 @@ import AddPrinterModal from './AddPrinterModal';
 import AddPaymentTypeModal from './AddPaymentTypeModal';
 import ConfirmImportModal from '../modals/ConfirmImportModal';
 import ConfirmModal from '../modals/ConfirmModal';
+import TableFormModal from '../modals/TableFormModal';
 
 // Card Components
 import AppearanceCard from './cards/AppearanceCard';
@@ -20,6 +20,7 @@ import PrintersCard from './cards/PrintersCard';
 import StoreInfoCard from './cards/StoreInfoCard';
 import DataManagementCard from './cards/DataManagementCard';
 import AboutCard from './cards/AboutCard';
+import TablesCard from './cards/TablesCard';
 
 interface SettingsContentProps {
     activeCategory: SettingsCategory;
@@ -32,12 +33,15 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory, onBac
       theme, setTheme, settings, updateSettings, 
       printers, addPrinter, removePrinter,
       paymentTypes, addPaymentType, updatePaymentType, removePaymentType,
+      tables, addTable, updateTable, setTables, removeTable,
       exportData, restoreData
     } = useAppContext();
 
     // All modal and state logic from the old SettingsScreen is moved here
     const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
     const [isPaymentTypeModalOpen, setIsPaymentTypeModalOpen] = useState(false);
+    const [isTableModalOpen, setIsTableModalOpen] = useState(false);
+    const [editingTable, setEditingTable] = useState<Table | null>(null);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [importCandidate, setImportCandidate] = useState<BackupData | null>(null);
     const [testingPrinterId, setTestingPrinterId] = useState<string | null>(null);
@@ -95,12 +99,32 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory, onBac
             alert("Data restored successfully!");
         }
     };
+    
+    const handleOpenAddTableModal = () => {
+        setEditingTable(null);
+        setIsTableModalOpen(true);
+    };
+
+    const handleOpenEditTableModal = (table: Table) => {
+        setEditingTable(table);
+        setIsTableModalOpen(true);
+    };
+
+    const handleSaveTable = (name: string) => {
+        if (editingTable) {
+            updateTable({ ...editingTable, name });
+        } else {
+            addTable(name);
+        }
+        setIsTableModalOpen(false);
+    };
 
     const renderContent = () => {
         switch (activeCategory) {
             case 'appearance': return <AppearanceCard theme={theme} setTheme={setTheme} />;
             case 'financial': return <FinancialCard settings={settings} updateSettings={updateSettings} />;
             case 'payment_types': return <PaymentTypesCard paymentTypes={paymentTypes} onAdd={() => setIsPaymentTypeModalOpen(true)} onToggle={handleTogglePaymentType} onRemove={removePaymentType} />;
+            case 'tables': return <TablesCard tables={tables} setTables={setTables} onAdd={handleOpenAddTableModal} onEdit={handleOpenEditTableModal} onRemove={removeTable} />;
             case 'printers': return <PrintersCard printers={printers} onAdd={() => setIsPrinterModalOpen(true)} onTest={handleTestPrinter} onRemove={setPrinterToRemove} testingPrinterId={testingPrinterId} />;
             case 'store_info': return <StoreInfoCard settings={settings} updateSettings={updateSettings} />;
             case 'data': return <DataManagementCard onExport={exportData} onImport={handleImportClick} />;
@@ -127,6 +151,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory, onBac
             {/* Modals are kept here as they are triggered from the content cards */}
             <AddPrinterModal isOpen={isPrinterModalOpen} onClose={() => setIsPrinterModalOpen(false)} onSave={(newPrinter) => { addPrinter(newPrinter); setIsPrinterModalOpen(false); }} />
             <AddPaymentTypeModal isOpen={isPaymentTypeModalOpen} onClose={() => setIsPaymentTypeModalOpen(false)} onSave={(newType) => { addPaymentType(newType); setIsPaymentTypeModalOpen(false); }} />
+            <TableFormModal isOpen={isTableModalOpen} onClose={() => setIsTableModalOpen(false)} onSave={handleSaveTable} initialData={editingTable} />
             <ConfirmImportModal 
               isOpen={isImportModalOpen} 
               data={importCandidate} 

@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { MenuIcon, SyncIcon } from '../constants';
+import { MenuIcon, SyncIcon, OfflineIcon } from '../constants';
 import SettingsNav from '../components/settings/SettingsNav';
 import SettingsContent from '../components/settings/SettingsContent';
 
-export type SettingsCategory = 'appearance' | 'financial' | 'payment_types' | 'printers' | 'store_info' | 'data' | 'about';
+export type SettingsCategory = 'appearance' | 'financial' | 'payment_types' | 'tables' | 'printers' | 'store_info' | 'data' | 'about';
 
 const SettingsScreen: React.FC = () => {
-    const { openDrawer, isSyncing } = useAppContext();
+    const { openDrawer, syncState } = useAppContext();
     const [activeCategory, setActiveCategory] = useState<SettingsCategory>('appearance');
     
     // State to manage view on mobile (list vs detail)
@@ -23,6 +23,7 @@ const SettingsScreen: React.FC = () => {
         appearance: 'Appearance',
         financial: 'Financial',
         payment_types: 'Payment Types',
+        tables: 'Tables & Quick Select',
         printers: 'Printers',
         store_info: 'Store Information',
         data: 'Data Management',
@@ -39,7 +40,8 @@ const SettingsScreen: React.FC = () => {
                         <MenuIcon className="h-6 w-6" />
                     </button>
                     <div className="flex items-center gap-2 ml-4">
-                        {isSyncing && <SyncIcon className="h-5 w-5 text-primary" />}
+                        {syncState === 'syncing' && <SyncIcon className="h-5 w-5 text-primary" title="Syncing pending changes..." />}
+                        {syncState === 'offline' && <OfflineIcon className="h-5 w-5 text-red-500" title="Offline: Changes are saved locally." />}
                         <h1 className="text-xl font-semibold text-text-primary">Settings</h1>
                     </div>
                 </div>

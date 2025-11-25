@@ -67,6 +67,15 @@ export interface SavedTicket {
   items: OrderItem[];
 }
 
+/**
+ * Represents a configurable table name for quick-saving tickets.
+ */
+export interface Table {
+  id: string;
+  name: string;
+  order: number;
+}
+
 /** Defines the connection interface type for a printer. */
 export type PrinterInterfaceType = 'Bluetooth' | 'Ethernet' | 'USB';
 /** Defines the paper width for a receipt printer. */
@@ -119,6 +128,7 @@ export interface BackupData {
   savedTickets?: SavedTicket[];
   customGrids?: CustomGrid[];
   paymentTypes?: PaymentType[];
+  tables?: Table[];
 }
 
 
@@ -140,7 +150,7 @@ export interface AppContextType {
   
   // Data
   isLoading: boolean;
-  isSyncing: boolean;
+  syncState: 'online' | 'syncing' | 'offline';
   manualSync: () => Promise<void>;
   settings: AppSettings;
   updateSettings: (newSettings: Partial<AppSettings>) => void;
@@ -173,6 +183,12 @@ export interface AppContextType {
   updateCustomGrid: (grid: CustomGrid) => void;
   deleteCustomGrid: (id: string) => void;
   setCustomGrids: (grids: CustomGrid[]) => void;
+
+  tables: Table[];
+  addTable: (name: string) => void;
+  updateTable: (table: Table) => void;
+  setTables: (tables: Table[]) => void;
+  removeTable: (tableId: string) => void;
 
   // --- START: Global Ticket State ---
   // The active order, managed globally to persist across UI changes like theme switching.

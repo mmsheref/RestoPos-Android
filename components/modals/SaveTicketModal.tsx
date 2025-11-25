@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import type { SavedTicket } from '../../types';
-
-const QUICK_TICKET_NAMES = ['Table 1', 'Table 2', 'Table 3', 'Table 4', 'Table 5', 'Takeout #1', 'Takeout #2', 'Delivery'];
+import { useAppContext } from '../../context/AppContext';
 
 interface SaveTicketModalProps {
   isOpen: boolean;
@@ -11,6 +10,7 @@ interface SaveTicketModalProps {
 }
 
 const SaveTicketModal: React.FC<SaveTicketModalProps> = ({ isOpen, onClose, onSave, editingTicket }) => {
+  const { tables } = useAppContext();
   const [name, setName] = useState(editingTicket?.name || '');
   
   const handleSave = () => {
@@ -28,18 +28,22 @@ const SaveTicketModal: React.FC<SaveTicketModalProps> = ({ isOpen, onClose, onSa
       <div className="bg-surface rounded-lg p-6 shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
         <h2 className="text-2xl font-bold mb-4 text-text-primary">{isUpdating ? 'Update Ticket' : 'Save Ticket'}</h2>
         
-        <p className="text-sm font-medium text-text-secondary mb-2">Quick Select</p>
-        <div className="grid grid-cols-4 gap-2 mb-4">
-            {QUICK_TICKET_NAMES.map(qName => (
-                <button key={qName} onClick={() => onSave(qName)} className="p-3 bg-surface-muted rounded-md text-text-secondary font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900/50 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">
-                    {qName}
-                </button>
-            ))}
-        </div>
-        
-        <div className="flex items-center gap-4 my-4">
-            <hr className="flex-grow border-border"/> <span className="text-text-muted text-sm">OR</span> <hr className="flex-grow border-border"/>
-        </div>
+        {tables.length > 0 && (
+          <>
+            <p className="text-sm font-medium text-text-secondary mb-2">Quick Select</p>
+            <div className="grid grid-cols-4 gap-2 mb-4">
+                {tables.map(table => (
+                    <button key={table.id} onClick={() => onSave(table.name)} className="p-3 bg-surface-muted rounded-md text-text-secondary font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900/50 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">
+                        {table.name}
+                    </button>
+                ))}
+            </div>
+            
+            <div className="flex items-center gap-4 my-4">
+                <hr className="flex-grow border-border"/> <span className="text-text-muted text-sm">OR</span> <hr className="flex-grow border-border"/>
+            </div>
+          </>
+        )}
         
         <label htmlFor="ticket-name" className="block text-sm font-medium text-text-secondary mb-1">Custom Ticket Name</label>
         <input

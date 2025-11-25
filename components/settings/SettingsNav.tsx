@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { SettingsCategory } from '../../screens/SettingsScreen';
 import { 
@@ -8,7 +7,8 @@ import {
     PrintIcon,
     StoreIcon,
     DatabaseIcon,
-    InfoIcon
+    InfoIcon,
+    TableIcon
 } from '../../constants';
 
 interface SettingsNavProps {
@@ -20,6 +20,7 @@ const navItems: { id: SettingsCategory; label: string; Icon: React.FC<{className
     { id: 'appearance', label: 'Appearance', Icon: PaintBrushIcon },
     { id: 'financial', label: 'Financial', Icon: DollarSignIcon },
     { id: 'payment_types', label: 'Payment Types', Icon: CreditCardIcon },
+    { id: 'tables', label: 'Tables', Icon: TableIcon },
     { id: 'printers', label: 'Printers', Icon: PrintIcon },
     { id: 'store_info', label: 'Store Information', Icon: StoreIcon },
     { id: 'data', label: 'Data Management', Icon: DatabaseIcon },
