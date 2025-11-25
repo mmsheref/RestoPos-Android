@@ -195,7 +195,7 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
       icon: 'cash',
       type: 'cash',
       enabled: true,
-    };
+    } as PaymentType;
   }, [paymentTypes]);
 
   const otherPaymentTypes = useMemo(() => paymentTypes.filter(p => p.id !== 'cash' && p.enabled), [paymentTypes]);

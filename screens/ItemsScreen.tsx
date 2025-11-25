@@ -3,7 +3,7 @@ import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import type { Item } from '../types';
 import { useAppContext } from '../context/AppContext';
 import ItemFormModal from '../components/modals/ItemFormModal';
-import { SearchIcon, TrashIcon } from '../constants';
+import { SearchIcon, TrashIcon, CloseIcon } from '../constants';
 import ConfirmCsvImportModal from '../components/modals/ConfirmCsvImportModal';
 import { parseCsvToItems } from '../utils/csvHelper';
 import ConfirmModal from '../components/modals/ConfirmModal';
@@ -222,8 +222,17 @@ const ItemsScreen: React.FC = () => {
                     placeholder="Search items..." 
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="pl-10 pr-4 py-2 border rounded-lg w-full md:w-64 bg-surface border-border text-text-primary focus:ring-2 focus:ring-primary"
+                    className="pl-10 pr-10 py-2 border rounded-lg w-full md:w-64 bg-surface border-border text-text-primary focus:ring-2 focus:ring-primary"
                 />
+                {search && (
+                    <button 
+                        onClick={() => setSearch('')}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-muted hover:text-text-primary"
+                        aria-label="Clear search"
+                    >
+                        <CloseIcon className="h-4 w-4" />
+                    </button>
+                )}
             </div>
             <button
                 onClick={handleCsvImportClick}

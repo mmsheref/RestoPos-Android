@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { SavedTicket } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 
@@ -11,7 +11,13 @@ interface SaveTicketModalProps {
 
 const SaveTicketModal: React.FC<SaveTicketModalProps> = ({ isOpen, onClose, onSave, editingTicket }) => {
   const { tables } = useAppContext();
-  const [name, setName] = useState(editingTicket?.name || '');
+  const [name, setName] = useState('');
+
+  useEffect(() => {
+    if(isOpen) {
+      setName(editingTicket?.name || '');
+    }
+  }, [isOpen, editingTicket]);
   
   const handleSave = () => {
     if (name.trim()) {
@@ -33,7 +39,11 @@ const SaveTicketModal: React.FC<SaveTicketModalProps> = ({ isOpen, onClose, onSa
             <p className="text-sm font-medium text-text-secondary mb-2">Quick Select</p>
             <div className="flex flex-col gap-2 mb-4 max-h-48 overflow-y-auto pr-2">
                 {tables.map(table => (
-                    <button key={table.id} onClick={() => onSave(table.name)} className="w-full text-left p-3 bg-surface-muted rounded-md text-text-secondary font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors">
+                    <button 
+                      key={table.id} 
+                      onClick={() => setName(table.name)} 
+                      className="w-full text-left p-3 bg-surface-muted rounded-md text-text-secondary font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
+                    >
                         {table.name}
                     </button>
                 ))}

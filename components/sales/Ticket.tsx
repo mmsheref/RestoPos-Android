@@ -224,12 +224,13 @@ const Ticket: React.FC<TicketProps> = (props) => {
                   </div>
                   <div className="flex items-center justify-center gap-2 mx-4">
                       <button 
-                        onPointerDown={(e) => e.stopPropagation()} 
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onMouseUp={(e) => e.currentTarget.blur()}
                         onClick={(e) => {
                             e.currentTarget.blur();
                             removeFromOrder(item.lineItemId);
                         }} 
-                        className="h-7 w-7 bg-surface-muted text-lg rounded-full text-text-secondary hover:bg-red-200 dark:hover:bg-red-500/50 hover:text-red-700 transition-colors focus:outline-none" 
+                        className="h-7 w-7 bg-surface-muted text-lg rounded-full text-text-secondary hover:bg-red-200 dark:hover:bg-red-500/50 hover:text-red-700 transition-colors focus:outline-none focus:ring-0" 
                         aria-label={`Remove one ${item.name}`}
                       >
                         -
@@ -242,12 +243,13 @@ const Ticket: React.FC<TicketProps> = (props) => {
                       )}
                       
                       <button 
-                        onPointerDown={(e) => e.stopPropagation()} 
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onMouseUp={(e) => e.currentTarget.blur()}
                         onClick={(e) => {
                             e.currentTarget.blur();
                             updateOrderItemQuantity(item.lineItemId, item.quantity + 1);
                         }} 
-                        className="h-7 w-7 bg-surface-muted text-lg rounded-full text-text-secondary hover:bg-green-200 dark:hover:bg-green-500/50 hover:text-green-700 transition-colors focus:outline-none" 
+                        className="h-7 w-7 bg-surface-muted text-lg rounded-full text-text-secondary hover:bg-green-200 dark:hover:bg-green-500/50 hover:text-green-700 transition-colors focus:outline-none focus:ring-0" 
                         aria-label={`Add one ${item.name}`}
                       >
                         +

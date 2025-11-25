@@ -118,7 +118,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     const defaultTables = ['Table 1', 'Table 2', 'Table 3', 'Takeout 1', 'Delivery'];
                     defaultTables.forEach((name, index) => {
                        const tableId = `T${index + 1}`;
-                       batch.set(doc(tablesCollection, tableId), { id: tableId, name, order: index });
+                       batch.set(doc(tablesCollection, tableId), { 
+                         id: tableId, 
+                         name, 
+                         order: index, 
+                         x: index, 
+                         y: 0, 
+                         shape: 'square' 
+                       });
                     });
 
                     await batch.commit();
@@ -368,8 +375,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       await batch.commit();
     } catch (e) {
       console.error("Failed to delete item and clean up grids:", e);
-      alert("Failed to delete item.");
-      // NOTE: A rollback mechanism would be ideal here in a production app.
+      alert("Failed to delete item and sync grid changes. Please check your connection.");
     }
   }, [getUid, customGrids]);
 
@@ -433,7 +439,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   // Table Management
   const addTable = useCallback(async (name: string) => {
-    const newTable: Table = { id: `tbl_${Date.now()}`, name, order: tables.length };
+    const newTable: Table = { 
+        id: `tbl_${Date.now()}`, 
+        name, 
+        order: tables.length,
+        x: tables.length % 5, // Default layout positioning
+        y: Math.floor(tables.length / 5),
+        shape: 'square'
+    };
     setTablesState(prev => [...prev, newTable].sort((a,b) => a.order - b.order));
     try { await setDoc(doc(db, 'users', getUid(), 'tables', newTable.id), newTable); }
     catch(e) { console.error(e); alert("Failed to add table."); }

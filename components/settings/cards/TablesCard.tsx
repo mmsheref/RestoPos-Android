@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Table } from '../../../types';
-import { TrashIcon, PencilIcon, PlusIcon } from '../../../constants';
+import { TrashIcon, PencilIcon, PlusIcon, CheckIcon } from '../../../constants';
 
 interface TablesCardProps {
   tables: Table[];
@@ -12,10 +12,16 @@ interface TablesCardProps {
 
 const TablesCard: React.FC<TablesCardProps> = ({ tables, setTables, onAdd, onEdit, onRemove }) => {
   const [localTables, setLocalTables] = useState<Table[]>(tables);
+  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     setLocalTables(tables);
   }, [tables]);
+  
+  const isDirty = useMemo(() => {
+      if (localTables.length !== tables.length) return true;
+      return localTables.some((table, index) => table.id !== tables[index].id);
+  }, [localTables, tables]);
 
   const handleMove = (index: number, direction: 'up' | 'down') => {
     if ((direction === 'up' && index === 0) || (direction === 'down' && index === localTables.length - 1)) return;
@@ -29,7 +35,8 @@ const TablesCard: React.FC<TablesCardProps> = ({ tables, setTables, onAdd, onEdi
 
   const handleSaveOrder = () => {
     setTables(localTables);
-    alert("Table order saved.");
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 2000);
   };
 
   return (
@@ -65,9 +72,12 @@ const TablesCard: React.FC<TablesCardProps> = ({ tables, setTables, onAdd, onEdi
        <div className="flex justify-end mt-6">
             <button
               onClick={handleSaveOrder}
-              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-content bg-primary hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+              disabled={!isDirty}
+              className={`inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-content transition-colors w-32 ${
+                isDirty ? 'bg-primary hover:bg-primary-hover' : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
+              }`}
             >
-              Save Order
+              {isSaved ? <CheckIcon className="h-5 w-5" /> : 'Save Order'}
             </button>
         </div>
     </div>

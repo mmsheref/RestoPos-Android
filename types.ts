@@ -68,12 +68,18 @@ export interface SavedTicket {
 }
 
 /**
- * Represents a configurable table name for quick-saving tickets.
+ * Represents a configurable table for quick-saving tickets, now with layout properties.
  */
 export interface Table {
   id: string;
   name: string;
   order: number;
+  /** The X-coordinate (column) for visual layout. */
+  x?: number;
+  /** The Y-coordinate (row) for visual layout. */
+  y?: number;
+  /** The shape of the table for visual representation. */
+  shape?: 'square' | 'round';
 }
 
 /** Defines the connection interface type for a printer. */
@@ -85,7 +91,7 @@ export type PrinterPaperWidth = '58mm' | '80mm';
  * Represents a configured printer device.
  */
 export interface Printer {
-  id: string;
+  id:string;
   name: string;
   interfaceType: PrinterInterfaceType;
   paperWidth: PrinterPaperWidth;

@@ -1,18 +1,16 @@
-
-import React, { ReactNode, useEffect } from 'react';
-import { useLocation, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useLocation, Navigate, Routes, Route } from 'react-router-dom';
 import Header from './Header';
 import NavDrawer from './NavDrawer';
 import { useAppContext } from '../context/AppContext';
 import { NAV_LINKS } from '../constants';
 
-// Import all screens that will be persistently rendered
+// Import all screens for routing
 import SalesScreen from '../screens/SalesScreen';
 import ReceiptsScreen from '../screens/ReceiptsScreen';
 import ItemsScreen from '../screens/ItemsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import AdvancedScreen from '../screens/AdvancedScreen';
-
 
 const Layout: React.FC = () => {
   const { 
@@ -22,12 +20,12 @@ const Layout: React.FC = () => {
   const location = useLocation();
   const { pathname } = location;
 
-  const currentLink = NAV_LINKS.find(link => link.path === pathname);
+  const currentLink = NAV_LINKS.find(link => pathname.startsWith(link.path));
   const baseTitle = currentLink ? currentLink.label : 'Sales';
   
   const finalTitle = pathname === '/sales' && headerTitle ? headerTitle : baseTitle;
   
-  // Determine which screens need custom header handling (or no header)
+  // Determine which screens need a default header. Screens with custom headers (like Sales) handle it internally.
   const showDefaultHeader = !['/sales', '/receipts', '/settings'].includes(pathname);
 
   useEffect(() => {
@@ -37,9 +35,9 @@ const Layout: React.FC = () => {
     }
   }, [pathname, setHeaderTitle]);
 
-  // Handle default route and unknown routes within the authenticated layout
-  const validPaths = ['/sales', '/receipts', '/items', '/settings', '/advanced'];
-  if (!validPaths.includes(pathname)) {
+  const validPaths = ['/sales', '/receipts', 'items', '/settings', '/advanced'];
+  const isRootOrInvalid = !validPaths.some(p => pathname.startsWith(p));
+  if (isRootOrInvalid) {
       return <Navigate to="/sales" replace />;
   }
 
@@ -53,12 +51,16 @@ const Layout: React.FC = () => {
       <main
         className={`flex-1 flex flex-col shadow-lg overflow-hidden relative transition-transform duration-300 ease-in-out ${isDrawerOpen ? 'translate-x-64' : 'translate-x-0'}`}
       >
-        {/* Persistent Screen Rendering: All screens are rendered, but only the active one is visible. */}
-        <div className={pathname === '/sales' ? 'h-full' : 'hidden'}><SalesScreen /></div>
-        <div className={pathname === '/receipts' ? 'h-full' : 'hidden'}><ReceiptsScreen /></div>
-        <div className={pathname === '/items' ? 'h-full' : 'hidden'}><ItemsScreen /></div>
-        <div className={pathname === '/settings' ? 'h-full' : 'hidden'}><SettingsScreen /></div>
-        <div className={pathname === '/advanced' ? 'h-full' : 'hidden'}><AdvancedScreen /></div>
+        {/* PERFORMANCE FIX: Use proper routing to only render the active screen. */}
+        <Routes>
+          <Route path="/sales" element={<SalesScreen />} />
+          <Route path="/receipts" element={<ReceiptsScreen />} />
+          <Route path="/items" element={<ItemsScreen />} />
+          <Route path="/settings" element={<SettingsScreen />} />
+          <Route path="/advanced" element={<AdvancedScreen />} />
+          {/* Default route within the layout */}
+          <Route path="*" element={<Navigate to="/sales" replace />} />
+        </Routes>
       </main>
     </div>
   );
