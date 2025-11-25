@@ -121,10 +121,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                        batch.set(doc(tablesCollection, tableId), { 
                          id: tableId, 
                          name, 
-                         order: index, 
-                         x: index, 
-                         y: 0, 
-                         shape: 'square' 
+                         order: index
                        });
                     });
 
@@ -442,10 +439,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const newTable: Table = { 
         id: `tbl_${Date.now()}`, 
         name, 
-        order: tables.length,
-        x: tables.length % 5, // Default layout positioning
-        y: Math.floor(tables.length / 5),
-        shape: 'square'
+        order: tables.length
     };
     setTablesState(prev => [...prev, newTable].sort((a,b) => a.order - b.order));
     try { await setDoc(doc(db, 'users', getUid(), 'tables', newTable.id), newTable); }
