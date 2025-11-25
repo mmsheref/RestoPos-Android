@@ -55,7 +55,7 @@ const AddPaymentTypeModal: React.FC<AddPaymentTypeModalProps> = ({ isOpen, onClo
                   title={iconName}
                   className={`p-3 rounded-lg border-2 flex flex-col items-center justify-center gap-1 capitalize text-xs transition-colors ${
                     icon === iconName 
-                      ? 'bg-indigo-100 dark:bg-indigo-900/50 border-primary text-primary' 
+                      ? 'bg-primary/10 border-primary text-primary' 
                       : 'bg-surface-muted border-transparent hover:border-border text-text-secondary'
                   }`}
                 >

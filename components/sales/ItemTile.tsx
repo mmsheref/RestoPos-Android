@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useRef } from 'react';
 import { Item } from '../../types';
 import { useLongPress } from '../../hooks/useLongPress';
 
@@ -13,6 +12,18 @@ interface ItemTileProps {
 }
 
 const ItemTile: React.FC<ItemTileProps> = ({ item, mode, onAddItemToOrder, onItemLongPress, index, isFixedGrid }) => {
+    const lastClickTime = useRef(0);
+
+    // This debounce handler prevents rapid-fire clicks that can occur from a single touch event on some devices.
+    const handleDebouncedClick = () => {
+        const now = Date.now();
+        if (now - lastClickTime.current < 300) { // 300ms debounce delay
+            return;
+        }
+        lastClickTime.current = now;
+        onAddItemToOrder(item);
+    };
+    
     // Correct usage of the hook: at the top level of a component.
     const longPressEvents = useLongPress(
         (e) => {
@@ -20,11 +31,11 @@ const ItemTile: React.FC<ItemTileProps> = ({ item, mode, onAddItemToOrder, onIte
                 onItemLongPress(item, index, e);
             }
         },
-        () => onAddItemToOrder(item),
+        handleDebouncedClick,
         { delay: 400 }
     );
 
-    const eventHandlers = mode === 'grid' ? longPressEvents : { onClick: () => onAddItemToOrder(item) };
+    const eventHandlers = mode === 'grid' ? longPressEvents : { onClick: handleDebouncedClick };
 
     const hasRealImage = item.imageUrl && !item.imageUrl.includes('via.placeholder.com');
 

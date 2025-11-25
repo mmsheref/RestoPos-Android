@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { MenuIcon, SearchIcon, CloseIcon, SyncIcon, OfflineIcon } from '../../constants';
-import { useAppContext } from '../../context/AppContext';
+import { MenuIcon, SearchIcon, CloseIcon } from '../../constants';
 
 interface SalesHeaderProps {
   openDrawer: () => void;
@@ -10,7 +9,6 @@ interface SalesHeaderProps {
 const SalesHeader: React.FC<SalesHeaderProps> = ({ openDrawer, onSearchChange }) => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { isSyncing, isOnline } = useAppContext();
 
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
@@ -49,8 +47,6 @@ const SalesHeader: React.FC<SalesHeaderProps> = ({ openDrawer, onSearchChange })
             <MenuIcon className="h-6 w-6" />
           </button>
           <div className="flex items-center gap-2">
-            {!isOnline && <OfflineIcon className="h-5 w-5 text-red-500" title="Offline: Changes are saved locally." />}
-            {isOnline && isSyncing && <SyncIcon className="h-5 w-5 text-primary" title="Syncing..." />}
             <h1 className="text-xl font-semibold text-text-primary">
               Sales
             </h1>

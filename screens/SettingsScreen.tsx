@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { MenuIcon, SyncIcon, OfflineIcon } from '../constants';
+import { MenuIcon } from '../constants';
 import SettingsNav from '../components/settings/SettingsNav';
 import SettingsContent from '../components/settings/SettingsContent';
 
-export type SettingsCategory = 'appearance' | 'financial' | 'payment_types' | 'tables' | 'printers' | 'store_info' | 'data' | 'about';
+export type SettingsCategory = 'appearance' | 'financial' | 'payment_types' | 'tables' | 'printers' | 'store_info' | 'data';
 
 const SettingsScreen: React.FC = () => {
-    const { openDrawer, isSyncing, isOnline } = useAppContext();
+    const { openDrawer } = useAppContext();
     const [activeCategory, setActiveCategory] = useState<SettingsCategory>('appearance');
     
     // State to manage view on mobile (list vs detail)
@@ -27,7 +27,6 @@ const SettingsScreen: React.FC = () => {
         printers: 'Printers',
         store_info: 'Store Information',
         data: 'Data Management',
-        about: 'About'
     };
     const detailTitle = categoryMap[activeCategory];
 
@@ -40,8 +39,6 @@ const SettingsScreen: React.FC = () => {
                         <MenuIcon className="h-6 w-6" />
                     </button>
                     <div className="flex items-center gap-2 ml-4">
-                        {!isOnline && <OfflineIcon className="h-5 w-5 text-red-500" title="Offline: Changes are saved locally." />}
-                        {isOnline && isSyncing && <SyncIcon className="h-5 w-5 text-primary" title="Syncing..." />}
                         <h1 className="text-xl font-semibold text-text-primary">Settings</h1>
                     </div>
                 </div>

@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Receipt, PaymentTypeIcon } from '../types';
 import { useAppContext } from '../context/AppContext';
-import { SearchIcon, PrintIcon, MailIcon, RefundIcon, ArrowLeftIcon, ReceiptIcon as ReceiptIconPlaceholder, MenuIcon, ThreeDotsIcon, PaymentMethodIcon, SyncIcon, OfflineIcon } from '../constants';
+import { SearchIcon, PrintIcon, MailIcon, RefundIcon, ArrowLeftIcon, ReceiptIcon as ReceiptIconPlaceholder, MenuIcon, ThreeDotsIcon, PaymentMethodIcon } from '../constants';
 import { printReceipt } from '../utils/printerHelper';
 import { useDebounce } from '../hooks/useDebounce';
 
 const ReceiptsScreen: React.FC = () => {
-  const { receipts, openDrawer, settings, printers, loadMoreReceipts, hasMoreReceipts, paymentTypes, isSyncing, isOnline } = useAppContext();
+  const { receipts, openDrawer, settings, printers, loadMoreReceipts, hasMoreReceipts, paymentTypes } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   
@@ -180,8 +180,6 @@ const ReceiptsScreen: React.FC = () => {
                 <MenuIcon className="h-6 w-6" />
             </button>
             <div className="flex items-center gap-2 ml-4">
-              {!isOnline && <OfflineIcon className="h-5 w-5 text-red-500" title="Offline: Changes are saved locally." />}
-              {isOnline && isSyncing && <SyncIcon className="h-5 w-5 text-primary" title="Syncing..." />}
               <h1 className="text-xl font-semibold text-text-primary">Receipts</h1>
             </div>
         </div>
@@ -202,7 +200,7 @@ const ReceiptsScreen: React.FC = () => {
                         <ul>
                             {receipts.map((receipt) => (
                             <li key={receipt.id}>
-                                <button onClick={() => handleSelectReceipt(receipt)} className={`w-full text-left p-4 border-b border-border flex justify-between items-center transition-colors duration-150 ${selectedReceipt?.id === receipt.id ? 'bg-indigo-50 dark:bg-slate-700/50' : 'hover:bg-surface-muted'}`}>
+                                <button onClick={() => handleSelectReceipt(receipt)} className={`w-full text-left p-4 border-b border-border flex justify-between items-center transition-colors duration-150 ${selectedReceipt?.id === receipt.id ? 'bg-emerald-50 dark:bg-slate-700/50' : 'hover:bg-surface-muted'}`}>
                                 <div className="flex items-center gap-3">
                                     <PaymentMethodIcon iconName={paymentTypeIconMap.get(receipt.paymentMethod)} className="h-6 w-6 text-text-secondary" />
                                     <div>

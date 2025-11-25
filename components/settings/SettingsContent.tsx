@@ -19,7 +19,6 @@ import PaymentTypesCard from './cards/PaymentTypesCard';
 import PrintersCard from './cards/PrintersCard';
 import StoreInfoCard from './cards/StoreInfoCard';
 import DataManagementCard from './cards/DataManagementCard';
-import AboutCard from './cards/AboutCard';
 import TablesCard from './cards/TablesCard';
 
 interface SettingsContentProps {
@@ -128,7 +127,6 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory, onBac
             case 'printers': return <PrintersCard printers={printers} onAdd={() => setIsPrinterModalOpen(true)} onTest={handleTestPrinter} onRemove={setPrinterToRemove} testingPrinterId={testingPrinterId} />;
             case 'store_info': return <StoreInfoCard settings={settings} updateSettings={updateSettings} />;
             case 'data': return <DataManagementCard onExport={exportData} onImport={handleImportClick} />;
-            case 'about': return <AboutCard />;
             default: return null;
         }
     };

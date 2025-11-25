@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { OrderItem, SavedTicket, Item, CustomGrid } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { useDebounce } from '../hooks/useDebounce';
@@ -15,7 +16,7 @@ import ItemGrid from '../components/sales/ItemGrid';
 import CategoryTabs from '../components/sales/CategoryTabs';
 import Ticket from '../components/sales/Ticket';
 import ChargeScreen from '../components/sales/ChargeScreen';
-import { ReceiptIcon } from '../constants';
+import { ReceiptIcon, ItemsIcon } from '../constants';
 import ItemGridContextMenu from '../components/sales/ItemGridContextMenu';
 
 const GRID_SIZE = 20; // 5 columns * 4 rows
@@ -34,6 +35,7 @@ const SalesScreen: React.FC = () => {
       currentOrder, addToOrder, removeFromOrder, deleteLineItem, 
       updateOrderItemQuantity, clearOrder, loadOrder
   } = useAppContext();
+  const navigate = useNavigate();
 
   // Main screen view state
   const [salesView, setSalesView] = useState<SalesView>('grid');
@@ -254,13 +256,31 @@ const SalesScreen: React.FC = () => {
         <SalesHeader openDrawer={openDrawer} onSearchChange={setSearchQuery} />
         <div className="flex-1 flex flex-col p-3 md:p-4 overflow-hidden">
           <div className="flex-1 overflow-y-auto pr-2 content-visibility-auto">
-            <ItemGrid
-              itemsForDisplay={itemsForDisplay}
-              mode={activeGridId === 'All' || debouncedSearchQuery.trim() ? 'all' : 'grid'}
-              onAddItemToOrder={addToOrder}
-              onAssignItem={handleOpenSelectItemModal}
-              onItemLongPress={handleItemLongPress}
-            />
+            {items.length === 0 && !debouncedSearchQuery.trim() ? (
+              <div className="flex flex-col items-center justify-center h-full text-center text-text-secondary p-4">
+                <div className="max-w-md">
+                  <ItemsIcon className="h-16 w-16 mx-auto text-gray-300 dark:text-gray-600" />
+                  <h2 className="mt-4 text-xl font-semibold text-text-primary">Your Menu is Empty</h2>
+                  <p className="mt-2 text-sm">
+                    Get started by adding your first menu item. Once you add items, they will appear here.
+                  </p>
+                  <button
+                    onClick={() => navigate('/items')}
+                    className="mt-6 px-6 py-3 bg-primary text-primary-content font-bold rounded-lg hover:bg-primary-hover shadow-md"
+                  >
+                    Add Your First Item
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <ItemGrid
+                itemsForDisplay={itemsForDisplay}
+                mode={activeGridId === 'All' || debouncedSearchQuery.trim() ? 'all' : 'grid'}
+                onAddItemToOrder={addToOrder}
+                onAssignItem={handleOpenSelectItemModal}
+                onItemLongPress={handleItemLongPress}
+              />
+            )}
           </div>
           <CategoryTabs
             grids={customGrids}

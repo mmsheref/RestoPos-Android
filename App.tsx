@@ -10,9 +10,14 @@ import SettingsScreen from './screens/SettingsScreen';
 import AdvancedScreen from './screens/AdvancedScreen';
 import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
+import OnboardingScreen from './screens/OnboardingScreen';
 
 const AppRoutes: React.FC = () => {
-    const { user, isLoading } = useAppContext();
+    const { user, isLoading, showOnboarding } = useAppContext();
+
+    if (showOnboarding) {
+        return <OnboardingScreen />;
+    }
 
     if (isLoading) {
         return (

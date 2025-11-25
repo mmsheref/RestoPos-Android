@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { OrderItem, PaymentType } from '../../types';
 import { useAppContext } from '../../context/AppContext';
@@ -100,6 +101,9 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
         
         {cashPaymentType && (
             <div className="flex gap-3 mt-6 flex-wrap justify-center">
+                <button onClick={() => onProcessPayment(cashPaymentType.name, total)} className="px-6 py-3 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 font-bold rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-colors">
+                    Exact Cash
+                </button>
                 {uniqueQuickCash.map(amount => (
                     <button key={amount} onClick={() => onProcessPayment(cashPaymentType.name, amount)} className="px-6 py-3 bg-surface-muted text-text-secondary font-bold rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                         {amount.toFixed(2)}
@@ -209,7 +213,7 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
         const noteAfter = notes.find(n => n > nextNote);
         if (noteAfter) suggestions.add(noteAfter);
     }
-    return Array.from(suggestions).filter(amount => amount > total).sort((a, b) => a - b).slice(0, 4);
+    return Array.from(suggestions).filter(amount => amount > total).sort((a, b) => a - b).slice(0, 3);
   }, [total]);
     
   useEffect(() => {

@@ -2,7 +2,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { NAV_LINKS, SignOutIcon } from '../constants';
+import { NAV_LINKS, SignOutIcon, APP_VERSION } from '../constants';
 
 const NavDrawer: React.FC = () => {
   const { isDrawerOpen, closeDrawer, user, signOut } = useAppContext();
@@ -45,7 +45,13 @@ const NavDrawer: React.FC = () => {
             ))}
           </ul>
         </nav>
-        <div className="p-4 mt-auto border-t border-slate-700">
+        
+        <div className="px-4 py-2 mt-auto text-center">
+            <p className="text-xs text-slate-400">Version {APP_VERSION}</p>
+            <p className="text-xs text-slate-400">Made with ❤️ by Ameer</p>
+        </div>
+
+        <div className="p-4 border-t border-slate-700">
             {user && (
                 <div className="text-xs text-slate-400 mb-2 truncate px-2">
                     Logged in as: {user.email}

@@ -24,7 +24,6 @@ const navItems: { id: SettingsCategory; label: string; Icon: React.FC<{className
     { id: 'printers', label: 'Printers', Icon: PrintIcon },
     { id: 'store_info', label: 'Store Information', Icon: StoreIcon },
     { id: 'data', label: 'Data Management', Icon: DatabaseIcon },
-    { id: 'about', label: 'About', Icon: InfoIcon },
 ];
 
 const SettingsNav: React.FC<SettingsNavProps> = ({ activeCategory, onSelectCategory }) => {

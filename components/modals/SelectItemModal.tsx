@@ -47,7 +47,7 @@ const SelectItemModal: React.FC<SelectItemModalProps> = ({ isOpen, onClose, onSe
               <li key={item.id}>
                 <button
                   onClick={() => onSelect(item)}
-                  className="w-full text-left flex items-center gap-4 p-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/50 transition-colors"
+                  className="w-full text-left flex items-center gap-4 p-2 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/50 transition-colors"
                 >
                   <img src={item.imageUrl} alt={item.name} className="h-10 w-10 rounded-md object-cover flex-shrink-0 bg-surface-muted" />
                   <div className="flex-grow">
