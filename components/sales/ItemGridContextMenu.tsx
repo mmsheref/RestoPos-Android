@@ -33,15 +33,15 @@ const ItemGridContextMenu: React.FC<ItemGridContextMenuProps> = ({ state, onClos
             <div className="fixed inset-0 z-40" onClick={onClose} />
             <div
                 style={style}
-                className="fixed z-50 w-56 bg-white dark:bg-slate-700 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 dark:ring-white/10 p-1 animate-fadeIn"
+                className="fixed z-50 w-56 bg-surface rounded-md shadow-lg ring-1 ring-black ring-opacity-5 dark:ring-white/10 p-1 animate-fadeIn"
             >
-                <div className="p-2 border-b border-slate-200 dark:border-slate-600">
-                    <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">{state.item.name}</p>
+                <div className="p-2 border-b border-border">
+                    <p className="font-semibold text-text-primary truncate">{state.item.name}</p>
                 </div>
                 <div className="py-1">
                     <button
                         onClick={onChange}
-                        className="w-full text-left flex items-center gap-3 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600 rounded"
+                        className="w-full text-left flex items-center gap-3 px-3 py-2 text-sm text-text-primary hover:bg-surface-muted rounded"
                     >
                         <PencilIcon className="h-5 w-5" />
                         Change Item

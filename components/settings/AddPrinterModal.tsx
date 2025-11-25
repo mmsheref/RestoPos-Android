@@ -128,14 +128,14 @@ const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ isOpen, onClose, onSa
             <div className="bg-surface-muted rounded-lg p-3 border border-border">
               <div className="flex justify-between items-center mb-2">
                 <label className="block text-sm font-bold text-text-secondary">Available Devices</label>
-                <button onClick={handleStartScan} disabled={isScanning} className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-600 dark:text-white px-3 py-1.5 rounded font-medium hover:bg-blue-200 dark:hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center gap-1">
+                <button onClick={handleStartScan} disabled={isScanning} className="text-xs bg-primary/10 text-primary dark:bg-primary dark:text-primary-content px-3 py-1.5 rounded font-medium hover:bg-primary/20 dark:hover:bg-primary-hover transition-colors disabled:opacity-50 flex items-center gap-1">
                   {isScanning ? (<><span className="animate-spin h-3 w-3 border-2 border-current border-t-transparent rounded-full"></span>Scanning...</>) : (<><svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>Scan</>)}
                 </button>
               </div>
               {foundDevices.length > 0 ? (
                 <ul className="mb-4 bg-surface rounded border border-border max-h-32 overflow-y-auto">
                   {foundDevices.map((device) => (
-                    <li key={device.address}><button onClick={() => handleSelectDevice(device)} className="w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex justify-between items-center border-b border-border last:border-0 transition-colors"><div className="truncate"><div className="font-medium text-text-primary">{device.name}</div><div className="text-xs text-text-secondary">{device.address}</div></div><span className="text-xs text-indigo-600 dark:text-indigo-400 font-medium px-2 py-1 bg-indigo-50 dark:bg-indigo-900/20 rounded">Select</span></button></li>
+                    <li key={device.address}><button onClick={() => handleSelectDevice(device)} className="w-full text-left px-3 py-2 hover:bg-primary/10 flex justify-between items-center border-b border-border last:border-0 transition-colors"><div className="truncate"><div className="font-medium text-text-primary">{device.name}</div><div className="text-xs text-text-secondary">{device.address}</div></div><span className="text-xs text-primary font-medium px-2 py-1 bg-primary/10 rounded">Select</span></button></li>
                   ))}
                 </ul>
               ) : (!isScanning && <div className="text-xs text-text-muted italic mb-3 text-center">No devices found. Press scan.</div>)}

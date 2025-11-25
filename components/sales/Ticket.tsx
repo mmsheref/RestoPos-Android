@@ -132,7 +132,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
       return (
         <button 
           onClick={handlePrimarySaveAction}
-          className="w-full bg-indigo-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-indigo-600"
+          className="w-full bg-primary text-primary-content font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-primary-hover"
         >
           {editingTicket ? 'Update' : 'Save'}
         </button>
