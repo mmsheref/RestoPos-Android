@@ -6,6 +6,7 @@ import ItemFormModal from '../components/modals/ItemFormModal';
 import { SearchIcon, TrashIcon } from '../constants';
 import ConfirmCsvImportModal from '../components/modals/ConfirmCsvImportModal';
 import { parseCsvToItems } from '../utils/csvHelper';
+import ConfirmModal from '../components/modals/ConfirmModal';
 
 
 // UUID Generator Fallback for non-secure contexts (e.g. localhost/http)
@@ -23,7 +24,7 @@ const generateId = () => {
 interface ItemRowProps {
   item: Item;
   onEdit: (item: Item) => void;
-  onDelete: (id: string) => void;
+  onDelete: (item: Item) => void;
 }
 
 const ItemRow: React.FC<ItemRowProps> = ({ item, onEdit, onDelete }) => {
@@ -58,7 +59,7 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, onEdit, onDelete }) => {
                     onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        onDelete(item.id);
+                        onDelete(item);
                     }} 
                     className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors relative z-10"
                     title="Delete Item"
@@ -81,6 +82,9 @@ const ItemsScreen: React.FC = () => {
   const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState(false);
   const [csvImportCandidate, setCsvImportCandidate] = useState<{items: Item[]}>({ items: [] });
   const csvFileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Delete confirmation modal state
+  const [confirmDeleteModal, setConfirmDeleteModal] = useState<{ isOpen: boolean; item: Item | null; }>({ isOpen: false, item: null });
 
   const filteredItems = useMemo(() => {
       return items.filter(i => 
@@ -98,6 +102,10 @@ const ItemsScreen: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  const handleDeleteRequest = (item: Item) => {
+    setConfirmDeleteModal({ isOpen: true, item: item });
+  };
+  
   const handleDeleteItem = (itemId: string) => {
       deleteItem(itemId);
       
@@ -169,7 +177,7 @@ const ItemsScreen: React.FC = () => {
   };
 
   return (
-    <div className="p-6 bg-background min-h-full flex flex-col">
+    <div className="p-6 bg-background h-full flex flex-col">
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <h1 className="text-3xl font-bold text-text-primary self-start md:self-center">Menu Items</h1>
         <div className="flex w-full md:w-auto items-center gap-2">
@@ -206,38 +214,36 @@ const ItemsScreen: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-surface rounded-lg shadow-sm overflow-hidden flex-grow border border-border">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-border">
-            <thead className="bg-surface-muted">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Image</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Name</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Price</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Stock</th>
-                <th scope="col" className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
-              </tr>
-            </thead>
-            <tbody className="bg-surface divide-y divide-border">
-              {filteredItems.length === 0 ? (
-                  <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-text-secondary">
-                          {search ? 'No items found matching your search.' : 'No items available. Add your first item!'}
-                      </td>
-                  </tr>
-              ) : (
-                filteredItems.map((item) => (
-                    <ItemRow 
-                        key={item.id} 
-                        item={item} 
-                        onEdit={handleEditItem} 
-                        onDelete={handleDeleteItem} 
-                    />
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+      <div className="bg-surface rounded-lg shadow-sm flex-grow border border-border overflow-auto">
+        <table className="min-w-full divide-y divide-border">
+          <thead className="bg-surface-muted sticky top-0 z-10">
+            <tr>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Image</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Name</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Price</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Stock</th>
+              <th scope="col" className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody className="bg-surface divide-y divide-border">
+            {filteredItems.length === 0 ? (
+                <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-text-secondary">
+                        {search ? 'No items found matching your search.' : 'No items available. Add your first item!'}
+                    </td>
+                </tr>
+            ) : (
+              filteredItems.map((item) => (
+                  <ItemRow 
+                      key={item.id} 
+                      item={item} 
+                      onEdit={handleEditItem} 
+                      onDelete={handleDeleteRequest} 
+                  />
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       <ItemFormModal 
@@ -245,7 +251,7 @@ const ItemsScreen: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveItem}
         onDelete={() => {
-            if(editingItem) handleDeleteItem(editingItem.id);
+            if(editingItem) handleDeleteRequest(editingItem);
         }}
         initialData={editingItem}
       />
@@ -264,6 +270,23 @@ const ItemsScreen: React.FC = () => {
         onClose={() => setIsCsvImportModalOpen(false)}
         onConfirm={handleConfirmCsvImport}
       />
+      
+      <ConfirmModal
+        isOpen={confirmDeleteModal.isOpen}
+        onClose={() => setConfirmDeleteModal({ isOpen: false, item: null })}
+        onConfirm={() => {
+            if (confirmDeleteModal.item) {
+                handleDeleteItem(confirmDeleteModal.item.id);
+            }
+            setConfirmDeleteModal({ isOpen: false, item: null });
+        }}
+        title="Delete Item"
+        confirmText="Delete"
+        confirmButtonClass="bg-red-600 hover:bg-red-700"
+      >
+        <p>Are you sure you want to permanently delete <strong>{confirmDeleteModal.item?.name}</strong>?</p>
+        <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">This will also remove the item from any custom grids it appears on. This action cannot be undone.</p>
+      </ConfirmModal>
 
     </div>
   );
