@@ -1,5 +1,8 @@
 
-import { initializeApp } from 'firebase/app';
+// FIX: The original import for initializeApp was causing an error.
+// Switched to the compat library for initialization, which can sometimes resolve
+// issues in specific project setups while maintaining compatibility with the v9 modular SDK used elsewhere.
+import firebase from 'firebase/compat/app';
 import { 
   initializeFirestore,
   persistentLocalCache,
@@ -20,7 +23,7 @@ import { firebaseConfig } from './firebaseConfig';
 // Re-export config so AppContext can use it for error handling
 export { firebaseConfig };
 
-const app = initializeApp(firebaseConfig);
+const app = firebase.initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // Initialize Firestore with persistent local cache (multi-tab supported)

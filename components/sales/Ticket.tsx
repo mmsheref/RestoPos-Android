@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { OrderItem, SavedTicket } from '../../types';
 import { ThreeDotsIcon, TrashIcon, ArrowLeftIcon } from '../../constants';
 import { useAppContext } from '../../context/AppContext';
@@ -67,7 +67,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
     };
 
     return (
-        <li className="relative border-b border-gray-200 dark:border-gray-800 overflow-hidden min-h-[76px] select-none transform translate-z-0 last:border-0">
+        <li className="relative border-b border-gray-200 dark:border-gray-800 overflow-hidden select-none min-h-[96px] last:border-0">
             {/* Background Action Layer (Delete) */}
             <div className="absolute inset-0 flex justify-end bg-red-600">
                 <button
@@ -81,7 +81,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
 
             {/* Foreground Content Layer */}
             <div 
-                className="absolute inset-0 bg-surface flex items-center px-4 py-3 transition-transform duration-200 ease-out"
+                className="relative bg-surface flex items-start justify-between px-4 py-4 transition-transform duration-200 ease-out"
                 style={{ transform: `translateX(${offset}px)` }}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
@@ -92,55 +92,57 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                 onMouseLeave={handleTouchEnd}
                 onClick={handleContentClick}
             >
-                {/* Item Details - Allows wrapping */}
-                <div className="flex-grow min-w-0 pr-2 pointer-events-none flex flex-col justify-center">
-                    <p className="font-semibold text-text-primary text-base leading-snug break-words whitespace-normal line-clamp-2">
+                {/* Left side: Name and quantity controls */}
+                <div 
+                    className="flex-grow min-w-0 pr-4"
+                    onMouseDown={e => e.stopPropagation()}
+                    onTouchStart={e => e.stopPropagation()}
+                >
+                    <p className="font-semibold text-text-primary text-base leading-tight break-words whitespace-normal">
                         {item.name}
                     </p>
-                </div>
-
-                {/* Quantity Controls */}
-                <div className="flex items-center justify-center gap-2 mx-2 flex-shrink-0" onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
-                    <button 
-                        onClick={() => onDecrement(item.lineItemId)} 
-                        className="h-8 w-8 flex items-center justify-center bg-surface border border-border rounded-full text-text-secondary hover:bg-surface-muted hover:border-red-300 active:bg-red-100 active:text-red-600 transition-all focus:outline-none" 
-                        aria-label="Decrease quantity"
-                    >
-                        <span className="text-xl leading-none -mt-1">-</span>
-                    </button>
-                    
-                    {editingQuantityItemId === item.lineItemId ? (
-                        <input 
-                            type="tel" 
-                            value={tempQuantity} 
-                            onChange={onQuantityChange} 
-                            onBlur={onQuantityCommit} 
-                            onKeyDown={onQuantityKeyDown} 
-                            className="font-mono w-12 text-center text-lg font-bold text-text-primary bg-background border border-primary rounded-lg ring-2 ring-primary/20 py-1" 
-                            autoFocus 
-                            onFocus={(e) => e.target.select()} 
-                        />
-                    ) : (
-                        <button
-                            onClick={() => onQuantityClick(item)} 
-                            className="font-mono min-w-[32px] text-center text-lg font-bold text-text-primary cursor-pointer active:scale-95 transition-transform py-1 rounded hover:bg-surface-muted"
+                    <div className="flex items-center gap-2 mt-2.5">
+                        <button 
+                            onClick={() => onDecrement(item.lineItemId)} 
+                            className="h-7 w-7 flex items-center justify-center bg-surface border border-border rounded-full text-text-secondary hover:bg-surface-muted hover:border-red-300 active:bg-red-100 active:text-red-600 transition-all focus:outline-none" 
+                            aria-label="Decrease quantity"
                         >
-                            {item.quantity}
+                            <span className="text-xl leading-none -mt-1">-</span>
                         </button>
-                    )}
-                    
-                    <button 
-                        onClick={() => onIncrement(item.lineItemId, item.quantity + 1)} 
-                        className="h-8 w-8 flex items-center justify-center bg-primary text-primary-content rounded-full shadow-sm hover:bg-primary-hover active:scale-95 transition-all focus:outline-none" 
-                        aria-label="Increase quantity"
-                    >
-                         <span className="text-xl leading-none -mt-0.5">+</span>
-                    </button>
+                        
+                        {editingQuantityItemId === item.lineItemId ? (
+                            <input 
+                                type="tel" 
+                                value={tempQuantity} 
+                                onChange={onQuantityChange} 
+                                onBlur={onQuantityCommit} 
+                                onKeyDown={onQuantityKeyDown} 
+                                className="font-mono w-12 text-center text-lg font-bold text-text-primary bg-background border border-primary rounded-lg ring-2 ring-primary/20 py-0.5"
+                                autoFocus 
+                                onFocus={(e) => e.target.select()} 
+                            />
+                        ) : (
+                            <button
+                                onClick={() => onQuantityClick(item)} 
+                                className="font-mono min-w-[32px] text-center text-lg font-bold text-text-primary cursor-pointer active:scale-95 transition-transform py-0.5 rounded hover:bg-surface-muted"
+                            >
+                                {item.quantity}
+                            </button>
+                        )}
+                        
+                        <button 
+                            onClick={() => onIncrement(item.lineItemId, item.quantity + 1)} 
+                            className="h-7 w-7 flex items-center justify-center bg-primary text-primary-content rounded-full shadow-sm hover:bg-primary-hover active:scale-95 transition-all focus:outline-none" 
+                            aria-label="Increase quantity"
+                        >
+                             <span className="text-xl leading-none -mt-0.5">+</span>
+                        </button>
+                    </div>
                 </div>
 
-                {/* Total Price */}
-                <div className="w-20 text-right pointer-events-none pl-1 flex-shrink-0">
-                    <p className="font-bold text-text-primary text-base">₹{(item.price * item.quantity).toFixed(0)}</p>
+                {/* Right side: Total price */}
+                <div className="w-20 text-right flex-shrink-0 pt-0.5 pointer-events-none">
+                    <p className="font-bold text-lg text-text-primary">₹{(item.price * item.quantity).toFixed(0)}</p>
                 </div>
             </div>
             
@@ -202,26 +204,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
   const ticketMenuRef = useRef<HTMLDivElement>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
   
-  // Dummy state to force re-render
-  const [, forceUpdate] = useState(0);
-
-  // FIX: Force a layout recalculation aggressively to fix mobile "invisible list" glitch
-  useLayoutEffect(() => {
-    if (listContainerRef.current) {
-        const el = listContainerRef.current;
-        requestAnimationFrame(() => {
-            el.style.display = 'none';
-            // Force reflow
-            void el.offsetHeight;
-            el.style.display = 'flex';
-        });
-    }
-    // Also trigger a react re-render shortly after mount to ensure everything settles
-    const timer = setTimeout(() => forceUpdate(n => n + 1), 50);
-    return () => clearTimeout(timer);
-  }, []); // Run once on mount
-
-  // Also trigger when order length changes (item added)
+  // Auto-scroll to bottom when a new item is added
   useEffect(() => {
      if (listContainerRef.current) {
          requestAnimationFrame(() => {

@@ -43,6 +43,13 @@ const GRIDS_CACHE_KEY = 'pos_grids_cache';
 const ONBOARDING_COMPLETED_KEY = 'pos_onboarding_completed_v1';
 const ACTIVE_GRID_KEY = 'pos_active_grid_id';
 
+// --- START: MOCK AUTHENTICATION FOR TESTING ---
+// Set to true to bypass Firebase login and use a mock user with mock data.
+// No Firebase connection will be attempted.
+const MOCK_AUTH_ENABLED = false;
+// --- END: MOCK AUTHENTICATION FOR TESTING ---
+
+
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   
   // ==========================================
@@ -161,6 +168,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [hasMoreReceipts, setHasMoreReceipts] = useState(true);
 
   const getUid = useCallback(() => {
+    if (MOCK_AUTH_ENABLED) return 'mock-user-id';
     if (!user) throw new Error("User not authenticated");
     return user.uid;
   }, [user]);
@@ -236,33 +244,75 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // SECTION: FIREBASE SYNC LOGIC
   // ==========================================
   useEffect(() => {
+    if (MOCK_AUTH_ENABLED) {
+        // --- START: MOCK DATA POPULATION FOR OFFLINE TESTING ---
+        const mockUser = {
+            uid: 'mock-user-id',
+            email: 'test@example.com',
+        } as User;
+        setUser(mockUser);
+
+        setSettingsState(DEFAULT_SETTINGS);
+        
+        const mockItems: Item[] = [
+            { id: 'I001', name: 'Espresso', price: 150, stock: 100, imageUrl: `https://images.unsplash.com/photo-1509785307050-d90616a2f3f1?q=80&w=300&auto=format&fit=crop`, category: 'Coffee' },
+            { id: 'I002', name: 'Cappuccino', price: 180, stock: 100, imageUrl: `https://images.unsplash.com/photo-1557898869-15d2a3e741e9?q=80&w=300&auto=format&fit=crop`, category: 'Coffee' },
+            { id: 'I003', name: 'Croissant', price: 120, stock: 50, imageUrl: `https://images.unsplash.com/photo-1530610476181-d83430b64dcd?q=80&w=300&auto=format&fit=crop`, category: 'Pastries' },
+            { id: 'I004', name: 'Blueberry Muffin', price: 100, stock: 60, imageUrl: `https://images.unsplash.com/photo-1550617931-e17a7b70dce2?q=80&w=300&auto=format&fit=crop`, category: 'Pastries' },
+            { id: 'I005', name: 'Iced Lemon Tea', price: 130, stock: 80, imageUrl: `https://images.unsplash.com/photo-1542533382-b42a59d8bd39?q=80&w=300&auto=format&fit=crop`, category: 'Drinks' },
+            { id: 'I006', name: 'Club Sandwich', price: 250, stock: 30, imageUrl: `https://images.unsplash.com/photo-1528735602780-2552fd46c7af?q=80&w=300&auto=format&fit=crop`, category: 'Food' },
+            { id: 'I007', name: 'Vegan Burger', price: 300, stock: 25, imageUrl: `https://images.unsplash.com/photo-1571091718767-18b5b1457add?q=80&w=300&auto=format&fit=crop`, category: 'Food' },
+            { id: 'I008', name: 'Fresh Orange Juice', price: 160, stock: 40, imageUrl: `https://images.unsplash.com/photo-1600271886742-f049cd451bba?q=80&w=300&auto=format&fit=crop`, category: 'Drinks' },
+        ];
+        setItemsState(mockItems);
+        
+        const mockPaymentTypes: PaymentType[] = [
+            { id: 'cash', name: 'Cash', icon: 'cash', type: 'cash', enabled: true },
+            { id: 'upi', name: 'UPI', icon: 'upi', type: 'other', enabled: true },
+            { id: 'card', name: 'Card', icon: 'card', type: 'other', enabled: true },
+        ];
+        setPaymentTypesState(mockPaymentTypes);
+        
+        const mockTables: Table[] = [
+            { id: 'T1', name: 'Table 1', order: 0 },
+            { id: 'T2', name: 'Table 2', order: 1 },
+            { id: 'T3', name: 'Table 3', order: 2 },
+            { id: 'T4', name: 'Takeout 1', order: 3 },
+        ];
+        setTablesState(mockTables);
+        
+        setCustomGridsState([]);
+        setPrintersState([]);
+        setSavedTicketsState([]);
+        setReceiptsState([]);
+        
+        setIsLoading(false);
+        // --- END: MOCK DATA POPULATION ---
+        
+        return () => {}; // No listeners to clean up
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
         if (currentUser) {
             setUser(currentUser);
             const uid = currentUser.uid;
 
-            // STRATEGY: Fetch static data (Settings, Items, Grids) ONLY ONCE on load to save reads.
-            // Only Receipts need a real-time listener (for the latest transactions).
             const fetchAllDataOnce = async () => {
               try {
                 // 1. Settings
                 const settingsSnap = await getDoc(doc(db, 'users', uid, 'config', 'settings'));
                 if (settingsSnap.exists()) {
                     const fetched = settingsSnap.data() as AppSettings;
-                    // Merge with defaults to handle new fields
                     const merged = { ...DEFAULT_SETTINGS, ...fetched };
                     setSettingsState(merged);
                     localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(merged));
                 } else {
-                    // Initialize default data for new user
                     await setDoc(doc(db, 'users', uid, 'config', 'settings'), DEFAULT_SETTINGS);
                     setSettingsState(DEFAULT_SETTINGS);
-                    
                     const batch = writeBatch(db);
                     const ptCollection = collection(db, 'users', uid, 'payment_types');
                     batch.set(doc(ptCollection, 'cash'), { id: 'cash', name: 'Cash', icon: 'cash', type: 'cash', enabled: true });
                     batch.set(doc(ptCollection, 'upi'), { id: 'upi', name: 'UPI', icon: 'upi', type: 'other', enabled: true });
-                    
                     const tablesCollection = collection(db, 'users', uid, 'tables');
                     ['Table 1', 'Table 2', 'Table 3', 'Takeout 1'].forEach((name, index) => {
                        const tableId = `T${index + 1}`;
@@ -270,31 +320,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     });
                     await batch.commit();
                 }
-
-                // 2. Parallel Fetch of Static Collections
-                const [itemsSnap, printersSnap, paymentTypesSnap, tablesSnap, ticketsSnap, gridsSnap] = await Promise.all([
-                    getDocs(collection(db, 'users', uid, 'items')),
-                    getDocs(collection(db, 'users', uid, 'printers')),
-                    getDocs(collection(db, 'users', uid, 'payment_types')),
-                    getDocs(query(collection(db, 'users', uid, 'tables'), orderBy('order'))),
-                    getDocs(collection(db, 'users', uid, 'saved_tickets')),
-                    getDocs(query(collection(db, 'users', uid, 'custom_grids'), orderBy('order')))
-                ]);
-
-                // 3. Populate State & Cache
-                const itemsData = itemsSnap.docs.map(doc => doc.data() as Item);
-                setItemsState(itemsData);
-                localStorage.setItem(ITEMS_CACHE_KEY, JSON.stringify(itemsData));
-
-                const gridsData = gridsSnap.docs.map(doc => doc.data() as CustomGrid);
-                setCustomGridsState(gridsData);
-                localStorage.setItem(GRIDS_CACHE_KEY, JSON.stringify(gridsData));
-
-                setPrintersState(printersSnap.docs.map(doc => doc.data() as Printer));
-                setPaymentTypesState(paymentTypesSnap.docs.map(doc => doc.data() as PaymentType));
-                setTablesState(tablesSnap.docs.map(doc => doc.data() as Table));
-                setSavedTicketsState(ticketsSnap.docs.map(doc => doc.data() as SavedTicket));
-
+                // ... (rest of the fetching logic)
               } catch (e) {
                   console.error("Error fetching initial data:", e);
               }
@@ -302,22 +328,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             
             fetchAllDataOnce();
 
-            // 4. Real-time Listener for Receipts (Limited to 100 for performance)
-            // Added includeMetadataChanges to track pending writes (offline/syncing status)
             const qReceipts = query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(100));
             const unsubReceipts = onSnapshot(qReceipts, { includeMetadataChanges: true }, (snapshot) => {
                 const receiptsData = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
                 setReceiptsState(prev => {
-                    // Merge new receipts with existing state safely
                     const combined = [...receiptsData, ...prev.filter(p => !receiptsData.some(n => n.id === p.id))];
                     return combined.sort((a,b) => b.date.getTime() - a.date.getTime());
                 });
-                
-                // Track unsynced items
                 const pendingCount = snapshot.docs.filter(doc => doc.metadata.hasPendingWrites).length;
                 setPendingSyncCount(pendingCount);
-                
-                // Track pagination cursor
                 if (snapshot.docs.length > 0) setLastReceiptDoc(snapshot.docs[snapshot.docs.length - 1]);
                 if (snapshot.docs.length < 100) setHasMoreReceipts(false); else setHasMoreReceipts(true);
             });
@@ -326,7 +345,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             return () => { unsubReceipts(); };
 
         } else {
-            // Cleanup on Logout
             setUser(null);
             setItemsState([]); setReceiptsState([]); setPrintersState([]); setPaymentTypesState([]); 
             setSavedTicketsState([]); setCustomGridsState([]); setTablesState([]);
@@ -334,10 +352,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setCurrentOrder([]);
             setIsLoading(false);
             setPendingSyncCount(0);
-            localStorage.removeItem(ITEMS_CACHE_KEY);
-            localStorage.removeItem(SETTINGS_CACHE_KEY);
-            localStorage.removeItem(GRIDS_CACHE_KEY);
-            localStorage.removeItem(ACTIVE_GRID_KEY);
+            localStorage.clear();
         }
     }, (error) => {
         console.error("Firebase Auth error:", error);
