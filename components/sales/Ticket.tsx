@@ -67,7 +67,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
     };
 
     return (
-        <li className="relative border-b border-border/50 overflow-hidden min-h-[76px] select-none transform translate-z-0 last:border-0">
+        <li className="relative border-b border-gray-200 dark:border-gray-800 overflow-hidden min-h-[76px] select-none transform translate-z-0 last:border-0">
             {/* Background Action Layer (Delete) */}
             <div className="absolute inset-0 flex justify-end bg-red-600">
                 <button
@@ -392,7 +392,8 @@ const Ticket: React.FC<TicketProps> = (props) => {
             </div>
           ) : (
             <>
-                <div className="bg-surface shadow-sm mb-auto">
+                {/* Removed mb-auto to restore dynamic sticky positioning for Totals */}
+                <div className="bg-surface shadow-sm">
                     <ul className="overflow-x-hidden">
                     {currentOrder.map(item => (
                         <SwipeableOrderItem

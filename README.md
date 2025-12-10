@@ -1,6 +1,6 @@
 # Restaurant POS
 
-A modern, high-performance, touch-friendly Point of Sale (POS) system designed for fast-paced restaurant environments. Built with a focus on speed, reliability, and offline capability.
+A modern, high-performance, touch-frienddly Point of Sale (POS) system designed for fast-paced restaurant environments. Built with a focus on speed, reliability, and offline capability.
 
 ## Features
 
