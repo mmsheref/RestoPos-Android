@@ -66,7 +66,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
     };
 
     return (
-        <li className="relative border-b border-gray-200 dark:border-gray-800 overflow-hidden select-none transform translate-z-0 last:border-0">
+        <li className="relative border-b border-black/5 dark:border-white/10 overflow-hidden select-none transform translate-z-0 last:border-0">
             {/* Background Action Layer (Delete) */}
             <div className="absolute inset-0 flex justify-end bg-red-600">
                 <button
@@ -80,7 +80,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
 
             {/* Foreground Content Layer */}
             <div 
-                className="relative bg-surface flex items-center justify-between pl-6 pr-4 py-3 transition-transform duration-200 ease-out"
+                className="relative bg-surface flex items-center justify-between pl-4 pr-4 py-3 transition-transform duration-200 ease-out"
                 style={{ transform: `translateX(${offset}px)` }}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
@@ -92,20 +92,20 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                 onClick={handleContentClick}
             >
                 {/* Left Side: Item Name */}
-                <div className="flex-grow min-w-0 pr-4 pointer-events-none">
-                    <p className="font-semibold text-text-primary text-base whitespace-normal break-words">{item.name}</p>
+                <div className="flex-grow min-w-0 pr-3 pointer-events-none">
+                    <p className="font-medium text-text-primary text-sm whitespace-normal break-words leading-tight">{item.name}</p>
                 </div>
 
                 {/* Right Side: Controls and Price */}
-                <div className="flex items-center gap-4 flex-shrink-0">
+                <div className="flex items-center gap-3 flex-shrink-0">
                     {/* Quantity Controls */}
-                    <div className="flex items-center gap-2" onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-1 bg-surface-muted/50 rounded-lg p-0.5" onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
                         <button 
                             onClick={() => onDecrement(item.lineItemId)} 
-                            className="h-8 w-8 flex items-center justify-center bg-surface border border-border rounded-full text-text-secondary hover:bg-surface-muted hover:border-red-300 active:bg-red-100 active:text-red-600 transition-all focus:outline-none" 
+                            className="h-7 w-7 flex items-center justify-center text-text-secondary hover:bg-white dark:hover:bg-black/20 rounded shadow-sm transition-all focus:outline-none" 
                             aria-label="Decrease quantity"
                         >
-                            <span className="text-xl leading-none -mt-1">-</span>
+                            <span className="text-lg leading-none mb-0.5">-</span>
                         </button>
                         
                         {editingQuantityItemId === item.lineItemId ? (
@@ -115,14 +115,14 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                                 onChange={onQuantityChange} 
                                 onBlur={onQuantityCommit} 
                                 onKeyDown={onQuantityKeyDown} 
-                                className="font-mono w-12 text-center text-lg font-bold text-text-primary bg-background border border-primary rounded-lg ring-2 ring-primary/20 py-1" 
+                                className="font-mono w-10 text-center text-base font-bold text-text-primary bg-background border border-primary rounded ring-1 ring-primary/20 py-0.5 mx-0.5" 
                                 autoFocus 
                                 onFocus={(e) => e.target.select()} 
                             />
                         ) : (
                             <button
                                 onClick={() => onQuantityClick(item)} 
-                                className="font-mono min-w-[32px] text-center text-lg font-bold text-text-primary cursor-pointer active:scale-95 transition-transform py-1 rounded hover:bg-surface-muted"
+                                className="font-mono min-w-[28px] text-center text-base font-bold text-text-primary cursor-pointer active:scale-95 transition-transform py-0.5 mx-0.5"
                             >
                                 {item.quantity}
                             </button>
@@ -130,16 +130,16 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                         
                         <button 
                             onClick={() => onIncrement(item.lineItemId, item.quantity + 1)} 
-                            className="h-8 w-8 flex items-center justify-center bg-primary text-primary-content rounded-full shadow-sm hover:bg-primary-hover active:scale-95 transition-all focus:outline-none" 
+                            className="h-7 w-7 flex items-center justify-center text-text-secondary hover:bg-white dark:hover:bg-black/20 rounded shadow-sm transition-all focus:outline-none" 
                             aria-label="Increase quantity"
                         >
-                             <span className="text-xl leading-none -mt-0.5">+</span>
+                             <span className="text-lg leading-none mb-0.5">+</span>
                         </button>
                     </div>
 
                     {/* Total Price */}
-                    <div className="w-20 text-right pointer-events-none">
-                        <p className="font-bold text-text-primary text-lg">₹{(item.price * item.quantity).toFixed(2)}</p>
+                    <div className="w-[70px] text-right pointer-events-none">
+                        <p className="font-bold text-text-primary text-base">₹{(item.price * item.quantity).toFixed(0)}</p>
                     </div>
                 </div>
             </div>
@@ -390,14 +390,15 @@ const Ticket: React.FC<TicketProps> = (props) => {
 
                 {/* --- Sticky Totals Section --- */}
                 <div className="sticky bottom-0 bg-surface border-t border-border z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] mt-auto">
-                    <div className="px-5 py-3 space-y-2">
+                    <div className="px-5 py-3">
+                        <div className="border-b border-black/5 dark:border-white/10 mb-2"></div>
                         {settings.taxEnabled && (
-                            <div className="space-y-1 text-xs text-text-secondary">
+                            <div className="space-y-1 text-xs text-text-secondary mb-2">
                                 <div className="flex justify-between"><span>Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
                                 <div className="flex justify-between"><span>GST ({settings.taxRate}%)</span><span>₹{tax.toFixed(2)}</span></div>
                             </div>
                         )}
-                        <div className={`flex justify-between items-baseline pt-1 ${settings.taxEnabled ? 'border-t border-border mt-1' : ''}`}>
+                        <div className="flex justify-between items-baseline pt-1">
                             <span className="text-sm font-semibold text-text-secondary">Total Payable</span>
                             <span className="text-2xl font-bold text-text-primary">₹{total.toFixed(2)}</span>
                         </div>
