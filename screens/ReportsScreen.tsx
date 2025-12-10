@@ -1,10 +1,12 @@
-import React, { useState, useMemo, useEffect } from 'react';
+
+import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { LockIcon, MenuIcon, DollarSignIcon, ChartIcon, CheckIcon, CalendarIcon, DownloadIcon, TableIcon, CloseIcon } from '../constants';
+import { LockIcon, MenuIcon, DollarSignIcon, ChartIcon, CheckIcon, DownloadIcon, InfoIcon, CalendarIcon } from '../constants';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
+// --- TYPES ---
 type DateFilter = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 type ReportTab = 'overview' | 'items' | 'categories' | 'orders';
 
@@ -19,89 +21,145 @@ interface Metrics {
   salesByCategory: Record<string, number>;
 }
 
-const ReportsScreen: React.FC = () => {
-    const { openDrawer, receipts, settings, isReportsUnlocked, setReportsUnlocked, paymentTypes } = useAppContext();
-    const [pinInput, setPinInput] = useState('');
-    const [error, setError] = useState('');
-    
-    // Filters
-    const [filter, setFilter] = useState<DateFilter>('today');
-    const [customStartDate, setCustomStartDate] = useState(() => {
-        const now = new Date();
-        now.setHours(0,0,0,0);
-        return now.toISOString().slice(0, 16); // YYYY-MM-DDTHH:mm
-    });
-    const [customEndDate, setCustomEndDate] = useState(() => {
-        const now = new Date();
-        now.setHours(23,59,59,999);
-        return now.toISOString().slice(0, 16);
-    });
-    
-    const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('all');
+// --- COMPONENT: REPORT STAT CARD ---
+const StatCard: React.FC<{ title: string, value: string, icon: React.ReactNode, colorClass: string }> = ({ title, value, icon, colorClass }) => (
+    <div className="bg-surface p-5 rounded-2xl shadow-sm border border-border flex items-center gap-4 transition-transform hover:scale-[1.01]">
+        <div className={`p-3 rounded-xl ${colorClass}`}>
+            {icon}
+        </div>
+        <div>
+            <p className="text-sm font-medium text-text-secondary">{title}</p>
+            <p className="text-2xl font-bold text-text-primary tracking-tight">{value}</p>
+        </div>
+    </div>
+);
 
-    // Navigation
-    const [activeTab, setActiveTab] = useState<ReportTab>('overview');
+// --- COMPONENT: SECURITY OVERLAY ---
+const SecurityOverlay: React.FC<{ onUnlock: (pin: string) => boolean }> = ({ onUnlock }) => {
+    const [pin, setPin] = useState('');
+    const [isError, setIsError] = useState(false);
 
-    const isLocked = !!settings.reportsPIN && !isReportsUnlocked;
-
-    const handleUnlock = (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (pinInput === settings.reportsPIN) {
-            setReportsUnlocked(true);
-            setError('');
-            setPinInput('');
-        } else {
-            setError('Incorrect PIN');
-            setPinInput('');
+        const success = onUnlock(pin);
+        if (!success) {
+            setIsError(true);
+            setPin('');
+            setTimeout(() => setIsError(false), 500); // Reset shake animation
         }
     };
 
-    // --- DATA AGGREGATION ---
-    const filteredReceipts = useMemo(() => {
+    return (
+        <div className="flex-1 flex flex-col items-center justify-center p-4 bg-surface-muted/30 backdrop-blur-sm relative overflow-hidden">
+            <div className={`w-full max-w-sm bg-surface p-8 rounded-2xl shadow-2xl border border-border text-center relative z-10 transition-transform ${isError ? 'animate-shake' : ''}`}>
+                <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <LockIcon className="h-8 w-8 text-primary" />
+                </div>
+                <h2 className="text-2xl font-bold text-text-primary mb-2">Reports Locked</h2>
+                <p className="text-text-secondary mb-8 text-sm">Enter your security PIN to view sales data.</p>
+                
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <input
+                        type="password"
+                        inputMode="numeric" 
+                        pattern="[0-9]*"
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value)}
+                        className={`w-full text-center text-3xl tracking-[0.5em] py-3 border-b-2 bg-transparent text-text-primary focus:outline-none transition-colors font-mono ${isError ? 'border-red-500 text-red-500' : 'border-border focus:border-primary'}`}
+                        placeholder="••••"
+                        autoFocus
+                        maxLength={6}
+                    />
+                    {isError && <p className="text-xs text-red-500 font-bold animate-fadeIn">Incorrect PIN</p>}
+                    
+                    <button 
+                        type="submit"
+                        className="w-full py-3.5 bg-primary text-primary-content font-bold rounded-xl hover:bg-primary-hover transition-colors shadow-lg shadow-primary/20 mt-4 active:scale-[0.98]"
+                    >
+                        Unlock Dashboard
+                    </button>
+                </form>
+            </div>
+            {/* Decoration */}
+            <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-20">
+                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary blur-3xl"></div>
+                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-blue-500 blur-3xl"></div>
+            </div>
+            <style>{`
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0); }
+                    10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+                    20%, 40%, 60%, 80% { transform: translateX(4px); }
+                }
+                .animate-shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+            `}</style>
+        </div>
+    );
+};
+
+const ReportsScreen: React.FC = () => {
+    const { openDrawer, receipts, settings, isReportsUnlocked, setReportsUnlocked, paymentTypes } = useAppContext();
+    
+    // Filters State
+    const [filter, setFilter] = useState<DateFilter>('today');
+    const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('all');
+    const [customStartDate, setCustomStartDate] = useState(() => new Date().toISOString().slice(0, 16));
+    const [customEndDate, setCustomEndDate] = useState(() => new Date().toISOString().slice(0, 16));
+    const [activeTab, setActiveTab] = useState<ReportTab>('overview');
+
+    // --- ANALYTICS LOGIC (Integrated directly) ---
+    const { filteredReceipts, metrics } = useMemo(() => {
+        // 1. Calculate Date Range
         let startTime: Date;
         let endTime: Date;
+
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
         if (filter === 'custom') {
             startTime = new Date(customStartDate);
             endTime = new Date(customEndDate);
         } else {
-            const now = new Date();
-            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            endTime = new Date(); // Default end is now
-
             switch(filter) {
                 case 'today':
-                    startTime = startOfDay;
+                    startTime = todayStart;
+                    endTime = todayEnd;
                     break;
                 case 'yesterday':
-                    startTime = new Date(startOfDay);
-                    startTime.setDate(startTime.getDate() - 1);
-                    endTime = new Date(startOfDay); // End of yesterday is start of today
+                    startTime = new Date(todayStart);
+                    startTime.setDate(todayStart.getDate() - 1);
+                    endTime = new Date(todayStart);
+                    endTime.setDate(todayStart.getDate() - 1);
+                    endTime.setHours(23, 59, 59, 999);
                     break;
                 case 'week':
-                    startTime = new Date(startOfDay);
-                    startTime.setDate(startTime.getDate() - 7);
+                    startTime = new Date(todayStart);
+                    startTime.setDate(todayStart.getDate() - 6); 
+                    endTime = todayEnd;
                     break;
                 case 'month':
-                    startTime = new Date(startOfDay);
-                    startTime.setDate(startTime.getDate() - 30);
+                    startTime = new Date(todayStart);
+                    startTime.setDate(todayStart.getDate() - 29);
+                    endTime = todayEnd;
                     break;
                 default:
-                    startTime = startOfDay;
+                    startTime = todayStart;
+                    endTime = todayEnd;
             }
         }
 
-        return receipts.filter(r => {
+        // 2. Filter Data
+        const filtered = receipts.filter(r => {
             const date = new Date(r.date);
             const matchesDate = date >= startTime && date <= endTime;
             const matchesPayment = paymentMethodFilter === 'all' || r.paymentMethod === paymentMethodFilter;
             return matchesDate && matchesPayment;
         });
-    }, [receipts, filter, customStartDate, customEndDate, paymentMethodFilter]);
 
-    const metrics = useMemo<Metrics>(() => {
+        // 3. Aggregate Metrics
         let totalSales = 0;
-        let totalOrders = filteredReceipts.length;
+        let totalOrders = filtered.length;
         const paymentMethods: Record<string, number> = {};
         const itemsSold: Record<string, { count: number, revenue: number, category: string }> = {};
         const salesByHour: Record<number, number> = {};
@@ -109,13 +167,13 @@ const ReportsScreen: React.FC = () => {
 
         for(let i=0; i<24; i++) salesByHour[i] = 0;
 
-        filteredReceipts.forEach(r => {
+        filtered.forEach(r => {
             totalSales += r.total;
             paymentMethods[r.paymentMethod] = (paymentMethods[r.paymentMethod] || 0) + r.total;
             const hour = new Date(r.date).getHours();
             salesByHour[hour] += r.total;
 
-            r.items.forEach(item => {
+            r.items.forEach((item: any) => {
                 if (!itemsSold[item.name]) itemsSold[item.name] = { count: 0, revenue: 0, category: item.category || 'Uncategorized' };
                 itemsSold[item.name].count += item.quantity;
                 itemsSold[item.name].revenue += (item.price * item.quantity);
@@ -130,416 +188,283 @@ const ReportsScreen: React.FC = () => {
             .sort((a, b) => b.revenue - a.revenue);
 
         return {
-            totalSales,
-            totalOrders,
-            avgOrderValue: totalOrders > 0 ? totalSales / totalOrders : 0,
-            paymentMethods,
-            topItems: allItems.slice(0, 5),
-            allItems,
-            salesByHour,
-            salesByCategory
-        };
-    }, [filteredReceipts]);
-
-
-    // --- CSV EXPORT ---
-    const handleExport = async () => {
-        // 1. Summary
-        let csvContent = "REPORT SUMMARY\n";
-        csvContent += `Generated,${new Date().toLocaleString()}\n`;
-        csvContent += `Filter,${filter === 'custom' ? `${customStartDate} to ${customEndDate}` : filter}\n`;
-        csvContent += `Payment Method,${paymentMethodFilter === 'all' ? 'All Methods' : paymentMethodFilter}\n`;
-        csvContent += `Total Sales,${metrics.totalSales.toFixed(2)}\n`;
-        csvContent += `Total Orders,${metrics.totalOrders}\n\n`;
-
-        // 2. Items
-        csvContent += "ITEM SALES\n";
-        csvContent += "Item Name,Category,Quantity Sold,Revenue\n";
-        metrics.allItems.forEach(item => {
-             csvContent += `"${item.name.replace(/"/g, '""')}","${item.category}",${item.count},${item.revenue.toFixed(2)}\n`;
-        });
-        csvContent += "\n";
-
-        // 3. Transactions
-        csvContent += "TRANSACTION LOG\n";
-        csvContent += "Receipt ID,Date,Time,Payment Method,Total,Items\n";
-        filteredReceipts.forEach(r => {
-             const d = new Date(r.date);
-             const itemsSummary = r.items.map(i => `${i.quantity}x ${i.name}`).join(' | ');
-             csvContent += `${r.id},${d.toLocaleDateString()},${d.toLocaleTimeString()},${r.paymentMethod},${r.total.toFixed(2)},"${itemsSummary.replace(/"/g, '""')}"\n`;
-        });
-
-        const fileName = `sales_report_${Date.now()}.csv`;
-        
-        try {
-            if (Capacitor.isNativePlatform()) {
-                const result = await Filesystem.writeFile({
-                    path: fileName,
-                    data: csvContent,
-                    directory: Directory.Documents,
-                    encoding: Encoding.UTF8
-                });
-                await Share.share({ url: result.uri });
-            } else {
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                const url = URL.createObjectURL(blob);
-                link.setAttribute('href', url);
-                link.setAttribute('download', fileName);
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+            filteredReceipts: filtered,
+            metrics: {
+                totalSales,
+                totalOrders,
+                avgOrderValue: totalOrders > 0 ? totalSales / totalOrders : 0,
+                paymentMethods,
+                topItems: allItems.slice(0, 5),
+                allItems,
+                salesByHour,
+                salesByCategory
             }
-        } catch (e) {
-            alert("Failed to export report.");
-            console.error(e);
-        }
-    };
+        };
+    }, [receipts, filter, customStartDate, customEndDate, paymentMethodFilter]);
 
-
-    // --- RENDER LOCKED STATE ---
-    if (isLocked) {
-        return (
-            <div className="flex h-full flex-col bg-background">
-                <div className="flex-shrink-0 h-16 flex items-center px-4 border-b border-border bg-surface">
-                    <button onClick={openDrawer} className="p-2 -ml-2 text-text-secondary hover:text-text-primary">
-                        <MenuIcon className="h-6 w-6" />
-                    </button>
-                    <h1 className="text-xl font-semibold text-text-primary ml-4">Reports</h1>
-                </div>
-                <div className="flex-1 flex items-center justify-center p-4">
-                    <div className="w-full max-w-sm bg-surface p-8 rounded-xl shadow-lg text-center">
-                        <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <LockIcon className="h-8 w-8 text-primary" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-text-primary mb-2">Restricted Access</h2>
-                        <p className="text-text-secondary mb-6">Please enter the security PIN to view reports.</p>
-                        
-                        <form onSubmit={handleUnlock}>
-                            <input
-                                type="password"
-                                inputMode="numeric" 
-                                pattern="[0-9]*"
-                                value={pinInput}
-                                onChange={(e) => setPinInput(e.target.value)}
-                                className="w-full text-center text-2xl tracking-widest p-3 border border-border rounded-lg bg-background text-text-primary focus:ring-2 focus:ring-primary mb-4 font-mono"
-                                placeholder="• • • •"
-                                autoFocus
-                            />
-                            {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-                            <button 
-                                type="submit"
-                                className="w-full py-3 bg-primary text-primary-content font-bold rounded-lg hover:bg-primary-hover transition-colors"
-                            >
-                                Unlock
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
+    const isLocked = !!settings.reportsPIN && !isReportsUnlocked;
     const maxHourlySales = Math.max(...(Object.values(metrics.salesByHour) as number[]), 1);
 
+    const handleUnlock = (pin: string) => {
+        if (pin === settings.reportsPIN) {
+            setReportsUnlocked(true);
+            return true;
+        }
+        return false;
+    };
+
+    const handleExport = async () => {
+        // Simple CSV generation logic (kept inline for brevity, could be extracted)
+        let csv = `REPORT,${new Date().toLocaleString()}\nFilter,${filter}\nTotal Sales,${metrics.totalSales}\n\n`;
+        csv += "ID,Date,Method,Total\n";
+        filteredReceipts.forEach(r => csv += `${r.id},${new Date(r.date).toLocaleString()},${r.paymentMethod},${r.total}\n`);
+        
+        const fileName = `sales_report_${Date.now()}.csv`;
+        try {
+            if (Capacitor.isNativePlatform()) {
+                const res = await Filesystem.writeFile({ path: fileName, data: csv, directory: Directory.Documents, encoding: Encoding.UTF8 });
+                await Share.share({ url: res.uri });
+            } else {
+                const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+                const a = document.createElement('a'); a.href = url; a.download = fileName; a.click();
+            }
+        } catch (e) { alert("Export failed"); }
+    };
+
     return (
-        <div className="flex h-full flex-col bg-background overflow-hidden">
-            {/* Header */}
-            <div className="flex-shrink-0 h-16 flex items-center justify-between px-4 border-b border-border bg-surface gap-4">
-                <div className="flex items-center">
-                    <button onClick={openDrawer} className="p-2 -ml-2 text-text-secondary hover:text-text-primary">
-                        <MenuIcon className="h-6 w-6" />
-                    </button>
-                    <h1 className="text-xl font-semibold text-text-primary ml-4 hidden sm:block">Reports</h1>
-                </div>
-                
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                     <div className="flex bg-surface-muted rounded-lg p-1 text-xs font-medium whitespace-nowrap">
-                        {(['today', 'yesterday', 'week', 'month', 'custom'] as const).map(f => (
-                            <button
-                                key={f}
-                                onClick={() => setFilter(f)}
-                                className={`px-3 py-1.5 rounded-md capitalize transition-colors ${filter === f ? 'bg-primary text-primary-content shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
-                            >
-                                {f}
-                            </button>
-                        ))}
-                    </div>
-                    <button onClick={handleExport} className="p-2 text-primary hover:bg-primary/10 rounded-full" title="Export CSV">
-                        <DownloadIcon className="h-5 w-5" />
-                    </button>
-                </div>
-            </div>
-
-            {/* Filters Bar */}
-            <div className="flex-shrink-0 bg-surface border-b border-border p-3 flex flex-wrap gap-4 items-center justify-between animate-fadeIn">
-                <div className="flex items-center gap-2 w-full md:w-auto">
-                    <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">Payment Method:</span>
-                    <select
-                        value={paymentMethodFilter}
-                        onChange={(e) => setPaymentMethodFilter(e.target.value)}
-                        className="bg-surface-muted border border-border text-text-primary text-sm rounded-lg p-2 focus:ring-primary focus:border-primary block"
-                    >
-                        <option value="all">All Methods</option>
-                        {paymentTypes.filter(p => p.enabled).map(pt => (
-                            <option key={pt.id} value={pt.name}>{pt.name}</option>
-                        ))}
-                    </select>
-                </div>
-                
-                {filter === 'custom' && (
-                    <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-                        <div className="flex items-center bg-surface-muted border border-border rounded-lg p-1">
-                            <span className="px-2 text-xs font-bold text-text-secondary">From</span>
-                            <input 
-                                type="datetime-local" 
-                                value={customStartDate} 
-                                onChange={(e) => setCustomStartDate(e.target.value)}
-                                className="p-1.5 text-sm bg-transparent border-none text-text-primary focus:ring-0"
-                            />
-                            <div className="w-px h-4 bg-border mx-2"></div>
-                            <span className="px-2 text-xs font-bold text-text-secondary">To</span>
-                             <input 
-                                type="datetime-local" 
-                                value={customEndDate} 
-                                onChange={(e) => setCustomEndDate(e.target.value)}
-                                className="p-1.5 text-sm bg-transparent border-none text-text-primary focus:ring-0"
-                            />
-                        </div>
-                    </div>
-                )}
-            </div>
-
-
-            {/* Sub Navigation */}
-            <div className="flex-shrink-0 border-b border-border bg-surface px-4">
-                <nav className="flex space-x-8 overflow-x-auto no-scrollbar" aria-label="Tabs">
-                    {[
-                        { id: 'overview', label: 'Overview' },
-                        { id: 'items', label: 'Item Sales' },
-                        { id: 'categories', label: 'Categories' },
-                        { id: 'orders', label: 'Orders' },
-                    ].map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id as ReportTab)}
-                            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                                activeTab === tab.id
-                                    ? 'border-primary text-primary'
-                                    : 'border-transparent text-text-secondary hover:text-text-primary hover:border-gray-300'
-                            }`}
-                        >
-                            {tab.label}
+        <div className="flex h-full flex-col bg-background overflow-hidden font-sans">
+            {/* --- HEADER (Always Visible) --- */}
+            <header className="flex-shrink-0 bg-surface border-b border-border z-20">
+                <div className="h-16 flex items-center justify-between px-4">
+                    <div className="flex items-center">
+                        <button onClick={openDrawer} className="p-2 -ml-2 text-text-secondary hover:text-text-primary rounded-full hover:bg-surface-muted transition-colors">
+                            <MenuIcon className="h-6 w-6" />
                         </button>
-                    ))}
-                </nav>
-            </div>
+                        <h1 className="text-xl font-bold text-text-primary ml-3 tracking-tight">Reports</h1>
+                    </div>
+                    
+                    {!isLocked && (
+                        <button onClick={handleExport} className="p-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors flex items-center gap-2 text-sm font-semibold">
+                            <DownloadIcon className="h-4 w-4" />
+                            <span className="hidden sm:inline">Export</span>
+                        </button>
+                    )}
+                </div>
 
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-background">
-                {activeTab === 'overview' && (
-                    <div className="space-y-6 max-w-6xl mx-auto">
-                         {/* Summary Cards */}
-                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="bg-surface p-6 rounded-xl shadow-sm border border-border">
-                                <div className="flex items-center gap-3 mb-2 text-text-secondary">
-                                    <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-emerald-600">
-                                        <DollarSignIcon className="h-5 w-5" />
-                                    </div>
-                                    <span className="font-medium">Total Sales</span>
-                                </div>
-                                <p className="text-3xl font-bold text-text-primary">₹{metrics.totalSales.toFixed(2)}</p>
-                            </div>
-                            
-                            <div className="bg-surface p-6 rounded-xl shadow-sm border border-border">
-                                <div className="flex items-center gap-3 mb-2 text-text-secondary">
-                                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600">
-                                        <ChartIcon className="h-5 w-5" />
-                                    </div>
-                                    <span className="font-medium">Total Orders</span>
-                                </div>
-                                <p className="text-3xl font-bold text-text-primary">{metrics.totalOrders}</p>
-                            </div>
-
-                            <div className="bg-surface p-6 rounded-xl shadow-sm border border-border">
-                                <div className="flex items-center gap-3 mb-2 text-text-secondary">
-                                    <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600">
-                                        <CheckIcon className="h-5 w-5" />
-                                    </div>
-                                    <span className="font-medium">Avg. Order Value</span>
-                                </div>
-                                <p className="text-3xl font-bold text-text-primary">₹{metrics.avgOrderValue.toFixed(2)}</p>
-                            </div>
+                {/* Filters Bar */}
+                {!isLocked && (
+                    <div className="px-4 pb-3 flex flex-wrap gap-2 items-center justify-between overflow-x-auto no-scrollbar">
+                        <div className="flex bg-surface-muted p-1 rounded-lg">
+                            {(['today', 'yesterday', 'week', 'month', 'custom'] as const).map(f => (
+                                <button
+                                    key={f}
+                                    onClick={() => setFilter(f)}
+                                    className={`px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-all ${filter === f ? 'bg-surface text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+                                >
+                                    {f}
+                                </button>
+                            ))}
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {/* Hourly Sales Chart */}
-                            <div className="bg-surface p-6 rounded-xl shadow-sm border border-border">
-                                <h3 className="text-lg font-bold text-text-primary mb-6">Hourly Activity</h3>
-                                <div className="h-48 flex items-end gap-1">
-                                    {Object.entries(metrics.salesByHour).map(([hour, value]) => (
-                                        <div key={hour} className="flex-1 flex flex-col items-center group relative">
-                                            <div 
-                                                className="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all relative"
-                                                style={{ height: `${((value as number) / maxHourlySales) * 100}%`, minHeight: (value as number) > 0 ? '4px' : '0' }}
-                                            >
-                                                {/* Tooltip */}
-                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-10 pointer-events-none">
-                                                    {parseInt(hour)}:00 - ₹{(value as number).toFixed(0)}
+                        <div className="flex items-center gap-2">
+                            {filter === 'custom' && (
+                                <div className="flex items-center gap-1 bg-surface-muted px-2 py-1 rounded-lg border border-border text-xs">
+                                    <input type="datetime-local" value={customStartDate} onChange={e=>setCustomStartDate(e.target.value)} className="bg-transparent border-none p-0 focus:ring-0 text-text-primary" />
+                                    <span className="text-text-muted">-</span>
+                                    <input type="datetime-local" value={customEndDate} onChange={e=>setCustomEndDate(e.target.value)} className="bg-transparent border-none p-0 focus:ring-0 text-text-primary" />
+                                </div>
+                            )}
+                            <select
+                                value={paymentMethodFilter}
+                                onChange={(e) => setPaymentMethodFilter(e.target.value)}
+                                className="bg-surface-muted border border-border text-text-primary text-xs font-medium rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+                            >
+                                <option value="all">All Methods</option>
+                                {paymentTypes.filter(p => p.enabled).map(pt => (
+                                    <option key={pt.id} value={pt.name}>{pt.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                )}
+            </header>
+
+            {/* --- CONTENT AREA --- */}
+            {isLocked ? (
+                <SecurityOverlay onUnlock={handleUnlock} />
+            ) : (
+                <div className="flex-1 flex flex-col overflow-hidden relative">
+                    {/* Navigation Tabs */}
+                    <div className="px-4 border-b border-border bg-surface flex-shrink-0">
+                        <nav className="flex gap-6">
+                            {[
+                                { id: 'overview', label: 'Overview' },
+                                { id: 'items', label: 'Items Sold' },
+                                { id: 'categories', label: 'Categories' },
+                                { id: 'orders', label: 'Order Log' },
+                            ].map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id as ReportTab)}
+                                    className={`py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? 'border-primary text-primary' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </nav>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-surface-muted/30">
+                        {activeTab === 'overview' && (
+                            <div className="max-w-6xl mx-auto space-y-6 animate-fadeIn">
+                                {/* Scorecards */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <StatCard 
+                                        title="Total Sales" 
+                                        value={`₹${metrics.totalSales.toFixed(2)}`} 
+                                        icon={<DollarSignIcon className="h-6 w-6 text-emerald-600" />} 
+                                        colorClass="bg-emerald-100 dark:bg-emerald-900/30"
+                                    />
+                                    <StatCard 
+                                        title="Total Orders" 
+                                        value={metrics.totalOrders.toString()} 
+                                        icon={<ChartIcon className="h-6 w-6 text-blue-600" />} 
+                                        colorClass="bg-blue-100 dark:bg-blue-900/30"
+                                    />
+                                    <StatCard 
+                                        title="Avg. Order Value" 
+                                        value={`₹${metrics.avgOrderValue.toFixed(2)}`} 
+                                        icon={<CheckIcon className="h-6 w-6 text-purple-600" />} 
+                                        colorClass="bg-purple-100 dark:bg-purple-900/30"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    {/* Hourly Chart */}
+                                    <div className="bg-surface p-6 rounded-2xl shadow-sm border border-border">
+                                        <h3 className="text-lg font-bold text-text-primary mb-6">Sales Activity (24h)</h3>
+                                        <div className="h-48 flex items-end gap-1.5 px-2">
+                                            {Object.entries(metrics.salesByHour).map(([hour, value]) => (
+                                                <div key={hour} className="flex-1 flex flex-col items-center group relative h-full justify-end">
+                                                    <div 
+                                                        className="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all relative min-h-[4px]"
+                                                        style={{ height: `${((value as number) / maxHourlySales) * 100}%` }}
+                                                    ></div>
+                                                    {/* Tooltip */}
+                                                    <div className="opacity-0 group-hover:opacity-100 absolute bottom-full mb-2 bg-black/80 text-white text-[10px] px-2 py-1 rounded pointer-events-none whitespace-nowrap z-10 transition-opacity">
+                                                        {hour}:00 - ₹{(value as number)}
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            ))}
                                         </div>
-                                    ))}
-                                </div>
-                                <div className="flex justify-between text-xs text-text-muted mt-2 px-1">
-                                    <span>12 AM</span>
-                                    <span>6 AM</span>
-                                    <span>12 PM</span>
-                                    <span>6 PM</span>
-                                    <span>11 PM</span>
-                                </div>
-                            </div>
-
-                             {/* Sales by Payment Method */}
-                            <div className="bg-surface p-6 rounded-xl shadow-sm border border-border">
-                                <h3 className="text-lg font-bold text-text-primary mb-4">Payment Methods</h3>
-                                <div className="space-y-4">
-                                    {Object.entries(metrics.paymentMethods).map(([method, value]) => (
-                                        <div key={method}>
-                                            <div className="flex justify-between text-sm mb-1">
-                                                <span className="font-medium text-text-primary">{method}</span>
-                                                <span className="text-text-secondary">₹{(value as number).toFixed(2)} ({(((value as number) / metrics.totalSales) * 100).toFixed(1)}%)</span>
-                                            </div>
-                                            <div className="w-full bg-surface-muted rounded-full h-2.5 overflow-hidden">
-                                                <div 
-                                                    className="bg-emerald-500 h-2.5 rounded-full" 
-                                                    style={{ width: `${((value as number) / metrics.totalSales) * 100}%` }}
-                                                ></div>
-                                            </div>
+                                        <div className="flex justify-between text-[10px] text-text-muted mt-2 border-t border-border pt-2 uppercase tracking-wide">
+                                            <span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>11 PM</span>
                                         </div>
-                                    ))}
-                                    {Object.keys(metrics.paymentMethods).length === 0 && (
-                                            <p className="text-text-muted text-sm text-center py-4">No data available.</p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Top 5 Items */}
-                         <div className="bg-surface p-6 rounded-xl shadow-sm border border-border">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-lg font-bold text-text-primary">Top 5 Selling Items</h3>
-                                <button onClick={() => setActiveTab('items')} className="text-sm text-primary hover:underline font-medium">View All</button>
-                            </div>
-                            <div className="space-y-4">
-                                {metrics.topItems.map((item, i) => (
-                                    <div key={item.name} className="flex items-center justify-between border-b border-border pb-2 last:border-0 last:pb-0">
-                                        <div className="flex items-center gap-3">
-                                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-surface-muted text-xs font-bold text-text-secondary">
-                                                {i + 1}
-                                            </span>
-                                            <div>
-                                                <p className="font-medium text-text-primary">{item.name}</p>
-                                                <p className="text-xs text-text-secondary">{item.count} sold</p>
-                                            </div>
-                                        </div>
-                                        <p className="font-bold text-text-primary">₹{item.revenue.toFixed(2)}</p>
                                     </div>
-                                ))}
+
+                                    {/* Payment Methods Breakdown */}
+                                    <div className="bg-surface p-6 rounded-2xl shadow-sm border border-border">
+                                        <h3 className="text-lg font-bold text-text-primary mb-4">Payment Methods</h3>
+                                        <div className="space-y-4">
+                                            {Object.entries(metrics.paymentMethods).map(([method, value]) => (
+                                                <div key={method}>
+                                                    <div className="flex justify-between text-sm mb-1.5">
+                                                        <span className="font-medium text-text-primary">{method}</span>
+                                                        <span className="text-text-secondary font-mono">₹{(value as number).toFixed(0)}</span>
+                                                    </div>
+                                                    <div className="w-full bg-surface-muted rounded-full h-2 overflow-hidden">
+                                                        <div 
+                                                            className="bg-emerald-500 h-2 rounded-full transition-all duration-500" 
+                                                            style={{ width: `${((value as number) / metrics.totalSales) * 100}%` }}
+                                                        ></div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {Object.keys(metrics.paymentMethods).length === 0 && <p className="text-text-muted text-sm text-center italic">No data available</p>}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                )}
+                        )}
 
-                {activeTab === 'items' && (
-                    <div className="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
-                        <table className="min-w-full divide-y divide-border">
-                            <thead className="bg-surface-muted">
-                                <tr>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Item Name</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Category</th>
-                                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Qty Sold</th>
-                                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Revenue</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-surface divide-y divide-border">
-                                {metrics.allItems.map((item) => (
-                                    <tr key={item.name} className="hover:bg-surface-muted/50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-text-primary">{item.name}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">{item.category}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary text-right">{item.count}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-text-primary font-bold text-right">₹{item.revenue.toFixed(2)}</td>
-                                    </tr>
-                                ))}
-                                {metrics.allItems.length === 0 && (
-                                    <tr><td colSpan={4} className="px-6 py-8 text-center text-text-muted">No items sold in this period.</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-
-                {activeTab === 'categories' && (
-                    <div className="bg-surface rounded-lg shadow-sm border border-border overflow-hidden max-w-4xl mx-auto">
-                        <table className="min-w-full divide-y divide-border">
-                            <thead className="bg-surface-muted">
-                                <tr>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Category</th>
-                                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Total Revenue</th>
-                                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">% of Sales</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-surface divide-y divide-border">
-                                {Object.entries(metrics.salesByCategory)
-                                    .sort(([, a], [, b]) => (b as number) - (a as number))
-                                    .map(([category, revenue]) => {
-                                        const r = revenue as number;
-                                        return (
-                                        <tr key={category} className="hover:bg-surface-muted/50 transition-colors">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-text-primary">{category}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-text-primary font-bold text-right">₹{r.toFixed(2)}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary text-right">
-                                                {((r / metrics.totalSales) * 100).toFixed(1)}%
-                                            </td>
+                        {activeTab === 'items' && (
+                            <div className="bg-surface rounded-xl shadow-sm border border-border overflow-hidden animate-fadeIn">
+                                <table className="min-w-full divide-y divide-border">
+                                    <thead className="bg-surface-muted">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Item Name</th>
+                                            <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Category</th>
+                                            <th className="px-6 py-3 text-right text-xs font-bold text-text-secondary uppercase tracking-wider">Sold</th>
+                                            <th className="px-6 py-3 text-right text-xs font-bold text-text-secondary uppercase tracking-wider">Revenue</th>
                                         </tr>
-                                    )})}
-                                {Object.keys(metrics.salesByCategory).length === 0 && (
-                                    <tr><td colSpan={3} className="px-6 py-8 text-center text-text-muted">No sales data.</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                                    </thead>
+                                    <tbody className="bg-surface divide-y divide-border">
+                                        {metrics.allItems.map((item) => (
+                                            <tr key={item.name} className="hover:bg-surface-muted/50 transition-colors">
+                                                <td className="px-6 py-3.5 whitespace-nowrap text-sm font-medium text-text-primary">{item.name}</td>
+                                                <td className="px-6 py-3.5 whitespace-nowrap text-sm text-text-secondary">{item.category}</td>
+                                                <td className="px-6 py-3.5 whitespace-nowrap text-sm text-text-secondary text-right font-mono">{item.count}</td>
+                                                <td className="px-6 py-3.5 whitespace-nowrap text-sm text-text-primary font-bold text-right font-mono">₹{item.revenue.toFixed(2)}</td>
+                                            </tr>
+                                        ))}
+                                        {metrics.allItems.length === 0 && <tr><td colSpan={4} className="px-6 py-8 text-center text-text-muted">No items found.</td></tr>}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
 
-                 {activeTab === 'orders' && (
-                    <div className="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
-                        <table className="min-w-full divide-y divide-border">
-                            <thead className="bg-surface-muted">
-                                <tr>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">ID</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Date</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Method</th>
-                                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-surface divide-y divide-border">
-                                {filteredReceipts.map((r) => (
-                                    <tr key={r.id} className="hover:bg-surface-muted/50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap text-xs font-mono text-text-secondary">#{r.id.slice(-6)}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-text-primary">{r.date.toLocaleDateString()} {r.date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary capitalize">{r.paymentMethod}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-text-primary font-bold text-right">₹{r.total.toFixed(2)}</td>
-                                    </tr>
-                                ))}
-                                {filteredReceipts.length === 0 && (
-                                    <tr><td colSpan={4} className="px-6 py-8 text-center text-text-muted">No orders found.</td></tr>
-                                )}
-                            </tbody>
-                        </table>
+                        {activeTab === 'categories' && (
+                            <div className="bg-surface rounded-xl shadow-sm border border-border overflow-hidden max-w-4xl mx-auto animate-fadeIn">
+                                <table className="min-w-full divide-y divide-border">
+                                    <thead className="bg-surface-muted">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Category</th>
+                                            <th className="px-6 py-3 text-right text-xs font-bold text-text-secondary uppercase tracking-wider">Revenue</th>
+                                            <th className="px-6 py-3 text-right text-xs font-bold text-text-secondary uppercase tracking-wider">% Share</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-surface divide-y divide-border">
+                                        {Object.entries(metrics.salesByCategory).sort(([,a], [,b]) => (b as number) - (a as number)).map(([cat, rev]) => (
+                                            <tr key={cat} className="hover:bg-surface-muted/50 transition-colors">
+                                                <td className="px-6 py-3.5 text-sm font-medium text-text-primary">{cat}</td>
+                                                <td className="px-6 py-3.5 text-sm font-bold text-text-primary text-right font-mono">₹{(rev as number).toFixed(2)}</td>
+                                                <td className="px-6 py-3.5 text-sm text-text-secondary text-right font-mono">{(((rev as number) / metrics.totalSales) * 100).toFixed(1)}%</td>
+                                            </tr>
+                                        ))}
+                                        {Object.keys(metrics.salesByCategory).length === 0 && <tr><td colSpan={3} className="px-6 py-8 text-center text-text-muted">No data available.</td></tr>}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {activeTab === 'orders' && (
+                            <div className="bg-surface rounded-xl shadow-sm border border-border overflow-hidden animate-fadeIn">
+                                <table className="min-w-full divide-y divide-border">
+                                    <thead className="bg-surface-muted">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Receipt ID</th>
+                                            <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Date</th>
+                                            <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Payment</th>
+                                            <th className="px-6 py-3 text-right text-xs font-bold text-text-secondary uppercase tracking-wider">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-surface divide-y divide-border">
+                                        {filteredReceipts.map((r) => (
+                                            <tr key={r.id} className="hover:bg-surface-muted/50 transition-colors">
+                                                <td className="px-6 py-3.5 text-xs font-mono text-text-secondary">#{r.id.slice(-6)}</td>
+                                                <td className="px-6 py-3.5 text-sm text-text-primary">{new Date(r.date).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</td>
+                                                <td className="px-6 py-3.5 text-sm text-text-secondary capitalize">{r.paymentMethod}</td>
+                                                <td className="px-6 py-3.5 text-sm font-bold text-text-primary text-right font-mono">₹{r.total.toFixed(2)}</td>
+                                            </tr>
+                                        ))}
+                                        {filteredReceipts.length === 0 && <tr><td colSpan={4} className="px-6 py-8 text-center text-text-muted">No orders found.</td></tr>}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
+                </div>
+            )}
         </div>
     );
 };

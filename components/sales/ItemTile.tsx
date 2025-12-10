@@ -40,7 +40,7 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
                 <button
                     type="button"
                     onClick={() => onAssignItem(index)}
-                    className="absolute inset-0 flex flex-col items-center justify-center z-10 w-full h-full"
+                    className="absolute inset-0 flex flex-col items-center justify-center z-10 w-full h-full touch-manipulation"
                 >
                     <div className="bg-primary/10 p-2 rounded-full mb-1">
                         <PencilIcon className="h-6 w-6 text-primary" />
@@ -55,7 +55,7 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
                         e.stopPropagation();
                         if(onRemoveFromGrid) onRemoveFromGrid(index);
                     }}
-                    className="absolute top-1 right-1 z-20 bg-red-500 text-white rounded-full p-1.5 shadow-md hover:bg-red-600 active:scale-90 transition-transform"
+                    className="absolute top-1 right-1 z-20 bg-red-500 text-white rounded-full p-1.5 shadow-md hover:bg-red-600 active:scale-90 transition-transform touch-manipulation"
                 >
                     <TrashIcon className="h-4 w-4" />
                 </button>
@@ -88,7 +88,8 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
             <button
                 type="button"
                 onClick={handleClick}
-                className={`relative w-full rounded-xl overflow-hidden cursor-pointer shadow-sm border border-border/50 bg-surface-muted group ${isFixedGrid ? 'h-full' : 'aspect-square'} touch-manipulation select-none transition-all duration-100 active:scale-[0.97] hover:shadow-md`}
+                // 'touch-manipulation' is CRITICAL for removing 300ms tap delay on Android/iOS
+                className={`relative w-full rounded-xl overflow-hidden cursor-pointer shadow-sm border border-border/50 bg-surface-muted group ${isFixedGrid ? 'h-full' : 'aspect-square'} touch-manipulation select-none transition-all duration-75 active:scale-[0.96] hover:shadow-md`}
                 aria-label={`Add ${item.name} to order`}
             >
                 <div className="w-full h-full pointer-events-none">
@@ -117,7 +118,8 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
             <button
                 type="button"
                 onClick={handleClick}
-                className={`relative w-full rounded-xl cursor-pointer shadow-sm border border-border bg-surface group ${isFixedGrid ? 'h-full' : 'aspect-square'} touch-manipulation select-none transition-all duration-100 active:scale-[0.97] hover:shadow-md hover:border-primary/30`}
+                // 'touch-manipulation' is CRITICAL for removing 300ms tap delay on Android/iOS
+                className={`relative w-full rounded-xl cursor-pointer shadow-sm border border-border bg-surface group ${isFixedGrid ? 'h-full' : 'aspect-square'} touch-manipulation select-none transition-all duration-75 active:scale-[0.96] hover:shadow-md hover:border-primary/30`}
                 aria-label={`Add ${item.name} to order`}
             >
                 <PriceBadge />

@@ -12,8 +12,9 @@ import { requestAppPermissions } from '../utils/permissions';
 import { db, signOutUser, clearAllData, firebaseConfig, auth } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, query, orderBy, limit, startAfter, getDocs, getDoc, QueryDocumentSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import FirebaseError from '../components/FirebaseError';
+import FirebaseError from '../components/modals/FirebaseError';
 import { APP_VERSION } from '../constants';
+import { idb } from '../utils/indexedDB'; // Import the new DB helper
 
 type Theme = 'light' | 'dark';
 
@@ -36,12 +37,13 @@ interface FirebaseErrorState {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// LocalStorage Keys
+// LocalStorage Keys (Only for small data)
 const ITEMS_CACHE_KEY = 'pos_items_cache';
 const SETTINGS_CACHE_KEY = 'pos_settings_cache';
 const GRIDS_CACHE_KEY = 'pos_grids_cache'; 
 const ONBOARDING_COMPLETED_KEY = 'pos_onboarding_completed_v1';
 const ACTIVE_GRID_KEY = 'pos_active_grid_id';
+// Removed RECEIPTS_CACHE_KEY in favor of IndexedDB
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   
@@ -122,7 +124,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // We initialize state from localStorage where possible for instant boot ('Optimistic UI')
   const [settings, setSettingsState] = useState<AppSettings>(() => {
       const cached = localStorage.getItem(SETTINGS_CACHE_KEY);
-      // Merge with default to ensure new properties exist if cached data is old
       const parsed = cached ? JSON.parse(cached) : {};
       return { ...DEFAULT_SETTINGS, ...parsed };
   });
@@ -137,9 +138,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return cached ? JSON.parse(cached) : [];
   });
 
+  // Receipts: Empty initially, populated async from IndexedDB
+  const [receipts, setReceiptsState] = useState<Receipt[]>([]);
+
+  // Load receipts from IDB on mount
+  useEffect(() => {
+      const loadReceipts = async () => {
+          const stored = await idb.getAllReceipts();
+          if (stored.length > 0) {
+              setReceiptsState(stored);
+          }
+      };
+      loadReceipts();
+  }, []);
+
   const [printers, setPrintersState] = useState<Printer[]>([]);
   const [paymentTypes, setPaymentTypesState] = useState<PaymentType[]>([]);
-  const [receipts, setReceiptsState] = useState<Receipt[]>([]);
   const [savedTickets, setSavedTicketsState] = useState<SavedTicket[]>([]);
   const [tables, setTablesState] = useState<Table[]>([]);
   
@@ -170,10 +184,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ==========================================
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
 
-  /**
-   * Smart Add: If the last item added is the same, just increment qty.
-   * Otherwise, append as a new line.
-   */
   const addToOrder = useCallback((item: Item) => {
     setCurrentOrder(current => {
       const lastItem = current.length > 0 ? current[current.length - 1] : null;
@@ -224,7 +234,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const clearOrder = useCallback(() => setCurrentOrder([]), []);
   
   const loadOrder = useCallback((items: OrderItem[]) => {
-    // Regenerate line IDs to prevent conflicts if loaded multiple times
     const migratedItems = items.map(item => ({
       ...item,
       lineItemId: item.lineItemId || `L${Date.now()}-${Math.random()}`
@@ -241,28 +250,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setUser(currentUser);
             const uid = currentUser.uid;
 
-            // STRATEGY: Fetch static data (Settings, Items, Grids) ONLY ONCE on load to save reads.
-            // Only Receipts need a real-time listener (for the latest transactions).
             const fetchAllDataOnce = async () => {
               try {
                 // 1. Settings
                 const settingsSnap = await getDoc(doc(db, 'users', uid, 'config', 'settings'));
                 if (settingsSnap.exists()) {
                     const fetched = settingsSnap.data() as AppSettings;
-                    // Merge with defaults to handle new fields
                     const merged = { ...DEFAULT_SETTINGS, ...fetched };
                     setSettingsState(merged);
                     localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(merged));
                 } else {
-                    // Initialize default data for new user
                     await setDoc(doc(db, 'users', uid, 'config', 'settings'), DEFAULT_SETTINGS);
                     setSettingsState(DEFAULT_SETTINGS);
-                    
                     const batch = writeBatch(db);
                     const ptCollection = collection(db, 'users', uid, 'payment_types');
                     batch.set(doc(ptCollection, 'cash'), { id: 'cash', name: 'Cash', icon: 'cash', type: 'cash', enabled: true });
                     batch.set(doc(ptCollection, 'upi'), { id: 'upi', name: 'UPI', icon: 'upi', type: 'other', enabled: true });
-                    
                     const tablesCollection = collection(db, 'users', uid, 'tables');
                     ['Table 1', 'Table 2', 'Table 3', 'Takeout 1'].forEach((name, index) => {
                        const tableId = `T${index + 1}`;
@@ -271,7 +274,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     await batch.commit();
                 }
 
-                // 2. Parallel Fetch of Static Collections
+                // 2. Parallel Fetch
                 const [itemsSnap, printersSnap, paymentTypesSnap, tablesSnap, ticketsSnap, gridsSnap] = await Promise.all([
                     getDocs(collection(db, 'users', uid, 'items')),
                     getDocs(collection(db, 'users', uid, 'printers')),
@@ -281,7 +284,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     getDocs(query(collection(db, 'users', uid, 'custom_grids'), orderBy('order')))
                 ]);
 
-                // 3. Populate State & Cache
                 const itemsData = itemsSnap.docs.map(doc => doc.data() as Item);
                 setItemsState(itemsData);
                 localStorage.setItem(ITEMS_CACHE_KEY, JSON.stringify(itemsData));
@@ -302,22 +304,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             
             fetchAllDataOnce();
 
-            // 4. Real-time Listener for Receipts (Limited to 100 for performance)
-            // Added includeMetadataChanges to track pending writes (offline/syncing status)
+            // 4. Real-time Listener for Receipts
             const qReceipts = query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(100));
             const unsubReceipts = onSnapshot(qReceipts, { includeMetadataChanges: true }, (snapshot) => {
-                const receiptsData = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
-                setReceiptsState(prev => {
-                    // Merge new receipts with existing state safely
-                    const combined = [...receiptsData, ...prev.filter(p => !receiptsData.some(n => n.id === p.id))];
-                    return combined.sort((a,b) => b.date.getTime() - a.date.getTime());
+                const latestReceipts = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
+                
+                // HYBRID STORAGE STRATEGY (IndexedDB):
+                setReceiptsState(currentLocalReceipts => {
+                    const mergedMap = new Map<string, Receipt>();
+                    
+                    // 1. Put all current local receipts into map (Source of Truth for History)
+                    currentLocalReceipts.forEach(r => mergedMap.set(r.id, r));
+                    
+                    // 2. Overwrite with latest data from listener (Source of Truth for Updates)
+                    latestReceipts.forEach(r => mergedMap.set(r.id, r));
+                    
+                    const combined = Array.from(mergedMap.values()).sort((a,b) => b.date.getTime() - a.date.getTime());
+                    
+                    // 3. Save updates to IndexedDB (Async, don't await)
+                    // We only save the `latestReceipts` to update any changes.
+                    // This is efficient and ensures our local DB stays in sync with the server's view of the latest items.
+                    idb.saveBulkReceipts(latestReceipts);
+                    
+                    return combined;
                 });
                 
-                // Track unsynced items
                 const pendingCount = snapshot.docs.filter(doc => doc.metadata.hasPendingWrites).length;
                 setPendingSyncCount(pendingCount);
                 
-                // Track pagination cursor
                 if (snapshot.docs.length > 0) setLastReceiptDoc(snapshot.docs[snapshot.docs.length - 1]);
                 if (snapshot.docs.length < 100) setHasMoreReceipts(false); else setHasMoreReceipts(true);
             });
@@ -338,6 +352,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             localStorage.removeItem(SETTINGS_CACHE_KEY);
             localStorage.removeItem(GRIDS_CACHE_KEY);
             localStorage.removeItem(ACTIVE_GRID_KEY);
+            // Clear IndexedDB for security
+            idb.clearAll();
         }
     }, (error) => {
         console.error("Firebase Auth error:", error);
@@ -352,7 +368,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // SECTION: CRUD OPERATIONS
   // ==========================================
 
-  // --- RECEIPTS ---
   const loadMoreReceipts = useCallback(async () => {
       if (!lastReceiptDoc || !user) return;
       try {
@@ -360,7 +375,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const snapshot = await getDocs(qNext);
           if (!snapshot.empty) {
               const newReceipts = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
-              setReceiptsState(prev => [...prev, ...newReceipts]);
+              
+              setReceiptsState(prev => {
+                  const merged = [...prev, ...newReceipts].sort((a,b) => b.date.getTime() - a.date.getTime());
+                  idb.saveBulkReceipts(newReceipts); // Persist fetched history
+                  return merged;
+              });
+              
               setLastReceiptDoc(snapshot.docs[snapshot.docs.length - 1]);
           } else {
               setHasMoreReceipts(false);
@@ -369,8 +390,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [lastReceiptDoc, user]);
   
   const addReceipt = useCallback(async (receipt: Receipt) => {
-    // Optimistic Update: Update UI immediately
-    setReceiptsState(prev => [receipt, ...prev].sort((a,b) => b.date.getTime() - a.date.getTime()).slice(0, 100));
+    // Optimistic Update: Update UI & IndexedDB immediately
+    setReceiptsState(prev => {
+        const newHistory = [receipt, ...prev].sort((a,b) => b.date.getTime() - a.date.getTime());
+        return newHistory;
+    });
+    idb.saveReceipt(receipt); // Non-blocking save
+    
     try { 
         await setDoc(doc(db, 'users', getUid(), 'receipts', receipt.id), receipt);
     } 
@@ -379,18 +405,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const deleteReceipt = useCallback(async (id: string) => {
     setReceiptsState(prev => prev.filter(r => r.id !== id));
+    idb.deleteReceipt(id); // Non-blocking delete
+
     try {
         await deleteDoc(doc(db, 'users', getUid(), 'receipts', id));
-    } catch (e) {
-        console.error("Failed to delete receipt", e);
-        alert("Failed to delete receipt from server. It may reappear on refresh.");
-    }
+    } catch (e) { console.error("Failed to delete receipt", e); }
   }, [getUid]);
 
   // --- SETTINGS ---
   const updateSettings = useCallback(async (newSettings: Partial<AppSettings>) => {
     const updated = { ...settings, ...newSettings };
     setSettingsState(updated);
+    localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(updated));
     try { await setDoc(doc(db, 'users', getUid(), 'config', 'settings'), updated, { merge: true }); } 
     catch (e) { console.error(e); }
   }, [settings, getUid]);
@@ -434,34 +460,43 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // --- ITEMS ---
   const addItem = useCallback(async (item: Item) => {
-    setItemsState(prev => [...prev, item]);
+    setItemsState(prev => {
+        const next = [...prev, item];
+        localStorage.setItem(ITEMS_CACHE_KEY, JSON.stringify(next));
+        return next;
+    });
     try { await setDoc(doc(db, 'users', getUid(), 'items', item.id), item); } 
     catch (e) { console.error(e); alert("Failed to add item."); }
   }, [getUid]);
 
   const updateItem = useCallback(async (updatedItem: Item) => {
-    setItemsState(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i));
+    setItemsState(prev => {
+        const next = prev.map(i => i.id === updatedItem.id ? updatedItem : i);
+        localStorage.setItem(ITEMS_CACHE_KEY, JSON.stringify(next));
+        return next;
+    });
     try { await setDoc(doc(db, 'users', getUid(), 'items', updatedItem.id), updatedItem); } 
     catch (e) { console.error(e); alert("Failed to update item."); }
   }, [getUid]);
 
-  /**
-   * Deleting an item is complex because we must also remove it from any Custom Grids
-   * where it might be placed. We use a Batch Write for atomicity.
-   */
   const deleteItem = useCallback(async (id: string) => {
     const uid = getUid();
-    // 1. Optimistic UI updates
-    setItemsState(prev => prev.filter(i => i.id !== id));
-    setCustomGridsState(prev => prev.map(grid => ({
-      ...grid,
-      itemIds: Array.isArray(grid.itemIds) ? grid.itemIds.map(itemId => itemId === id ? null : itemId) : []
-    })));
+    setItemsState(prev => {
+        const next = prev.filter(i => i.id !== id);
+        localStorage.setItem(ITEMS_CACHE_KEY, JSON.stringify(next));
+        return next;
+    });
+    setCustomGridsState(prev => {
+        const next = prev.map(grid => ({
+            ...grid,
+            itemIds: Array.isArray(grid.itemIds) ? grid.itemIds.map(itemId => itemId === id ? null : itemId) : []
+        }));
+        localStorage.setItem(GRIDS_CACHE_KEY, JSON.stringify(next));
+        return next;
+    });
 
-    // 2. Database Batch Operation
     const batch = writeBatch(db);
     batch.delete(doc(db, 'users', uid, 'items', id));
-    
     const gridsToUpdate = customGrids.filter(grid => Array.isArray(grid.itemIds) && grid.itemIds.includes(id));
     gridsToUpdate.forEach(grid => {
       const newItemIds = grid.itemIds.map(itemId => (itemId === id ? null : itemId));
@@ -469,12 +504,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       batch.update(gridRef, { itemIds: newItemIds });
     });
 
-    try {
-      await batch.commit();
-    } catch (e) {
-      console.error("Failed to delete item and clean up grids:", e);
-      alert("Failed to delete item and sync grid changes. Please check your connection.");
-    }
+    try { await batch.commit(); } catch (e) { console.error("Failed to delete item:", e); }
   }, [getUid, customGrids]);
 
   // --- TICKETS ---
@@ -494,61 +524,57 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const mergeTickets = useCallback(async (ticketIds: string[], newName: string) => {
     if (ticketIds.length < 2) return;
     const uid = getUid();
-
-    // Logic: Combine items from all tickets, create a new one, delete old ones.
     const ticketsToMerge = savedTickets.filter(t => ticketIds.includes(t.id));
     if (ticketsToMerge.length === 0) return;
 
     const mergedItems: OrderItem[] = [];
     ticketsToMerge.forEach(ticket => {
         ticket.items.forEach(item => {
-            // Important: New unique lineItemId to avoid React key conflicts
-            mergedItems.push({ 
-                ...item, 
-                lineItemId: `L${Date.now()}-${Math.random().toString(36).substr(2, 9)}` 
-            });
+            mergedItems.push({ ...item, lineItemId: `L${Date.now()}-${Math.random().toString(36).substr(2, 9)}` });
         });
     });
 
     const newTicketId = `T${Date.now()}`;
-    const newTicket: SavedTicket = {
-        id: newTicketId,
-        name: newName,
-        items: mergedItems,
-        lastModified: Date.now()
-    };
+    const newTicket: SavedTicket = { id: newTicketId, name: newName, items: mergedItems, lastModified: Date.now() };
 
     setSavedTicketsState(prev => [...prev.filter(t => !ticketIds.includes(t.id)), newTicket]);
 
     try {
         const batch = writeBatch(db);
         batch.set(doc(db, 'users', uid, 'saved_tickets', newTicketId), newTicket);
-        ticketIds.forEach(id => {
-            batch.delete(doc(db, 'users', uid, 'saved_tickets', id));
-        });
+        ticketIds.forEach(id => { batch.delete(doc(db, 'users', uid, 'saved_tickets', id)); });
         await batch.commit();
-    } catch (e) {
-        console.error("Merge failed:", e);
-        alert("Failed to merge tickets on server.");
-    }
+    } catch (e) { console.error("Merge failed:", e); alert("Failed to merge tickets on server."); }
   }, [savedTickets, getUid]);
 
   // --- CUSTOM GRIDS & TABLES ---
   const addCustomGrid = useCallback(async (grid: CustomGrid) => {
       const newGridWithOrder = { ...grid, order: customGrids.length };
-      setCustomGridsState(prev => [...prev, newGridWithOrder]);
+      setCustomGridsState(prev => {
+          const next = [...prev, newGridWithOrder];
+          localStorage.setItem(GRIDS_CACHE_KEY, JSON.stringify(next));
+          return next;
+      });
       try { await setDoc(doc(db, 'users', getUid(), 'custom_grids', grid.id), newGridWithOrder); } 
       catch (e) { console.error(e); alert("Failed to add custom grid."); }
   }, [getUid, customGrids.length]);
 
   const updateCustomGrid = useCallback(async (grid: CustomGrid) => {
-      setCustomGridsState(prev => prev.map(g => g.id === grid.id ? grid : g));
+      setCustomGridsState(prev => {
+          const next = prev.map(g => g.id === grid.id ? grid : g);
+          localStorage.setItem(GRIDS_CACHE_KEY, JSON.stringify(next));
+          return next;
+      });
       try { await setDoc(doc(db, 'users', getUid(), 'custom_grids', grid.id), grid); } 
       catch (e) { console.error(e); alert("Failed to update custom grid."); }
   }, [getUid]);
 
   const deleteCustomGrid = useCallback(async (id: string) => {
-      setCustomGridsState(prev => prev.filter(g => g.id !== id));
+      setCustomGridsState(prev => {
+          const next = prev.filter(g => g.id !== id);
+          localStorage.setItem(GRIDS_CACHE_KEY, JSON.stringify(next));
+          return next;
+      });
       if (activeGridId === id) setActiveGridId('All');
       try { await deleteDoc(doc(db, 'users', getUid(), 'custom_grids', id)); } 
       catch (e) { console.error(e); alert("Failed to delete custom grid."); }
@@ -557,28 +583,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const setCustomGrids = useCallback(async (newGrids: CustomGrid[]) => {
       const newGridsWithOrder = newGrids.map((g, i) => ({ ...g, order: i }));
       setCustomGridsState(newGridsWithOrder); 
-      
+      localStorage.setItem(GRIDS_CACHE_KEY, JSON.stringify(newGridsWithOrder));
       const batch = writeBatch(db);
       const gridsRef = collection(db, 'users', getUid(), 'custom_grids');
       const oldGridsMap = new Map(customGrids.map(g => [g.id, g]));
-
-      // Delete removed grids
       for (const oldGrid of customGrids) {
-          if (!newGrids.some(g => g.id === oldGrid.id)) {
-              batch.delete(doc(gridsRef, oldGrid.id));
-          }
+          if (!newGrids.some(g => g.id === oldGrid.id)) { batch.delete(doc(gridsRef, oldGrid.id)); }
       }
-      
-      // Update/Add remaining grids
       for (const newGrid of newGridsWithOrder) {
           const existingGrid = oldGridsMap.get(newGrid.id) as CustomGrid | undefined;
           if (!existingGrid || existingGrid.name !== newGrid.name || existingGrid.order !== newGrid.order) {
               batch.set(doc(gridsRef, newGrid.id), newGrid, { merge: true });
           }
       }
-
-      try { await batch.commit(); } 
-      catch (e) { console.error(e); alert("Failed to save grid changes."); }
+      try { await batch.commit(); } catch (e) { console.error(e); alert("Failed to save grid changes."); }
   }, [customGrids, getUid]);
   
   const addTable = useCallback(async (name: string) => {
@@ -603,24 +621,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const setTables = useCallback(async (newTables: Table[]) => {
     const newTablesWithOrder = newTables.map((t, i) => ({ ...t, order: i }));
     setTablesState(newTablesWithOrder);
-    
     const batch = writeBatch(db);
     const tablesRef = collection(db, 'users', getUid(), 'tables');
-    
     tables.forEach(oldTable => {
-        if (!newTables.find(newTable => newTable.id === oldTable.id)) {
-            batch.delete(doc(tablesRef, oldTable.id));
-        }
+        if (!newTables.find(newTable => newTable.id === oldTable.id)) { batch.delete(doc(tablesRef, oldTable.id)); }
     });
-
-    newTablesWithOrder.forEach((table) => {
-        batch.set(doc(tablesRef, table.id), table, { merge: true });
-    });
-
-    try { await batch.commit(); } 
-    catch(e) { console.error(e); alert("Failed to save table changes."); }
+    newTablesWithOrder.forEach((table) => { batch.set(doc(tablesRef, table.id), table, { merge: true }); });
+    try { await batch.commit(); } catch(e) { console.error(e); alert("Failed to save table changes."); }
   }, [getUid, tables]);
-
 
   // ==========================================
   // SECTION: IMPORT / EXPORT UTILITIES
@@ -628,10 +636,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const replaceItems = useCallback(async (newItems: Item[]) => {
     setIsLoading(true);
     setItemsState(newItems);
+    localStorage.setItem(ITEMS_CACHE_KEY, JSON.stringify(newItems));
     const batch = writeBatch(db);
     const itemsRef = collection(db, 'users', getUid(), 'items');
     try {
-      // Note: This is a destructive operation (delete all, then add all)
       const snapshot = await getDocs(itemsRef);
       snapshot.docs.forEach(doc => batch.delete(doc.ref));
       newItems.forEach(item => batch.set(doc(itemsRef), item));
@@ -684,8 +692,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const uid = getUid();
       try {
           await clearAllData(uid);
-          
-          // Helper: Collect all operations into a single array
           const operations: { ref: any; data: any }[] = [];
           
           operations.push({ ref: doc(db, 'users', uid, 'config', 'settings'), data: data.settings });
@@ -697,7 +703,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           (data.customGrids || []).forEach(g => operations.push({ ref: doc(db, 'users', uid, 'custom_grids', g.id), data: g }));
           (data.tables || []).forEach(t => operations.push({ ref: doc(db, 'users', uid, 'tables', t.id), data: t }));
 
-          // Commit in chunks of 500 (Firestore Batch Limit)
           const chunkSize = 500;
           for (let i = 0; i < operations.length; i += chunkSize) {
               const batch = writeBatch(db);
@@ -705,7 +710,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               chunk.forEach(op => batch.set(op.ref, op.data));
               await batch.commit();
           }
-
+          window.location.reload();
       } catch(e) { console.error(e); alert("Restore failed."); } finally { setIsLoading(false); }
   }, [getUid]);
 
