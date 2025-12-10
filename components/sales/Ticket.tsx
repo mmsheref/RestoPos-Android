@@ -80,7 +80,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
 
             {/* Foreground Content Layer */}
             <div 
-                className="relative bg-surface flex items-center justify-between px-4 h-18 transition-transform duration-200 ease-out"
+                className="relative bg-surface flex items-center justify-between pl-6 pr-4 py-3 transition-transform duration-200 ease-out"
                 style={{ transform: `translateX(${offset}px)` }}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
@@ -93,7 +93,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
             >
                 {/* Left Side: Item Name */}
                 <div className="flex-grow min-w-0 pr-4 pointer-events-none">
-                    <p className="font-semibold text-text-primary text-base truncate">{item.name}</p>
+                    <p className="font-semibold text-text-primary text-base whitespace-normal break-words">{item.name}</p>
                 </div>
 
                 {/* Right Side: Controls and Price */}
@@ -337,7 +337,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
       {/* Scrollable Area: Items + Sticky Totals */}
       <div 
         ref={listContainerRef} 
-        className="flex-1 overflow-y-auto flex flex-col relative pb-4 min-h-0 bg-surface-muted/30"
+        className="flex-1 overflow-y-auto flex flex-col relative min-h-0 bg-surface-muted/30"
         style={{ 
             WebkitOverflowScrolling: 'touch',
             transform: 'translateZ(0)', // Fix for painting glitches on iOS/Mobile when toggling display
@@ -368,7 +368,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
             </div>
           ) : (
             <>
-                <div className="bg-surface shadow-sm mb-auto">
+                <div className="bg-surface shadow-sm">
                     <ul className="overflow-x-hidden">
                     {currentOrder.map(item => (
                         <SwipeableOrderItem
@@ -387,29 +387,29 @@ const Ticket: React.FC<TicketProps> = (props) => {
                     ))}
                     </ul>
                 </div>
+
+                {/* --- Sticky Totals Section --- */}
+                <div className="sticky bottom-0 bg-surface border-t border-border z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] mt-auto">
+                    <div className="px-5 py-3 space-y-2">
+                        {settings.taxEnabled && (
+                            <div className="space-y-1 text-xs text-text-secondary">
+                                <div className="flex justify-between"><span>Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
+                                <div className="flex justify-between"><span>GST ({settings.taxRate}%)</span><span>₹{tax.toFixed(2)}</span></div>
+                            </div>
+                        )}
+                        <div className={`flex justify-between items-baseline pt-1 ${settings.taxEnabled ? 'border-t border-border mt-1' : ''}`}>
+                            <span className="text-sm font-semibold text-text-secondary">Total Payable</span>
+                            <span className="text-2xl font-bold text-text-primary">₹{total.toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
             </>
           )}
       </div>
       
-      {/* Sticky Bottom Area */}
+      {/* Fixed Bottom Area for Buttons */}
       <div className="bg-surface border-t border-border z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        {currentOrder.length > 0 && (
-            <div className="px-5 py-3 space-y-2">
-                {settings.taxEnabled && (
-                    <div className="space-y-1 text-xs text-text-secondary">
-                        <div className="flex justify-between"><span>Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
-                        <div className="flex justify-between"><span>GST ({settings.taxRate}%)</span><span>₹{tax.toFixed(2)}</span></div>
-                    </div>
-                )}
-                <div className="flex justify-between items-baseline pt-1">
-                    <span className="text-sm font-semibold text-text-secondary">Total Payable</span>
-                    <span className="text-2xl font-bold text-text-primary">₹{total.toFixed(2)}</span>
-                </div>
-            </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="p-4 pt-2 pb-safe-bottom">
+        <div className="p-4 pt-3 pb-safe-bottom">
             <div className={`flex items-stretch gap-3 ${isClearConfirmVisible ? 'opacity-0 pointer-events-none' : ''}`}>
                 {renderActionButtons()}
                 <button 

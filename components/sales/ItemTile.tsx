@@ -78,7 +78,7 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
 
     // Price Badge Component
     const PriceBadge = () => (
-        <div className="absolute top-1.5 right-1.5 bg-surface/90 backdrop-blur-md px-1.5 py-0.5 rounded text-[10px] font-bold text-text-primary shadow-sm z-10 border border-border/50 tabular-nums tracking-tight">
+        <div className="absolute top-2 right-2 bg-black/60 text-white backdrop-blur-sm px-2 py-1 rounded-md text-xs font-bold shadow-lg z-10 tabular-nums tracking-tight border border-white/20">
             ₹{item.price.toFixed(0)}
         </div>
     );
