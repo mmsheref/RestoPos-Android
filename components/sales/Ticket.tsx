@@ -2,7 +2,6 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { OrderItem, SavedTicket } from '../../types';
 import { ThreeDotsIcon, TrashIcon, ArrowLeftIcon } from '../../constants';
-import { useAppContext } from '../../context/AppContext';
 
 // --- Helper Component: Swipeable Item Row ---
 interface SwipeableOrderItemProps {
@@ -67,7 +66,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
     };
 
     return (
-        <li className="relative border-b border-gray-200 dark:border-gray-800 overflow-hidden select-none min-h-[96px] last:border-0">
+        <li className="relative border-b border-gray-200 dark:border-gray-800 overflow-hidden select-none transform translate-z-0 last:border-0">
             {/* Background Action Layer (Delete) */}
             <div className="absolute inset-0 flex justify-end bg-red-600">
                 <button
@@ -81,7 +80,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
 
             {/* Foreground Content Layer */}
             <div 
-                className="relative bg-surface flex items-start justify-between px-4 py-4 transition-transform duration-200 ease-out"
+                className="relative bg-surface flex flex-col justify-center px-4 py-3 transition-transform duration-200 ease-out"
                 style={{ transform: `translateX(${offset}px)` }}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
@@ -92,19 +91,17 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                 onMouseLeave={handleTouchEnd}
                 onClick={handleContentClick}
             >
-                {/* Left side: Name and quantity controls */}
-                <div 
-                    className="flex-grow min-w-0 pr-4"
-                    onMouseDown={e => e.stopPropagation()}
-                    onTouchStart={e => e.stopPropagation()}
-                >
-                    <p className="font-semibold text-text-primary text-base leading-tight break-words whitespace-normal">
-                        {item.name}
-                    </p>
-                    <div className="flex items-center gap-2 mt-2.5">
+                 {/* Top Row: Item Name */}
+                <div className="flex justify-between items-start mb-2 pointer-events-none">
+                    <p className="font-semibold text-text-primary text-base break-words pr-4">{item.name}</p>
+                </div>
+                {/* Bottom Row: Controls and Price */}
+                <div className="flex justify-between items-center">
+                    {/* Quantity Controls */}
+                    <div className="flex items-center gap-2" onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
                         <button 
                             onClick={() => onDecrement(item.lineItemId)} 
-                            className="h-7 w-7 flex items-center justify-center bg-surface border border-border rounded-full text-text-secondary hover:bg-surface-muted hover:border-red-300 active:bg-red-100 active:text-red-600 transition-all focus:outline-none" 
+                            className="h-8 w-8 flex items-center justify-center bg-surface border border-border rounded-full text-text-secondary hover:bg-surface-muted hover:border-red-300 active:bg-red-100 active:text-red-600 transition-all focus:outline-none" 
                             aria-label="Decrease quantity"
                         >
                             <span className="text-xl leading-none -mt-1">-</span>
@@ -117,14 +114,14 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                                 onChange={onQuantityChange} 
                                 onBlur={onQuantityCommit} 
                                 onKeyDown={onQuantityKeyDown} 
-                                className="font-mono w-12 text-center text-lg font-bold text-text-primary bg-background border border-primary rounded-lg ring-2 ring-primary/20 py-0.5"
+                                className="font-mono w-12 text-center text-lg font-bold text-text-primary bg-background border border-primary rounded-lg ring-2 ring-primary/20 py-1" 
                                 autoFocus 
                                 onFocus={(e) => e.target.select()} 
                             />
                         ) : (
                             <button
                                 onClick={() => onQuantityClick(item)} 
-                                className="font-mono min-w-[32px] text-center text-lg font-bold text-text-primary cursor-pointer active:scale-95 transition-transform py-0.5 rounded hover:bg-surface-muted"
+                                className="font-mono min-w-[32px] text-center text-lg font-bold text-text-primary cursor-pointer active:scale-95 transition-transform py-1 rounded hover:bg-surface-muted"
                             >
                                 {item.quantity}
                             </button>
@@ -132,23 +129,19 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                         
                         <button 
                             onClick={() => onIncrement(item.lineItemId, item.quantity + 1)} 
-                            className="h-7 w-7 flex items-center justify-center bg-primary text-primary-content rounded-full shadow-sm hover:bg-primary-hover active:scale-95 transition-all focus:outline-none" 
+                            className="h-8 w-8 flex items-center justify-center bg-primary text-primary-content rounded-full shadow-sm hover:bg-primary-hover active:scale-95 transition-all focus:outline-none" 
                             aria-label="Increase quantity"
                         >
                              <span className="text-xl leading-none -mt-0.5">+</span>
                         </button>
                     </div>
-                </div>
 
-                {/* Right side: Total price */}
-                <div className="w-20 text-right flex-shrink-0 pt-0.5 pointer-events-none">
-                    <p className="font-bold text-lg text-text-primary">₹{(item.price * item.quantity).toFixed(0)}</p>
+                    {/* Total Price */}
+                    <div className="text-right pointer-events-none">
+                        <p className="font-bold text-text-primary text-lg">₹{(item.price * item.quantity).toFixed(2)}</p>
+                    </div>
                 </div>
             </div>
-            
-            {!isOpen && !isSwiping && (
-                <div className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-l from-black/5 to-transparent pointer-events-none md:hidden"></div>
-            )}
         </li>
     );
 };
@@ -204,7 +197,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
   const ticketMenuRef = useRef<HTMLDivElement>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
   
-  // Auto-scroll to bottom when a new item is added
+  // Also trigger when order length changes (item added)
   useEffect(() => {
      if (listContainerRef.current) {
          requestAnimationFrame(() => {
@@ -340,14 +333,13 @@ const Ticket: React.FC<TicketProps> = (props) => {
           </div>
       </header>
       
-      {/* Scrollable Area: Items */}
-      {/* Dynamic Movement: Sticky Totals are inside this container so they scroll with items but stick to bottom */}
+      {/* Scrollable Area: Items + Sticky Totals */}
       <div 
         ref={listContainerRef} 
-        className="flex-1 overflow-y-auto flex flex-col relative pb-0 min-h-0 bg-surface-muted/30"
+        className="flex-1 overflow-y-auto flex flex-col relative pb-4 min-h-0 bg-surface-muted/30"
         style={{ 
             WebkitOverflowScrolling: 'touch',
-            transform: 'translateZ(0)',
+            transform: 'translateZ(0)', // Fix for painting glitches on iOS/Mobile when toggling display
             willChange: 'scroll-position'
         }}
       >
@@ -375,8 +367,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
             </div>
           ) : (
             <>
-                {/* Removed mb-auto to restore dynamic sticky positioning for Totals */}
-                <div className="bg-surface shadow-sm">
+                <div className="bg-surface shadow-sm mb-auto">
                     <ul className="overflow-x-hidden">
                     {currentOrder.map(item => (
                         <SwipeableOrderItem
@@ -395,26 +386,28 @@ const Ticket: React.FC<TicketProps> = (props) => {
                     ))}
                     </ul>
                 </div>
-                
-                {/* Dynamic Totals Section: Stick to bottom of scroll view */}
-                <div className="sticky bottom-0 bg-surface border-t border-border z-10 px-5 py-3 space-y-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                    {settings.taxEnabled && (
-                        <div className="space-y-1 text-xs text-text-secondary">
-                            <div className="flex justify-between"><span>Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
-                            <div className="flex justify-between"><span>GST ({settings.taxRate}%)</span><span>₹{tax.toFixed(2)}</span></div>
-                        </div>
-                    )}
-                    <div className="flex justify-between items-baseline pt-1">
-                        <span className="text-sm font-semibold text-text-secondary">Total Payable</span>
-                        <span className="text-2xl font-bold text-text-primary">₹{total.toFixed(2)}</span>
-                    </div>
-                </div>
             </>
           )}
       </div>
       
-      {/* Sticky Bottom Area: Action Buttons (Always Fixed) */}
-      <div className="bg-surface border-t border-border z-20">
+      {/* Sticky Bottom Area */}
+      <div className="bg-surface border-t border-border z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        {currentOrder.length > 0 && (
+            <div className="px-5 py-3 space-y-2">
+                {settings.taxEnabled && (
+                    <div className="space-y-1 text-xs text-text-secondary">
+                        <div className="flex justify-between"><span>Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
+                        <div className="flex justify-between"><span>GST ({settings.taxRate}%)</span><span>₹{tax.toFixed(2)}</span></div>
+                    </div>
+                )}
+                <div className="flex justify-between items-baseline pt-1">
+                    <span className="text-sm font-semibold text-text-secondary">Total Payable</span>
+                    <span className="text-2xl font-bold text-text-primary">₹{total.toFixed(2)}</span>
+                </div>
+            </div>
+        )}
+
+        {/* Action Buttons */}
         <div className="p-4 pt-2 pb-safe-bottom">
             <div className={`flex items-stretch gap-3 ${isClearConfirmVisible ? 'opacity-0 pointer-events-none' : ''}`}>
                 {renderActionButtons()}

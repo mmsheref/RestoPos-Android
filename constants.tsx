@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { PaymentTypeIcon } from './types';
 
@@ -330,7 +329,7 @@ export const PaymentMethodIcon: React.FC<{ iconName?: PaymentTypeIcon, className
 // --- START: Added Constants ---
 
 /** The single source of truth for the application version. */
-export const APP_VERSION = "2.2.0";
+export const APP_VERSION = "2.3.0";
 
 export const NAV_LINKS = [
   { path: '/sales', label: 'Sales', Icon: SalesIcon },

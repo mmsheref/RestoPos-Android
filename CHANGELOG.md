@@ -2,6 +2,15 @@
 
 This log tracks the major features, improvements, and bug fixes that have led to the current stable version.
 
+### **v2.3.0 (Polish & Bug Fixes)**
+-   **UI/UX Improvement:** Completely redesigned the item list within the ticket for a cleaner, two-line layout that handles long item names gracefully.
+-   **UI/UX Improvement:** Removed the individual item rate from the ticket, reducing clutter as requested.
+-   **UI/UX Polish:** Applied a professional design overhaul to the Login/Signup screens, Item Tiles (added price badge), Ticket visuals, and Navigation Drawer for a release-ready look.
+-   **UI/UX Polish:** Softened the ticket item divider lines to be more eye-friendly.
+-   **Critical Bug Fix:** Fixed a layout bug where items in the ticket area would become invisible.
+-   **Bug Fix:** Restored the "sticky" behavior for the ticket's totals section, ensuring it's always visible when the item list is long.
+-   **Bug Fix:** Addressed an issue where Firebase failed to initialize due to a module compatibility problem.
+
 ### **v2.2.0 (Stable)**
 -   **Feature:** Added "Quick Select" **Table Management** in settings, allowing full customization of table names for saving tickets.
 -   **Feature:** Added an **"Exact Cash"** button to the payment screen for faster one-tap cash transactions.

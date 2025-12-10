@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { AnimatedCheckIcon, PrintIcon, CheckIcon } from '../../../constants';
 
@@ -70,7 +71,7 @@ const ChangeWorkspace: React.FC<ChangeWorkspaceProps> = ({ paymentResult, total,
                     <button
                         onClick={handlePrintReceipt}
                         disabled={isPrinting}
-                        className="flex-1 flex items-center justify-center gap-2 py-4 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700 transition-colors disabled:opacity-50 text-lg active:scale-[0.98] shadow-lg"
+                        className="flex-1 flex items-center justify-center gap-2 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 text-lg active:scale-[0.98] shadow-lg"
                     >
                         <PrintIcon className="h-6 w-6" />
                         {isPrinting ? 'Printing...' : 'Print Receipt'}
