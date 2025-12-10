@@ -80,7 +80,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
 
             {/* Foreground Content Layer */}
             <div 
-                className="relative bg-surface flex items-center justify-between px-4 h-24 transition-transform duration-200 ease-out"
+                className="relative bg-surface flex items-center justify-between px-4 h-18 transition-transform duration-200 ease-out"
                 style={{ transform: `translateX(${offset}px)` }}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
