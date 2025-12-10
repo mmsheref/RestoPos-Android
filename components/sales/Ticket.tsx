@@ -80,7 +80,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
 
             {/* Foreground Content Layer */}
             <div 
-                className="relative bg-surface flex flex-col justify-center px-4 py-3 transition-transform duration-200 ease-out"
+                className="relative bg-surface flex items-center justify-between px-4 h-24 transition-transform duration-200 ease-out"
                 style={{ transform: `translateX(${offset}px)` }}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
@@ -91,12 +91,13 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                 onMouseLeave={handleTouchEnd}
                 onClick={handleContentClick}
             >
-                 {/* Top Row: Item Name */}
-                <div className="flex justify-between items-start mb-2 pointer-events-none">
-                    <p className="font-semibold text-text-primary text-base break-words pr-4">{item.name}</p>
+                {/* Left Side: Item Name */}
+                <div className="flex-grow min-w-0 pr-4 pointer-events-none">
+                    <p className="font-semibold text-text-primary text-base truncate">{item.name}</p>
                 </div>
-                {/* Bottom Row: Controls and Price */}
-                <div className="flex justify-between items-center">
+
+                {/* Right Side: Controls and Price */}
+                <div className="flex items-center gap-4 flex-shrink-0">
                     {/* Quantity Controls */}
                     <div className="flex items-center gap-2" onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
                         <button 
@@ -137,7 +138,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                     </div>
 
                     {/* Total Price */}
-                    <div className="text-right pointer-events-none">
+                    <div className="w-20 text-right pointer-events-none">
                         <p className="font-bold text-text-primary text-lg">₹{(item.price * item.quantity).toFixed(2)}</p>
                     </div>
                 </div>
