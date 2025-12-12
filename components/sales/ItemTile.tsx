@@ -78,7 +78,7 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
 
     // Price Badge Component
     const PriceBadge = () => (
-        <div className="absolute top-2 right-2 bg-black/60 text-white backdrop-blur-sm px-2 py-1 rounded-md text-xs font-bold shadow-lg z-10 tabular-nums tracking-tight border border-white/20">
+        <div className="absolute top-2 right-2 bg-black/60 text-white backdrop-blur-sm px-2 py-1 rounded-md text-xs font-bold shadow-lg z-10 tabular-nums tracking-tight border border-white/20 pointer-events-none">
             ₹{item.price.toFixed(0)}
         </div>
     );
@@ -88,18 +88,25 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
             <button
                 type="button"
                 onClick={handleClick}
-                // 'touch-manipulation' is CRITICAL for removing 300ms tap delay on Android/iOS
-                className={`relative w-full rounded-xl overflow-hidden cursor-pointer shadow-sm border border-border/50 bg-surface-muted group ${isFixedGrid ? 'h-full' : 'aspect-square'} touch-manipulation select-none transition-all duration-75 active:scale-[0.96] hover:shadow-md`}
+                // Optimized: Removed transition-all and active scale/opacity on container.
+                // Using a separate overlay div for feedback avoids complex image repaints.
+                className={`relative w-full rounded-xl overflow-hidden cursor-pointer shadow-sm border border-border/50 bg-surface-muted group ${isFixedGrid ? 'h-full' : 'aspect-square'} touch-manipulation select-none`}
                 aria-label={`Add ${item.name} to order`}
             >
-                <div className="w-full h-full pointer-events-none">
+                <div className="w-full h-full pointer-events-none relative">
                     <img 
                         src={item.imageUrl} 
                         alt={item.name} 
-                        className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-300 group-hover:scale-105"
+                        className="absolute inset-0 w-full h-full object-cover z-0"
                         loading="lazy"
                         decoding="async"
                     />
+                    
+                    {/* Performance Optimization: Active State Overlay */}
+                    {/* This div only shows when the parent button (group) is active. */}
+                    {/* It prevents the browser from having to recalculate opacity for the image layer. */}
+                    <div className="absolute inset-0 bg-black opacity-0 group-active:opacity-20 z-30 transition-none"></div>
+
                     <PriceBadge />
                     
                     {/* Gradient Overlay for Text Readability */}
@@ -118,13 +125,16 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
             <button
                 type="button"
                 onClick={handleClick}
-                // 'touch-manipulation' is CRITICAL for removing 300ms tap delay on Android/iOS
-                className={`relative w-full rounded-xl cursor-pointer shadow-sm border border-border bg-surface group ${isFixedGrid ? 'h-full' : 'aspect-square'} touch-manipulation select-none transition-all duration-75 active:scale-[0.96] hover:shadow-md hover:border-primary/30`}
+                // Consistent with image tile: use overlay for active state
+                className={`relative w-full rounded-xl cursor-pointer shadow-sm border border-border bg-surface group ${isFixedGrid ? 'h-full' : 'aspect-square'} touch-manipulation select-none hover:border-primary/50`}
                 aria-label={`Add ${item.name} to order`}
             >
+                {/* Active Overlay for Text Tile */}
+                <div className="absolute inset-0 bg-primary opacity-0 group-active:opacity-10 z-10 rounded-xl transition-none"></div>
+
                 <PriceBadge />
-                <div className="w-full h-full flex flex-col justify-center items-center p-3 text-center transition-colors hover:bg-surface-muted/50 duration-75 pointer-events-none">
-                     <div className="w-8 h-1 bg-primary/20 rounded-full mb-3 group-hover:bg-primary/40 transition-colors"></div>
+                <div className="w-full h-full flex flex-col justify-center items-center p-3 text-center pointer-events-none relative z-0">
+                     <div className="w-8 h-1 bg-primary/20 rounded-full mb-3"></div>
                     <h3 className="font-bold text-text-primary text-sm md:text-base leading-snug line-clamp-3">
                         {item.name}
                     </h3>
