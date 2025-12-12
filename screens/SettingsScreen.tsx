@@ -5,7 +5,7 @@ import { MenuIcon } from '../constants';
 import SettingsNav from '../components/settings/SettingsNav';
 import SettingsContent from '../components/settings/SettingsContent';
 
-export type SettingsCategory = 'appearance' | 'financial' | 'payment_types' | 'tables' | 'printers' | 'store_info' | 'security' | 'data' | 'staff' | 'notifications' | 'preferences';
+export type SettingsCategory = 'store_info' | 'payments_taxes' | 'account' | 'tables' | 'appearance' | 'printers' | 'security' | 'data' | 'notifications' | 'preferences';
 
 const SettingsScreen: React.FC = () => {
     const { openDrawer } = useAppContext();
@@ -22,14 +22,13 @@ const SettingsScreen: React.FC = () => {
     // Determine title for mobile header
     const categoryMap: Record<SettingsCategory, string> = {
         store_info: 'Store Information',
+        payments_taxes: 'Payments & Taxes',
+        account: 'Account & Staff',
+        tables: 'Tables & Orders',
         appearance: 'Appearance',
-        financial: 'Financial',
-        payment_types: 'Payment Types',
-        tables: 'Tables & Quick Select',
         printers: 'Printers',
         security: 'Security & Reports',
         data: 'Data Management',
-        staff: 'Staff Management',
         notifications: 'Notifications',
         preferences: 'App Preferences'
     };

@@ -15,8 +15,9 @@ import TableFormModal from '../modals/TableFormModal';
 
 // Card Components
 import AppearanceCard from './cards/AppearanceCard';
-import FinancialCard from './cards/FinancialCard';
-import PaymentTypesCard from './cards/PaymentTypesCard';
+import PaymentsTaxesCard from './cards/PaymentsTaxesCard'; // New Combined Card
+import AccountStaffCard from './cards/AccountStaffCard'; // New Account Card
+import NotificationsCard from './cards/NotificationsCard'; // New Notifications Card
 import PrintersCard from './cards/PrintersCard';
 import StoreInfoCard from './cards/StoreInfoCard';
 import DataManagementCard from './cards/DataManagementCard';
@@ -29,18 +30,9 @@ interface SettingsContentProps {
     detailTitle: string;
 }
 
-const PlaceholderCard: React.FC<{ title: string, message: string }> = ({ title, message }) => (
-    <div className="bg-surface p-8 rounded-lg shadow-sm border border-border text-center">
-        <h2 className="text-xl font-bold text-text-primary mb-2">{title}</h2>
-        <p className="text-text-secondary">{message}</p>
-        <div className="mt-6">
-            <span className="inline-block px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full uppercase tracking-wide">Coming Soon</span>
-        </div>
-    </div>
-);
-
 const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory, onBack, detailTitle }) => {
     const { 
+      user, signOut,
       theme, setTheme, settings, updateSettings, 
       printers, addPrinter, removePrinter,
       paymentTypes, addPaymentType, updatePaymentType, removePaymentType,
@@ -48,7 +40,6 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory, onBac
       exportData, restoreData
     } = useAppContext();
 
-    // All modal and state logic from the old SettingsScreen is moved here
     const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
     const [isPaymentTypeModalOpen, setIsPaymentTypeModalOpen] = useState(false);
     const [isTableModalOpen, setIsTableModalOpen] = useState(false);
@@ -72,7 +63,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory, onBac
 
     const handleTestPrinter = async (printer: Printer) => {
       setTestingPrinterId(printer.id);
-      const result = await testPrint(printer, settings); // Passed settings here for design test
+      const result = await testPrint(printer, settings);
       setTestingPrinterId(null);
       if (result.success) alert("Test print sent successfully!");
       else alert(`Print Failed:\n\n${result.message}`);
@@ -133,16 +124,22 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory, onBac
     const renderContent = () => {
         switch (activeCategory) {
             case 'appearance': return <AppearanceCard theme={theme} setTheme={setTheme} />;
-            case 'financial': return <FinancialCard settings={settings} updateSettings={updateSettings} />;
-            case 'payment_types': return <PaymentTypesCard paymentTypes={paymentTypes} onAdd={() => setIsPaymentTypeModalOpen(true)} onToggle={handleTogglePaymentType} onRemove={removePaymentType} />;
+            case 'payments_taxes': 
+                return <PaymentsTaxesCard 
+                            settings={settings} 
+                            updateSettings={updateSettings} 
+                            paymentTypes={paymentTypes}
+                            onAddPayment={() => setIsPaymentTypeModalOpen(true)}
+                            onTogglePayment={handleTogglePaymentType}
+                            onRemovePayment={removePaymentType}
+                       />;
             case 'tables': return <TablesCard tables={tables} setTables={setTables} onAdd={handleOpenAddTableModal} onEdit={handleOpenEditTableModal} onRemove={removeTable} />;
             case 'printers': return <PrintersCard printers={printers} onAdd={() => setIsPrinterModalOpen(true)} onTest={handleTestPrinter} onRemove={setPrinterToRemove} testingPrinterId={testingPrinterId} />;
             case 'store_info': return <StoreInfoCard settings={settings} updateSettings={updateSettings} />;
             case 'security': return <SecurityCard settings={settings} updateSettings={updateSettings} />;
             case 'data': return <DataManagementCard onExport={exportData} onImport={handleImportClick} />;
-            // New Categories - Placeholders for now or simple implementations
-            case 'staff': return <PlaceholderCard title="Staff Management" message="Manage user accounts, roles, and permissions." />;
-            case 'notifications': return <PlaceholderCard title="Notifications" message="Configure email alerts for daily sales summaries and low stock." />;
+            case 'account': return <AccountStaffCard user={user} signOut={signOut} />;
+            case 'notifications': return <NotificationsCard settings={settings} updateSettings={updateSettings} />;
             case 'preferences': return (
                 <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
                     <h2 className="text-xl font-semibold mb-4 text-text-primary">App Preferences</h2>

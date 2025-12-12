@@ -4,7 +4,6 @@ import { SettingsCategory } from '../../screens/SettingsScreen';
 import { 
     PaintBrushIcon, 
     DollarSignIcon, 
-    CreditCardIcon,
     PrintIcon,
     StoreIcon,
     DatabaseIcon,
@@ -22,29 +21,28 @@ interface SettingsNavProps {
 
 const navGroups: { title: string; items: { id: SettingsCategory; label: string; Icon: React.FC<{className?: string}> }[] }[] = [
     {
-        title: "Business & Store",
+        title: "General",
         items: [
             { id: 'store_info', label: 'Store Information', Icon: StoreIcon },
-            { id: 'financial', label: 'Financial & Taxes', Icon: DollarSignIcon },
-            { id: 'staff', label: 'Staff Management', Icon: UserIcon },
+            { id: 'account', label: 'Account & Staff', Icon: UserIcon },
+            { id: 'preferences', label: 'Preferences', Icon: SettingsIcon },
         ]
     },
     {
-        title: "Point of Sale",
+        title: "Commerce",
         items: [
-            { id: 'payment_types', label: 'Payment Types', Icon: CreditCardIcon },
+            { id: 'payments_taxes', label: 'Payments & Taxes', Icon: DollarSignIcon },
             { id: 'tables', label: 'Tables & Orders', Icon: TableIcon },
-            { id: 'appearance', label: 'Appearance', Icon: PaintBrushIcon },
-            { id: 'preferences', label: 'App Preferences', Icon: SettingsIcon },
         ]
     },
     {
-        title: "Hardware & Security",
+        title: "System",
         items: [
             { id: 'printers', label: 'Printers', Icon: PrintIcon },
-            { id: 'security', label: 'Security & Access', Icon: LockIcon },
-            { id: 'data', label: 'Data Management', Icon: DatabaseIcon },
             { id: 'notifications', label: 'Notifications', Icon: MailIcon },
+            { id: 'security', label: 'Security', Icon: LockIcon },
+            { id: 'data', label: 'Data Management', Icon: DatabaseIcon },
+            { id: 'appearance', label: 'Appearance', Icon: PaintBrushIcon },
         ]
     }
 ];

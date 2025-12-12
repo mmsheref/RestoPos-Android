@@ -272,12 +272,13 @@ const Ticket: React.FC<TicketProps> = (props) => {
     }
     if (savedTickets.length > 0) {
       return (
-        // Changed w-full to flex-1 to prevent button from pushing charge button offscreen
+        // Text is allowed to wrap to new lines. Flex layout ensures siblings stretch to same height.
         <button 
           onClick={onOpenTickets}
-          className="flex-1 bg-amber-500 text-white font-bold py-3 rounded-xl transition-all text-base shadow-md hover:bg-amber-600 active:scale-[0.98] whitespace-nowrap px-2 truncate"
+          className="flex-1 bg-amber-500 text-white font-bold py-3 rounded-xl transition-all text-sm shadow-md hover:bg-amber-600 active:scale-[0.98] px-2 leading-tight break-words flex flex-col justify-center items-center"
         >
-          Open Tickets ({savedTickets.length})
+          <span>Open Tickets</span>
+          <span className="text-xs">({savedTickets.length})</span>
         </button>
       );
     }
