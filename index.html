@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -118,7 +119,11 @@
     </style>
 <script>
     // PRE-LOAD: Apply theme before React loads to prevent flash of unstyled content
-    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    // Logic: If 'dark' explicitly stored OR ('system' stored or no storage AND system is dark)
+    if (
+        localStorage.theme === 'dark' || 
+        ((!('theme' in localStorage) || localStorage.theme === 'system') && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    ) {
       document.documentElement.classList.add('dark')
     } else {
       document.documentElement.classList.remove('dark')
@@ -136,6 +141,7 @@
     "@capacitor/core": "https://aistudiocdn.com/@capacitor/core@^7.4.4",
     "@capacitor/filesystem": "https://aistudiocdn.com/@capacitor/filesystem@^7.1.5",
     "@capacitor/share": "https://aistudiocdn.com/@capacitor/share@^7.0.2",
+    "@capacitor/app": "https://aistudiocdn.com/@capacitor/app@^6.0.0",
     "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.10.1"
   }
 }

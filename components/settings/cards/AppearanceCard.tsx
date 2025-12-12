@@ -1,6 +1,6 @@
-import React from 'react';
 
-type Theme = 'light' | 'dark';
+import React from 'react';
+import { Theme } from '../../../types';
 
 interface AppearanceCardProps {
   theme: Theme;
@@ -17,9 +17,9 @@ const AppearanceCard: React.FC<AppearanceCardProps> = ({ theme, setTheme }) => {
           <button
             type="button"
             onClick={() => setTheme('light')}
-            className={`relative inline-flex items-center px-4 py-2 rounded-l-md border border-border text-sm font-medium transition-colors ${
+            className={`flex-1 inline-flex justify-center items-center px-4 py-2 rounded-l-md border border-border text-sm font-medium transition-colors ${
               theme === 'light'
-                ? 'bg-primary text-primary-content z-10'
+                ? 'bg-primary text-primary-content z-10 border-primary'
                 : 'bg-surface text-text-primary hover:bg-surface-muted'
             }`}
           >
@@ -27,10 +27,21 @@ const AppearanceCard: React.FC<AppearanceCardProps> = ({ theme, setTheme }) => {
           </button>
           <button
             type="button"
+            onClick={() => setTheme('system')}
+            className={`flex-1 -ml-px inline-flex justify-center items-center px-4 py-2 border border-border text-sm font-medium transition-colors ${
+              theme === 'system'
+                ? 'bg-primary text-primary-content z-10 border-primary'
+                : 'bg-surface text-text-primary hover:bg-surface-muted'
+            }`}
+          >
+            System
+          </button>
+          <button
+            type="button"
             onClick={() => setTheme('dark')}
-            className={`relative -ml-px inline-flex items-center px-4 py-2 rounded-r-md border border-border text-sm font-medium transition-colors ${
+            className={`flex-1 -ml-px inline-flex justify-center items-center px-4 py-2 rounded-r-md border border-border text-sm font-medium transition-colors ${
               theme === 'dark'
-                ? 'bg-primary text-primary-content z-10'
+                ? 'bg-primary text-primary-content z-10 border-primary'
                 : 'bg-surface text-text-primary hover:bg-surface-muted'
             }`}
           >

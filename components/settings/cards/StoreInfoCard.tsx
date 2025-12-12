@@ -56,6 +56,46 @@ const StoreInfoCard: React.FC<StoreInfoCardProps> = ({ settings, updateSettings 
             </div>
         </div>
 
+        {/* --- Shift Timings Section --- */}
+        <div className="bg-surface-muted/50 p-4 rounded-lg border border-border">
+            <h3 className="text-sm font-bold text-text-primary mb-3">Shift Timings</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <label htmlFor="morningStart" className="block text-xs font-semibold text-text-secondary mb-1">Morning Start</label>
+                    <input 
+                        type="time" 
+                        id="morningStart"
+                        value={settings.shiftMorningStart || '06:00'}
+                        onChange={(e) => updateSettings({ shiftMorningStart: e.target.value })}
+                        className="w-full p-2 border border-border rounded-md bg-background text-text-primary text-sm font-mono"
+                    />
+                </div>
+                <div>
+                    <label htmlFor="morningEnd" className="block text-xs font-semibold text-text-secondary mb-1">Morning End / Night Start</label>
+                    <input 
+                        type="time" 
+                        id="morningEnd"
+                        value={settings.shiftMorningEnd || '17:30'}
+                        onChange={(e) => updateSettings({ shiftMorningEnd: e.target.value })}
+                        className="w-full p-2 border border-border rounded-md bg-background text-text-primary text-sm font-mono"
+                    />
+                </div>
+                <div>
+                    <label htmlFor="nightEnd" className="block text-xs font-semibold text-text-secondary mb-1">Night End (Next Day)</label>
+                    <input 
+                        type="time" 
+                        id="nightEnd"
+                        value={settings.shiftNightEnd || '05:00'}
+                        onChange={(e) => updateSettings({ shiftNightEnd: e.target.value })}
+                        className="w-full p-2 border border-border rounded-md bg-background text-text-primary text-sm font-mono"
+                    />
+                </div>
+            </div>
+            <p className="text-[10px] text-text-muted mt-2">
+                Shift timings affect how reports are filtered. Night shifts extending past midnight will be included in the starting date's report.
+            </p>
+        </div>
+
         <div>
           <label htmlFor="storeAddress" className="block text-sm font-bold text-text-secondary mb-1">Store Address</label>
           <textarea

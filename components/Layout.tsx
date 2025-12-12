@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useLocation, Navigate, Routes, Route } from 'react-router-dom';
 import Header from './Header';
 import NavDrawer from './NavDrawer';
@@ -26,6 +26,9 @@ const Layout: React.FC = () => {
   const [visitedRoutes, setVisitedRoutes] = useState<Record<string, boolean>>({
       '/sales': true // Always load Sales first
   });
+
+  // Swipe Gesture Ref
+  const touchStartRef = useRef<{x: number, y: number} | null>(null);
 
   useEffect(() => {
       if (!visitedRoutes[pathname]) {
@@ -58,8 +61,47 @@ const Layout: React.FC = () => {
   // Helper to determine visibility
   const isVisible = (path: string) => pathname === path;
 
+  // --- Swipe Handlers ---
+  const handleTouchStart = (e: React.TouchEvent) => {
+    // Only track single touch
+    if (e.touches.length !== 1) return;
+    touchStartRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY
+    };
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current || isDrawerOpen) return;
+    
+    const touchX = e.touches[0].clientX;
+    const touchY = e.touches[0].clientY;
+    
+    const deltaX = touchX - touchStartRef.current.x;
+    const deltaY = Math.abs(touchY - touchStartRef.current.y);
+
+    // Logic:
+    // 1. Swipe must start near left edge (within 30px)
+    // 2. Swipe must be horizontal (deltaX > 50px)
+    // 3. Vertical movement must be minimal (deltaY < 30px) to distinguish from scrolling
+    
+    if (touchStartRef.current.x < 30 && deltaX > 50 && deltaY < 30) {
+        openDrawer();
+        touchStartRef.current = null; // Reset to prevent repeated triggers during same gesture
+    }
+  };
+
+  const handleTouchEnd = () => {
+      touchStartRef.current = null;
+  };
+
   return (
-    <div className="relative h-screen w-full overflow-x-hidden bg-background text-text-primary flex flex-col">
+    <div 
+        className="relative h-screen w-full overflow-x-hidden bg-background text-text-primary flex flex-col"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+    >
       {showDefaultHeader && <Header 
         title={finalTitle} 
         onMenuClick={openDrawer}
