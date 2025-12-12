@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { LockIcon, MenuIcon, DollarSignIcon, ChartIcon, CheckIcon, DownloadIcon } from '../constants';
+import { LockIcon, MenuIcon, DollarSignIcon, ChartIcon, CheckIcon, DownloadIcon, CloseIcon } from '../constants';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -297,6 +297,13 @@ const ReportsScreen: React.FC = () => {
         } catch (e) { alert("Export failed"); }
     };
 
+    const handleClearFilters = () => {
+        setFilter('today');
+        setPaymentMethodFilter('all');
+    };
+
+    const isFilterActive = filter !== 'today' || paymentMethodFilter !== 'all';
+
     // Compact Header for non-overview tabs
     const CompactSummary: React.FC = () => (
         <div className="flex flex-wrap gap-4 mb-4">
@@ -344,16 +351,28 @@ const ReportsScreen: React.FC = () => {
                 {/* Filters Bar */}
                 {!isLocked && (
                     <div className="px-4 pb-3 flex flex-wrap gap-2 items-center justify-between overflow-x-auto no-scrollbar">
-                        <div className="flex bg-surface-muted p-1 rounded-lg">
-                            {(['today', 'yesterday', 'week', 'month', 'custom'] as const).map(f => (
-                                <button
-                                    key={f}
-                                    onClick={() => setFilter(f)}
-                                    className={`px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-all ${filter === f ? 'bg-surface text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+                        <div className="flex items-center gap-2">
+                            <div className="flex bg-surface-muted p-1 rounded-lg">
+                                {(['today', 'yesterday', 'week', 'month', 'custom'] as const).map(f => (
+                                    <button
+                                        key={f}
+                                        onClick={() => setFilter(f)}
+                                        className={`px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-all ${filter === f ? 'bg-surface text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+                                    >
+                                        {f}
+                                    </button>
+                                ))}
+                            </div>
+                            
+                            {isFilterActive && (
+                                <button 
+                                    onClick={handleClearFilters}
+                                    className="p-2 text-text-muted hover:text-red-500 bg-surface-muted hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:hover:border-red-800"
+                                    title="Clear Filters"
                                 >
-                                    {f}
+                                    <CloseIcon className="h-4 w-4" />
                                 </button>
-                            ))}
+                            )}
                         </div>
 
                         <div className="flex items-center gap-2">
