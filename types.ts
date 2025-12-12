@@ -134,9 +134,23 @@ export interface AppSettings {
   taxRate: number;
   storeName?: string;
   storeAddress?: string;
+  storePhone?: string;
+  storeEmail?: string;
+  storeWebsite?: string;
+  storeLogoUrl?: string; // Base64 or URL
+  currency?: string; // e.g. 'USD', 'INR', 'EUR'
+  timezone?: string;
+  businessHours?: Record<string, { open: string; close: string; closed: boolean }>;
+  
   receiptFooter?: string;
+  
   /** Encrypted or plain-text PIN for accessing restricted areas */
   reportsPIN?: string;
+  
+  // App Preferences
+  language?: string; // 'en', 'es', etc.
+  autoSync?: boolean;
+  notificationsEnabled?: boolean;
 }
 
 /**

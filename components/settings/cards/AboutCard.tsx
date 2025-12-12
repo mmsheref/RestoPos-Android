@@ -1,55 +1,41 @@
 
 import React from 'react';
-import { useAppContext } from '../../../context/AppContext';
+import { APP_VERSION } from '../../../constants';
 
 const AboutCard: React.FC = () => {
-  const { pendingSyncCount, isOnline } = useAppContext();
-  const appVersion = '2.2.0'; 
-
   return (
-    <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
-      <h2 className="text-xl font-semibold mb-4 text-text-primary">About</h2>
-      <div className="space-y-3 text-sm text-text-secondary">
-        <div className="flex justify-between">
-          <span className="font-medium text-text-primary">App Version</span>
-          <span>{appVersion}</span>
+    <div className="space-y-6">
+      <div className="bg-surface p-6 rounded-lg shadow-sm border border-border text-center">
+        <div className="w-20 h-20 bg-primary mx-auto rounded-2xl flex items-center justify-center mb-4">
+             <span className="text-white text-3xl font-bold">R</span>
         </div>
-        <div className="flex justify-between">
-          <span className="font-medium text-text-primary">Environment</span>
-          <span>Web (Browser)</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="font-medium text-text-primary">Data Status</span>
-          <span className="flex items-center gap-2">
-            {!isOnline ? (
-                <>
-                    <span className="relative flex h-2 w-2">
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-500"></span>
-                    </span>
-                    <span className="text-gray-600 dark:text-gray-400 font-medium">Offline</span>
-                </>
-            ) : pendingSyncCount > 0 ? (
-                <>
-                    <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                    </span>
-                    <span className="text-amber-600 dark:text-amber-400 font-medium">{pendingSyncCount} unsynced transaction{pendingSyncCount > 1 ? 's' : ''}</span>
-                </>
-            ) : (
-                <>
-                    <span className="relative flex h-2 w-2">
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                    </span>
-                    <span className="text-green-600 dark:text-green-400 font-medium">Online & Synced</span>
-                </>
-            )}
-          </span>
+        <h2 className="text-2xl font-bold text-text-primary">RestoPos</h2>
+        <p className="text-text-secondary">Version {APP_VERSION}</p>
+        
+        <div className="mt-6 flex justify-center gap-4">
+           <a href="#" className="text-primary hover:underline text-sm">Privacy Policy</a>
+           <span className="text-gray-300">|</span>
+           <a href="#" className="text-primary hover:underline text-sm">Terms of Service</a>
+           <span className="text-gray-300">|</span>
+           <a href="#" className="text-primary hover:underline text-sm">Website</a>
         </div>
       </div>
-       <div className="mt-4 pt-4 border-t border-border text-xs text-text-muted text-center">
-          <p>&copy; {new Date().getFullYear()} Restaurant POS. All Rights Reserved.</p>
-       </div>
+      
+      <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
+          <h3 className="text-lg font-semibold text-text-primary mb-2">About Us</h3>
+          <p className="text-text-secondary text-sm leading-relaxed">
+             RestoPos is a modern, offline-first Point of Sale solution designed for restaurants and retail. 
+             Built with the latest web technologies to provide a fast and reliable experience on any device.
+          </p>
+      </div>
+
+       <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
+          <h3 className="text-lg font-semibold text-text-primary mb-2">Credits</h3>
+          <p className="text-text-secondary text-sm">
+             Icons by Lucide.<br/>
+             Built with React, Vite, TailwindCSS, and Firebase.
+          </p>
+      </div>
     </div>
   );
 };

@@ -14,14 +14,16 @@ import ConfirmModal from '../modals/ConfirmModal';
 import TableFormModal from '../modals/TableFormModal';
 
 // Card Components
-import AppearanceCard from './cards/AppearanceCard';
-import FinancialCard from './cards/FinancialCard';
-import PaymentTypesCard from './cards/PaymentTypesCard';
-import PrintersCard from './cards/PrintersCard';
-import StoreInfoCard from './cards/StoreInfoCard';
-import DataManagementCard from './cards/DataManagementCard';
+import BusinessSettingsCard from './cards/BusinessSettingsCard';
+import PaymentSettingsCard from './cards/PaymentSettingsCard';
+import StaffSettingsCard from './cards/StaffSettingsCard';
+import NotificationSettingsCard from './cards/NotificationSettingsCard';
 import TablesCard from './cards/TablesCard';
+import PrintersCard from './cards/PrintersCard';
+import AppSettingsCard from './cards/AppSettingsCard';
 import SecurityCard from './cards/SecurityCard';
+import DataBackupCard from './cards/DataBackupCard';
+import AboutCard from './cards/AboutCard';
 
 interface SettingsContentProps {
     activeCategory: SettingsCategory;
@@ -35,7 +37,8 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory, onBac
       printers, addPrinter, removePrinter,
       paymentTypes, addPaymentType, updatePaymentType, removePaymentType,
       tables, addTable, updateTable, setTables, removeTable,
-      exportData, restoreData
+      exportData, restoreData,
+      user, signOut
     } = useAppContext();
 
     // All modal and state logic from the old SettingsScreen is moved here
@@ -122,15 +125,28 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory, onBac
 
     const renderContent = () => {
         switch (activeCategory) {
-            case 'appearance': return <AppearanceCard theme={theme} setTheme={setTheme} />;
-            case 'financial': return <FinancialCard settings={settings} updateSettings={updateSettings} />;
-            case 'payment_types': return <PaymentTypesCard paymentTypes={paymentTypes} onAdd={() => setIsPaymentTypeModalOpen(true)} onToggle={handleTogglePaymentType} onRemove={removePaymentType} />;
-            case 'tables': return <TablesCard tables={tables} setTables={setTables} onAdd={handleOpenAddTableModal} onEdit={handleOpenEditTableModal} onRemove={removeTable} />;
-            case 'printers': return <PrintersCard printers={printers} onAdd={() => setIsPrinterModalOpen(true)} onTest={handleTestPrinter} onRemove={setPrinterToRemove} testingPrinterId={testingPrinterId} />;
-            case 'store_info': return <StoreInfoCard settings={settings} updateSettings={updateSettings} />;
-            case 'security': return <SecurityCard settings={settings} updateSettings={updateSettings} />;
-            case 'data': return <DataManagementCard onExport={exportData} onImport={handleImportClick} />;
-            default: return null;
+            case 'business': 
+                return <BusinessSettingsCard settings={settings} updateSettings={updateSettings} />;
+            case 'payment': 
+                return <PaymentSettingsCard settings={settings} updateSettings={updateSettings} paymentTypes={paymentTypes} onAddPaymentType={() => setIsPaymentTypeModalOpen(true)} onTogglePaymentType={handleTogglePaymentType} onRemovePaymentType={removePaymentType} />;
+            case 'staff': 
+                return <StaffSettingsCard user={user} signOut={signOut} />;
+            case 'notifications': 
+                return <NotificationSettingsCard settings={settings} updateSettings={updateSettings} />;
+            case 'tables': 
+                return <TablesCard tables={tables} setTables={setTables} onAdd={handleOpenAddTableModal} onEdit={handleOpenEditTableModal} onRemove={removeTable} />;
+            case 'printers': 
+                return <PrintersCard printers={printers} onAdd={() => setIsPrinterModalOpen(true)} onTest={handleTestPrinter} onRemove={setPrinterToRemove} testingPrinterId={testingPrinterId} />;
+            case 'app_preferences': 
+                return <AppSettingsCard theme={theme} setTheme={setTheme} settings={settings} updateSettings={updateSettings} />;
+            case 'security': 
+                return <SecurityCard settings={settings} updateSettings={updateSettings} />;
+            case 'data': 
+                return <DataBackupCard onExport={exportData} onImport={handleImportClick} />;
+            case 'about': 
+                return <AboutCard />;
+            default: 
+                return null;
         }
     };
 
