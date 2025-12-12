@@ -29,6 +29,16 @@ interface SettingsContentProps {
     detailTitle: string;
 }
 
+const PlaceholderCard: React.FC<{ title: string, message: string }> = ({ title, message }) => (
+    <div className="bg-surface p-8 rounded-lg shadow-sm border border-border text-center">
+        <h2 className="text-xl font-bold text-text-primary mb-2">{title}</h2>
+        <p className="text-text-secondary">{message}</p>
+        <div className="mt-6">
+            <span className="inline-block px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full uppercase tracking-wide">Coming Soon</span>
+        </div>
+    </div>
+);
+
 const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory, onBack, detailTitle }) => {
     const { 
       theme, setTheme, settings, updateSettings, 
@@ -130,6 +140,28 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory, onBac
             case 'store_info': return <StoreInfoCard settings={settings} updateSettings={updateSettings} />;
             case 'security': return <SecurityCard settings={settings} updateSettings={updateSettings} />;
             case 'data': return <DataManagementCard onExport={exportData} onImport={handleImportClick} />;
+            // New Categories - Placeholders for now or simple implementations
+            case 'staff': return <PlaceholderCard title="Staff Management" message="Manage user accounts, roles, and permissions." />;
+            case 'notifications': return <PlaceholderCard title="Notifications" message="Configure email alerts for daily sales summaries and low stock." />;
+            case 'preferences': return (
+                <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
+                    <h2 className="text-xl font-semibold mb-4 text-text-primary">App Preferences</h2>
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-text-secondary">Language</span>
+                            <select 
+                                value={settings.language || 'en'} 
+                                onChange={e => updateSettings({ language: e.target.value })}
+                                className="p-2 border border-border rounded-md bg-background text-text-primary"
+                            >
+                                <option value="en">English</option>
+                                <option value="es">Spanish</option>
+                                <option value="fr">French</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            );
             default: return null;
         }
     };
@@ -140,10 +172,10 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory, onBac
                 <button onClick={onBack} className="p-2 -ml-2 text-text-secondary md:hidden">
                     <ArrowLeftIcon className="h-6 w-6" />
                 </button>
-                <h1 className="text-xl font-semibold text-text-primary md:ml-0 ml-2">{detailTitle}</h1>
+                <h1 className="text-xl font-bold text-text-primary md:ml-0 ml-2">{detailTitle}</h1>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 md:p-6">
-                <div className="max-w-2xl mx-auto space-y-8">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-background">
+                <div className="max-w-2xl mx-auto space-y-8 animate-fadeIn">
                     {renderContent()}
                 </div>
                  <input type="file" accept="application/json, .json" ref={jsonFileInputRef} onChange={handleFileChange} className="hidden" />

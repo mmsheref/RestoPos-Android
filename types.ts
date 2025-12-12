@@ -137,6 +137,12 @@ export interface AppSettings {
   receiptFooter?: string;
   /** Encrypted or plain-text PIN for accessing restricted areas */
   reportsPIN?: string;
+  
+  // New Fields for V2.3
+  currencySymbol?: string;
+  timezone?: string;
+  language?: string;
+  notificationsEnabled?: boolean;
 }
 
 /**

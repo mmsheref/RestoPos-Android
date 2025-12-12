@@ -1,14 +1,15 @@
 
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { LockIcon, MenuIcon, DollarSignIcon, ChartIcon, CheckIcon, DownloadIcon, InfoIcon, CalendarIcon } from '../constants';
+import { LockIcon, MenuIcon, DollarSignIcon, ChartIcon, CheckIcon, DownloadIcon } from '../constants';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
 // --- TYPES ---
 type DateFilter = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
-type ReportTab = 'overview' | 'items' | 'categories' | 'orders';
+type ReportTab = 'overview' | 'items' | 'orders'; // Removed 'categories'
+type SortConfig = { key: string; direction: 'asc' | 'desc' };
 
 interface Metrics {
   totalSales: number;
@@ -106,6 +107,12 @@ const ReportsScreen: React.FC = () => {
     const [customStartDate, setCustomStartDate] = useState(() => new Date().toISOString().slice(0, 16));
     const [customEndDate, setCustomEndDate] = useState(() => new Date().toISOString().slice(0, 16));
     const [activeTab, setActiveTab] = useState<ReportTab>('overview');
+    
+    // Sorting State for Orders (Receipts)
+    const [orderSortConfig, setOrderSortConfig] = useState<SortConfig>({ key: 'date', direction: 'desc' });
+    
+    // Sorting State for Items
+    const [itemSortConfig, setItemSortConfig] = useState<SortConfig>({ key: 'revenue', direction: 'desc' });
 
     // --- ANALYTICS LOGIC (Integrated directly) ---
     const { filteredReceipts, metrics } = useMemo(() => {
@@ -156,10 +163,23 @@ const ReportsScreen: React.FC = () => {
             const matchesPayment = paymentMethodFilter === 'all' || r.paymentMethod === paymentMethodFilter;
             return matchesDate && matchesPayment;
         });
+        
+        // 2.1 Sort Data (Orders)
+        const sorted = [...filtered].sort((a, b) => {
+             if (orderSortConfig.key === 'date') {
+                 const timeA = new Date(a.date).getTime();
+                 const timeB = new Date(b.date).getTime();
+                 return orderSortConfig.direction === 'asc' ? timeA - timeB : timeB - timeA;
+             }
+             if (orderSortConfig.key === 'total') {
+                 return orderSortConfig.direction === 'asc' ? a.total - b.total : b.total - a.total;
+             }
+             return 0;
+        });
 
         // 3. Aggregate Metrics
         let totalSales = 0;
-        let totalOrders = filtered.length;
+        let totalOrders = sorted.length;
         const paymentMethods: Record<string, number> = {};
         const itemsSold: Record<string, { count: number, revenue: number, category: string }> = {};
         const salesByHour: Record<number, number> = {};
@@ -167,7 +187,7 @@ const ReportsScreen: React.FC = () => {
 
         for(let i=0; i<24; i++) salesByHour[i] = 0;
 
-        filtered.forEach(r => {
+        sorted.forEach(r => {
             totalSales += r.total;
             paymentMethods[r.paymentMethod] = (paymentMethods[r.paymentMethod] || 0) + r.total;
             const hour = new Date(r.date).getHours();
@@ -183,24 +203,44 @@ const ReportsScreen: React.FC = () => {
             });
         });
 
+        // Raw items array (sorting happens in render for items tab)
         const allItems = Object.entries(itemsSold)
-            .map(([name, data]) => ({ name, ...data }))
-            .sort((a, b) => b.revenue - a.revenue);
+            .map(([name, data]) => ({ name, ...data }));
 
         return {
-            filteredReceipts: filtered,
+            filteredReceipts: sorted,
             metrics: {
                 totalSales,
                 totalOrders,
                 avgOrderValue: totalOrders > 0 ? totalSales / totalOrders : 0,
                 paymentMethods,
-                topItems: allItems.slice(0, 5),
+                topItems: allItems.sort((a,b) => b.revenue - a.revenue).slice(0, 5), // Top 5 for overview (fixed sort)
                 allItems,
                 salesByHour,
                 salesByCategory
             }
         };
-    }, [receipts, filter, customStartDate, customEndDate, paymentMethodFilter]);
+    }, [receipts, filter, customStartDate, customEndDate, paymentMethodFilter, orderSortConfig]);
+
+    // Derived state for Sorted Items List
+    const sortedItems = useMemo(() => {
+        const items = [...metrics.allItems];
+        return items.sort((a, b) => {
+            let valA: any = a[itemSortConfig.key as keyof typeof a];
+            let valB: any = b[itemSortConfig.key as keyof typeof b];
+            
+            // Case insensitive string sort
+            if (typeof valA === 'string') {
+                valA = valA.toLowerCase();
+                valB = valB.toLowerCase();
+                if (valA < valB) return itemSortConfig.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return itemSortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            }
+            
+            return itemSortConfig.direction === 'asc' ? valA - valB : valB - valA;
+        });
+    }, [metrics.allItems, itemSortConfig]);
 
     const isLocked = !!settings.reportsPIN && !isReportsUnlocked;
     const maxHourlySales = Math.max(...(Object.values(metrics.salesByHour) as number[]), 1);
@@ -211,6 +251,32 @@ const ReportsScreen: React.FC = () => {
             return true;
         }
         return false;
+    };
+    
+    // Sort Handler for Orders
+    const handleOrderSort = (key: string) => {
+        setOrderSortConfig(current => ({
+            key,
+            direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc'
+        }));
+    };
+
+    // Sort Handler for Items
+    const handleItemSort = (key: string) => {
+        setItemSortConfig(current => ({
+            key,
+            direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc'
+        }));
+    };
+    
+    const OrderSortIcon = ({ colKey }: { colKey: string }) => {
+        if (orderSortConfig.key !== colKey) return <span className="text-text-muted opacity-30 ml-1">⇅</span>;
+        return <span className="text-primary ml-1">{orderSortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
+    };
+
+    const ItemSortIcon = ({ colKey }: { colKey: string }) => {
+        if (itemSortConfig.key !== colKey) return <span className="text-text-muted opacity-30 ml-1">⇅</span>;
+        return <span className="text-primary ml-1">{itemSortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
     };
 
     const handleExport = async () => {
@@ -230,6 +296,30 @@ const ReportsScreen: React.FC = () => {
             }
         } catch (e) { alert("Export failed"); }
     };
+
+    // Compact Header for non-overview tabs
+    const CompactSummary: React.FC = () => (
+        <div className="flex flex-wrap gap-4 mb-4">
+            <div className="bg-surface px-4 py-3 rounded-xl border border-border shadow-sm flex-1 min-w-[140px] flex justify-between items-center">
+                <div>
+                    <p className="text-xs text-text-secondary uppercase font-bold tracking-wider">Total Sales</p>
+                    <p className="text-xl font-bold text-primary tracking-tight">₹{metrics.totalSales.toFixed(2)}</p>
+                </div>
+                <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                    <DollarSignIcon className="h-5 w-5" />
+                </div>
+            </div>
+            <div className="bg-surface px-4 py-3 rounded-xl border border-border shadow-sm flex-1 min-w-[140px] flex justify-between items-center">
+                <div>
+                    <p className="text-xs text-text-secondary uppercase font-bold tracking-wider">Total Orders</p>
+                    <p className="text-xl font-bold text-text-primary tracking-tight">{metrics.totalOrders}</p>
+                </div>
+                <div className="p-2 bg-blue-500/10 rounded-lg text-blue-600">
+                    <ChartIcon className="h-5 w-5" />
+                </div>
+            </div>
+        </div>
+    );
 
     return (
         <div className="flex h-full flex-col bg-background overflow-hidden font-sans">
@@ -300,7 +390,6 @@ const ReportsScreen: React.FC = () => {
                             {[
                                 { id: 'overview', label: 'Overview' },
                                 { id: 'items', label: 'Items Sold' },
-                                { id: 'categories', label: 'Categories' },
                                 { id: 'orders', label: 'Order Log' },
                             ].map(tab => (
                                 <button
@@ -388,78 +477,85 @@ const ReportsScreen: React.FC = () => {
                         )}
 
                         {activeTab === 'items' && (
-                            <div className="bg-surface rounded-xl shadow-sm border border-border overflow-hidden animate-fadeIn">
-                                <table className="min-w-full divide-y divide-border">
-                                    <thead className="bg-surface-muted">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Item Name</th>
-                                            <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Category</th>
-                                            <th className="px-6 py-3 text-right text-xs font-bold text-text-secondary uppercase tracking-wider">Sold</th>
-                                            <th className="px-6 py-3 text-right text-xs font-bold text-text-secondary uppercase tracking-wider">Revenue</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-surface divide-y divide-border">
-                                        {metrics.allItems.map((item) => (
-                                            <tr key={item.name} className="hover:bg-surface-muted/50 transition-colors">
-                                                <td className="px-6 py-3.5 whitespace-nowrap text-sm font-medium text-text-primary">{item.name}</td>
-                                                <td className="px-6 py-3.5 whitespace-nowrap text-sm text-text-secondary">{item.category}</td>
-                                                <td className="px-6 py-3.5 whitespace-nowrap text-sm text-text-secondary text-right font-mono">{item.count}</td>
-                                                <td className="px-6 py-3.5 whitespace-nowrap text-sm text-text-primary font-bold text-right font-mono">₹{item.revenue.toFixed(2)}</td>
+                            <div className="space-y-4 animate-fadeIn">
+                                <CompactSummary />
+                                <div className="bg-surface rounded-xl shadow-sm border border-border overflow-hidden">
+                                    <table className="min-w-full divide-y divide-border">
+                                        <thead className="bg-surface-muted">
+                                            <tr>
+                                                <th 
+                                                    className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors select-none group"
+                                                    onClick={() => handleItemSort('name')}
+                                                >
+                                                    Item Name <ItemSortIcon colKey="name" />
+                                                </th>
+                                                <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Category</th>
+                                                <th 
+                                                    className="px-6 py-3 text-right text-xs font-bold text-text-secondary uppercase tracking-wider cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors select-none group"
+                                                    onClick={() => handleItemSort('count')}
+                                                >
+                                                    Sold <ItemSortIcon colKey="count" />
+                                                </th>
+                                                <th 
+                                                    className="px-6 py-3 text-right text-xs font-bold text-text-secondary uppercase tracking-wider cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors select-none group"
+                                                    onClick={() => handleItemSort('revenue')}
+                                                >
+                                                    Revenue <ItemSortIcon colKey="revenue" />
+                                                </th>
                                             </tr>
-                                        ))}
-                                        {metrics.allItems.length === 0 && <tr><td colSpan={4} className="px-6 py-8 text-center text-text-muted">No items found.</td></tr>}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-
-                        {activeTab === 'categories' && (
-                            <div className="bg-surface rounded-xl shadow-sm border border-border overflow-hidden max-w-4xl mx-auto animate-fadeIn">
-                                <table className="min-w-full divide-y divide-border">
-                                    <thead className="bg-surface-muted">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Category</th>
-                                            <th className="px-6 py-3 text-right text-xs font-bold text-text-secondary uppercase tracking-wider">Revenue</th>
-                                            <th className="px-6 py-3 text-right text-xs font-bold text-text-secondary uppercase tracking-wider">% Share</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-surface divide-y divide-border">
-                                        {Object.entries(metrics.salesByCategory).sort(([,a], [,b]) => (b as number) - (a as number)).map(([cat, rev]) => (
-                                            <tr key={cat} className="hover:bg-surface-muted/50 transition-colors">
-                                                <td className="px-6 py-3.5 text-sm font-medium text-text-primary">{cat}</td>
-                                                <td className="px-6 py-3.5 text-sm font-bold text-text-primary text-right font-mono">₹{(rev as number).toFixed(2)}</td>
-                                                <td className="px-6 py-3.5 text-sm text-text-secondary text-right font-mono">{(((rev as number) / metrics.totalSales) * 100).toFixed(1)}%</td>
-                                            </tr>
-                                        ))}
-                                        {Object.keys(metrics.salesByCategory).length === 0 && <tr><td colSpan={3} className="px-6 py-8 text-center text-text-muted">No data available.</td></tr>}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody className="bg-surface divide-y divide-border">
+                                            {sortedItems.map((item) => (
+                                                <tr key={item.name} className="hover:bg-surface-muted/50 transition-colors">
+                                                    <td className="px-6 py-3.5 whitespace-nowrap text-sm font-medium text-text-primary">{item.name}</td>
+                                                    <td className="px-6 py-3.5 whitespace-nowrap text-sm text-text-secondary">{item.category}</td>
+                                                    <td className="px-6 py-3.5 whitespace-nowrap text-sm text-text-secondary text-right font-mono">{item.count}</td>
+                                                    <td className="px-6 py-3.5 whitespace-nowrap text-sm text-text-primary font-bold text-right font-mono">₹{item.revenue.toFixed(2)}</td>
+                                                </tr>
+                                            ))}
+                                            {sortedItems.length === 0 && <tr><td colSpan={4} className="px-6 py-8 text-center text-text-muted">No items found.</td></tr>}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         )}
 
                         {activeTab === 'orders' && (
-                            <div className="bg-surface rounded-xl shadow-sm border border-border overflow-hidden animate-fadeIn">
-                                <table className="min-w-full divide-y divide-border">
-                                    <thead className="bg-surface-muted">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Receipt ID</th>
-                                            <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Date</th>
-                                            <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Payment</th>
-                                            <th className="px-6 py-3 text-right text-xs font-bold text-text-secondary uppercase tracking-wider">Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-surface divide-y divide-border">
-                                        {filteredReceipts.map((r) => (
-                                            <tr key={r.id} className="hover:bg-surface-muted/50 transition-colors">
-                                                <td className="px-6 py-3.5 text-xs font-mono text-text-secondary">#{r.id.slice(-6)}</td>
-                                                <td className="px-6 py-3.5 text-sm text-text-primary">{new Date(r.date).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</td>
-                                                <td className="px-6 py-3.5 text-sm text-text-secondary capitalize">{r.paymentMethod}</td>
-                                                <td className="px-6 py-3.5 text-sm font-bold text-text-primary text-right font-mono">₹{r.total.toFixed(2)}</td>
+                            <div className="space-y-4 animate-fadeIn">
+                                <CompactSummary />
+                                <div className="bg-surface rounded-xl shadow-sm border border-border overflow-hidden">
+                                    <table className="min-w-full divide-y divide-border">
+                                        <thead className="bg-surface-muted">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Receipt ID</th>
+                                                <th 
+                                                    className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors select-none group"
+                                                    onClick={() => handleOrderSort('date')}
+                                                >
+                                                    Date <OrderSortIcon colKey="date"/>
+                                                </th>
+                                                <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Payment</th>
+                                                <th 
+                                                    className="px-6 py-3 text-right text-xs font-bold text-text-secondary uppercase tracking-wider cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors select-none group"
+                                                    onClick={() => handleOrderSort('total')}
+                                                >
+                                                    Total <OrderSortIcon colKey="total"/>
+                                                </th>
                                             </tr>
-                                        ))}
-                                        {filteredReceipts.length === 0 && <tr><td colSpan={4} className="px-6 py-8 text-center text-text-muted">No orders found.</td></tr>}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody className="bg-surface divide-y divide-border">
+                                            {filteredReceipts.map((r) => (
+                                                <tr key={r.id} className="hover:bg-surface-muted/50 transition-colors">
+                                                    <td className="px-6 py-3.5 text-xs font-mono text-text-secondary">#{r.id.slice(-6)}</td>
+                                                    <td className="px-6 py-3.5 text-sm text-text-primary">{new Date(r.date).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</td>
+                                                    <td className="px-6 py-3.5 text-sm text-text-secondary capitalize">{r.paymentMethod}</td>
+                                                    <td className="px-6 py-3.5 text-sm font-bold text-text-primary text-right font-mono">₹{r.total.toFixed(2)}</td>
+                                                </tr>
+                                            ))}
+                                            {filteredReceipts.length === 0 && <tr><td colSpan={4} className="px-6 py-8 text-center text-text-muted">No orders found.</td></tr>}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         )}
                     </div>

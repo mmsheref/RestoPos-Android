@@ -271,9 +271,10 @@ const Ticket: React.FC<TicketProps> = (props) => {
     }
     if (savedTickets.length > 0) {
       return (
+        // Changed w-full to flex-1 to prevent button from pushing charge button offscreen
         <button 
           onClick={onOpenTickets}
-          className="w-full bg-amber-500 text-white font-bold py-3 rounded-xl transition-all text-base shadow-md hover:bg-amber-600 active:scale-[0.98] whitespace-nowrap"
+          className="flex-1 bg-amber-500 text-white font-bold py-3 rounded-xl transition-all text-base shadow-md hover:bg-amber-600 active:scale-[0.98] whitespace-nowrap px-2 truncate"
         >
           Open Tickets ({savedTickets.length})
         </button>
@@ -296,7 +297,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
   }, [editingTicket, currentOrder.length]);
 
   return (
-    <section className={`${className} bg-surface border-l border-border h-full flex flex-col pt-safe-top`}>
+    <section className={`${className} bg-surface border-l border-border h-full flex flex-col pt-safe-top relative`}>
       <header className="bg-surface shadow-sm w-full z-30 flex-shrink-0 h-16 flex items-center justify-between px-4 border-b border-border">
         <div className="flex items-center gap-3 overflow-hidden">
             {onClose && (
@@ -344,23 +345,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
             willChange: 'scroll-position'
         }}
       >
-          {isClearConfirmVisible ? (
-            <div className="flex flex-col items-center justify-center h-full text-center p-6 animate-fadeIn">
-              <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-full mb-4">
-                  <TrashIcon className="h-8 w-8 text-red-600 dark:text-red-400" />
-              </div>
-              <h3 className="text-xl font-bold text-text-primary mb-2">Clear Current Order?</h3>
-              <p className="text-sm text-text-secondary mb-8 max-w-[200px]">All items will be removed. This cannot be undone.</p>
-              <div className="flex gap-3 w-full max-w-xs">
-                  <button onClick={() => setIsClearConfirmVisible(false)} className="flex-1 py-3 bg-surface border border-border text-text-primary rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 font-semibold transition-colors">
-                      Cancel
-                  </button>
-                  <button onClick={handleConfirmClear} className="flex-1 py-3 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 shadow-md transition-colors">
-                      Clear All
-                  </button>
-              </div>
-            </div>
-          ) : currentOrder.length === 0 ? (
+          {currentOrder.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-text-muted opacity-60">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4 stroke-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" /></svg>
               <p className="font-medium text-lg">Your cart is empty</p>
@@ -407,6 +392,25 @@ const Ticket: React.FC<TicketProps> = (props) => {
             </>
           )}
       </div>
+
+      {/* Absolute Overlay for Clear Confirmation to prevent layout glitch */}
+      {isClearConfirmVisible && (
+        <div className="absolute inset-0 z-40 bg-surface flex flex-col items-center justify-center p-6 animate-fadeIn">
+            <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-full mb-4">
+                <TrashIcon className="h-8 w-8 text-red-600 dark:text-red-400" />
+            </div>
+            <h3 className="text-xl font-bold text-text-primary mb-2">Clear Current Order?</h3>
+            <p className="text-sm text-text-secondary mb-8 max-w-[200px] text-center">All items will be removed. This cannot be undone.</p>
+            <div className="flex gap-3 w-full max-w-xs">
+                <button onClick={() => setIsClearConfirmVisible(false)} className="flex-1 py-3 bg-surface border border-border text-text-primary rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 font-semibold transition-colors">
+                    Cancel
+                </button>
+                <button onClick={handleConfirmClear} className="flex-1 py-3 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 shadow-md transition-colors">
+                    Clear All
+                </button>
+            </div>
+        </div>
+      )}
       
       {/* Fixed Bottom Area for Buttons */}
       <div className="bg-surface border-t border-border z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">

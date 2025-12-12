@@ -10,40 +10,73 @@ interface StoreInfoCardProps {
 const StoreInfoCard: React.FC<StoreInfoCardProps> = ({ settings, updateSettings }) => {
   return (
     <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-text-primary">Store Information</h2>
         </div>
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div>
-          <label htmlFor="storeName" className="block text-sm font-medium text-text-secondary">Store Name</label>
+          <label htmlFor="storeName" className="block text-sm font-bold text-text-secondary mb-1">Store Name</label>
           <input
             type="text"
             id="storeName"
             value={settings.storeName || ''}
             onChange={(e) => updateSettings({ storeName: e.target.value })}
-            className="mt-1 block w-full p-2 border border-border rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm bg-background"
+            className="w-full p-2.5 border border-border rounded-lg shadow-sm focus:ring-2 focus:ring-primary focus:border-primary bg-background text-text-primary transition-all"
+            placeholder="e.g. My Awesome Cafe"
           />
         </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+                <label htmlFor="currency" className="block text-sm font-bold text-text-secondary mb-1">Currency Symbol</label>
+                <select 
+                    id="currency"
+                    value={settings.currencySymbol || '₹'}
+                    onChange={(e) => updateSettings({ currencySymbol: e.target.value })}
+                    className="w-full p-2.5 border border-border rounded-lg shadow-sm bg-background text-text-primary"
+                >
+                    <option value="₹">₹ (INR)</option>
+                    <option value="$">$ (USD)</option>
+                    <option value="€">€ (EUR)</option>
+                    <option value="£">£ (GBP)</option>
+                </select>
+            </div>
+            <div>
+                 <label htmlFor="timezone" className="block text-sm font-bold text-text-secondary mb-1">Timezone</label>
+                 <select 
+                    id="timezone"
+                    value={settings.timezone || 'Asia/Kolkata'}
+                    onChange={(e) => updateSettings({ timezone: e.target.value })}
+                    className="w-full p-2.5 border border-border rounded-lg shadow-sm bg-background text-text-primary"
+                >
+                    <option value="Asia/Kolkata">India (IST)</option>
+                    <option value="UTC">UTC</option>
+                    <option value="America/New_York">Eastern Time (US)</option>
+                </select>
+            </div>
+        </div>
+
         <div>
-          <label htmlFor="storeAddress" className="block text-sm font-medium text-text-secondary">Store Address</label>
+          <label htmlFor="storeAddress" className="block text-sm font-bold text-text-secondary mb-1">Store Address</label>
           <textarea
             id="storeAddress"
             rows={3}
             value={settings.storeAddress || ''}
             onChange={(e) => updateSettings({ storeAddress: e.target.value })}
-            className="mt-1 block w-full p-2 border border-border rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm bg-background"
+            className="w-full p-2.5 border border-border rounded-lg shadow-sm focus:ring-2 focus:ring-primary bg-background text-text-primary"
             placeholder="e.g., 123 Food Street, Flavor Town, 12345"
           />
         </div>
+        
         <div>
-          <label htmlFor="receiptFooter" className="block text-sm font-medium text-text-secondary">Receipt Footer</label>
+          <label htmlFor="receiptFooter" className="block text-sm font-bold text-text-secondary mb-1">Receipt Footer Message</label>
           <textarea
             id="receiptFooter"
-            rows={3}
+            rows={2}
             value={settings.receiptFooter || ''}
             onChange={(e) => updateSettings({ receiptFooter: e.target.value })}
-            className="mt-1 block w-full p-2 border border-border rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm bg-background"
-            placeholder="e.g., Thank you! Find us @yourshop"
+            className="w-full p-2.5 border border-border rounded-lg shadow-sm focus:ring-2 focus:ring-primary bg-background text-text-primary"
+            placeholder="e.g., Thank you! Follow us @yourshop"
           />
         </div>
       </div>
