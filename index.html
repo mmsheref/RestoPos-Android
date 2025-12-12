@@ -36,6 +36,9 @@
     <style>
       /* --- NEW GREEN THEME & COLOR PALETTE --- */
       :root {
+        color-scheme: light; /* Ensures native inputs (date/time) use light theme */
+        accent-color: #059669; /* emerald-600 */
+        
         --color-background: #F8F9FA; /* slate-50 */
         --color-surface: #FFFFFF; /* white */
         --color-surface-muted: #F1F3F5; /* slate-100 */
@@ -55,6 +58,9 @@
       }
       
       html.dark {
+        color-scheme: dark; /* Ensures native inputs (date/time) use dark theme */
+        accent-color: #10B981; /* emerald-500 */
+
         --color-background: #303030; /* User requested dark grey */
         --color-surface: #262626; /* neutral-800 */
         --color-surface-muted: #404040; /* neutral-700 */

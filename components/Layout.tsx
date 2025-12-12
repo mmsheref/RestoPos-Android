@@ -81,11 +81,11 @@ const Layout: React.FC = () => {
     const deltaY = Math.abs(touchY - touchStartRef.current.y);
 
     // Logic:
-    // 1. Swipe must start near left edge (within 30px)
+    // 1. Swipe must start near left edge (within 50px - increased from 30px for better usability)
     // 2. Swipe must be horizontal (deltaX > 50px)
     // 3. Vertical movement must be minimal (deltaY < 30px) to distinguish from scrolling
     
-    if (touchStartRef.current.x < 30 && deltaX > 50 && deltaY < 30) {
+    if (touchStartRef.current.x < 50 && deltaX > 50 && deltaY < 30) {
         openDrawer();
         touchStartRef.current = null; // Reset to prevent repeated triggers during same gesture
     }

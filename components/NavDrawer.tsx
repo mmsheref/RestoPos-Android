@@ -53,6 +53,7 @@ const NavDrawer: React.FC = () => {
   }, [closeDrawer, navigate]);
 
   const handleSignOutClick = () => {
+    closeDrawer();
     setIsSignOutModalOpen(true);
   };
 
@@ -62,6 +63,7 @@ const NavDrawer: React.FC = () => {
   };
 
   const handleExitClick = () => {
+    closeDrawer();
     setIsExitModalOpen(true);
   };
 
