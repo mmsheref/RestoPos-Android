@@ -148,7 +148,13 @@ export interface AppSettings {
   currencySymbol?: string;
   timezone?: string;
   language?: string;
+  
+  // Notifications
   notificationsEnabled?: boolean;
+  notifyLowStock?: boolean;
+  lowStockThreshold?: number;
+  notifyDailySummary?: boolean;
+  dailySummaryTime?: string; // "HH:MM"
 
   // Shift Configuration
   shiftMorningStart?: string; // e.g. "06:00"
