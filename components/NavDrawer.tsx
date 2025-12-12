@@ -79,16 +79,20 @@ const NavDrawer: React.FC = () => {
 
   return (
     <>
-      {isDrawerOpen && (
-        <div
-          onClick={closeDrawer}
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] transition-opacity duration-300"
-        />
-      )}
+      {/* Backdrop: Always rendered, toggle opacity/pointer-events for performance */}
+      <div
+        onClick={closeDrawer}
+        className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] transition-opacity duration-300 ease-out ${
+          isDrawerOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        aria-hidden="true"
+      />
+
       <aside
-        className={`fixed top-0 left-0 h-screen w-72 bg-neutral-900 text-white z-[70] flex flex-col shadow-2xl transform transition-transform duration-300 ease-in-out will-change-transform border-r border-neutral-800 ${
+        className={`fixed top-0 left-0 h-screen w-72 bg-neutral-900 text-white z-[70] flex flex-col shadow-2xl transform transition-transform duration-300 ease-out will-change-transform border-r border-neutral-800 ${
           isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
+        style={{ backfaceVisibility: 'hidden' }} // Fix for flickering text during transition
       >
         <div className="p-6 border-b border-neutral-800 bg-neutral-900">
           <h2 className="text-xl font-bold text-white truncate tracking-tight">
