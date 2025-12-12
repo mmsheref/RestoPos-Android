@@ -14,7 +14,7 @@ interface ItemGridProps {
   isEditing?: boolean;
 }
 
-const ItemGrid: React.FC<ItemGridProps> = ({ 
+const ItemGrid = React.memo<ItemGridProps>(({ 
     itemsForDisplay, mode, onAddItemToOrder, onAssignItem, onRemoveItem, 
     loadMoreRef, isEditing = false 
 }) => {
@@ -78,6 +78,6 @@ const ItemGrid: React.FC<ItemGridProps> = ({
       )}
     </div>
   );
-};
+});
 
 export default ItemGrid;

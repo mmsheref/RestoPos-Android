@@ -123,6 +123,27 @@ const SalesScreen: React.FC = () => {
     setEditingQuantityItemId(null);
   }, [editingQuantityItemId, tempQuantity, updateOrderItemQuantity]);
 
+  // Extracted Handlers to ensure stable props for Ticket
+  const handleQuantityInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      if (/^\d*$/.test(e.target.value)) {
+          setTempQuantity(e.target.value);
+      }
+  }, []);
+
+  const handleQuantityInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') handleQuantityChangeCommit(); 
+      else if (e.key === 'Escape') setEditingQuantityItemId(null);
+  }, [handleQuantityChangeCommit]);
+
+  const handleTicketClose = useCallback(() => setIsTicketVisible(false), []);
+  const handleChargeClick = useCallback(() => setSalesView('payment'), []);
+  const handleOpenTicketsClick = useCallback(() => setIsOpenTicketsModalOpen(true), []);
+  
+  const handleSaveTicketClick = useCallback(() => {
+      setPendingPrintAction(false); 
+      setIsSaveModalOpen(true);
+  }, []);
+
   const subtotal = useMemo(() => currentOrder.reduce((sum, item) => sum + item.price * item.quantity, 0), [currentOrder]);
   const tax = useMemo(() => settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0, [subtotal, settings]);
   const total = useMemo(() => subtotal + tax, [subtotal, tax]);
@@ -339,6 +360,19 @@ const SalesScreen: React.FC = () => {
           setPendingPrintAction(false); 
       }
   };
+  
+  // Memoized Primary Action
+  const handlePrimarySaveAction = useCallback(() => {
+      if (editingTicket) {
+          saveTicket({ ...editingTicket, items: currentOrder });
+          clearOrder();
+          setEditingTicket(null);
+          setIsTicketVisible(false);
+      } else {
+          setPendingPrintAction(false);
+          setIsSaveModalOpen(true);
+      }
+  }, [editingTicket, currentOrder, saveTicket, clearOrder]);
 
   if (salesView === 'payment') {
     return <ChargeScreen total={total} tax={tax} subtotal={subtotal} onBack={() => setSalesView('grid')} onProcessPayment={handleProcessPayment} onNewSale={handleNewSale} paymentResult={paymentResult} orderItems={currentOrder} />;
@@ -453,7 +487,7 @@ const SalesScreen: React.FC = () => {
       >
         <Ticket
           className="w-full h-full flex flex-col"
-          onClose={() => setIsTicketVisible(false)} 
+          onClose={handleTicketClose} 
           currentOrder={currentOrder} 
           editingTicket={editingTicket}
           savedTickets={savedTickets} 
@@ -470,22 +504,12 @@ const SalesScreen: React.FC = () => {
           updateOrderItemQuantity={updateOrderItemQuantity}
           handleQuantityClick={handleQuantityClick} 
           handleQuantityChangeCommit={handleQuantityChangeCommit}
-          handleQuantityInputChange={(e) => /^\d*$/.test(e.target.value) && setTempQuantity(e.target.value)}
-          handleQuantityInputKeyDown={(e) => { if (e.key === 'Enter') handleQuantityChangeCommit(); else if (e.key === 'Escape') setEditingQuantityItemId(null); }}
-          handlePrimarySaveAction={() => {
-              if (editingTicket) {
-                  saveTicket({ ...editingTicket, items: currentOrder });
-                  clearOrder();
-                  setEditingTicket(null);
-                  setIsTicketVisible(false);
-              } else {
-                  setPendingPrintAction(false);
-                  setIsSaveModalOpen(true);
-              }
-          }}
-          onCharge={() => setSalesView('payment')} 
-          onOpenTickets={() => setIsOpenTicketsModalOpen(true)}
-          onSaveTicket={() => { setPendingPrintAction(false); setIsSaveModalOpen(true); }} 
+          handleQuantityInputChange={handleQuantityInputChange}
+          handleQuantityInputKeyDown={handleQuantityInputKeyDown}
+          handlePrimarySaveAction={handlePrimarySaveAction}
+          onCharge={handleChargeClick} 
+          onOpenTickets={handleOpenTicketsClick}
+          onSaveTicket={handleSaveTicketClick} 
           printers={printers}
           onClearTicket={handleClearTicket}
           onPrintRequest={handlePrintRequest}

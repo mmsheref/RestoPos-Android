@@ -17,7 +17,7 @@ interface SwipeableOrderItemProps {
     onDelete: (id: string) => void;
 }
 
-const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
+const SwipeableOrderItem = React.memo<SwipeableOrderItemProps>(({
     item, editingQuantityItemId, tempQuantity,
     onQuantityClick, onQuantityChange, onQuantityCommit, onQuantityKeyDown,
     onIncrement, onDecrement, onDelete
@@ -145,7 +145,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
             </div>
         </li>
     );
-};
+});
 
 
 interface TicketProps {
@@ -202,7 +202,8 @@ const Ticket: React.FC<TicketProps> = (props) => {
   useEffect(() => {
      if (listContainerRef.current) {
          requestAnimationFrame(() => {
-             listContainerRef.current?.scrollTo({ top: listContainerRef.current.scrollHeight, behavior: 'smooth' });
+             // Use 'auto' instead of 'smooth' for instant feedback and less jitter perception
+             listContainerRef.current?.scrollTo({ top: listContainerRef.current.scrollHeight, behavior: 'auto' });
          });
      }
   }, [currentOrder.length]);
@@ -342,7 +343,6 @@ const Ticket: React.FC<TicketProps> = (props) => {
         style={{ 
             WebkitOverflowScrolling: 'touch',
             transform: 'translateZ(0)', // Fix for painting glitches on iOS/Mobile when toggling display
-            willChange: 'scroll-position'
         }}
       >
           {currentOrder.length === 0 ? (
