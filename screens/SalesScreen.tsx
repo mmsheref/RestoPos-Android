@@ -29,7 +29,7 @@ const generateId = () => crypto.randomUUID ? crypto.randomUUID() : `G${Date.now(
 
 const SalesScreen: React.FC = () => {
   const { 
-      setHeaderTitle, openDrawer, settings, printers, addReceipt, 
+      headerTitle, setHeaderTitle, openDrawer, settings, printers, addReceipt, 
       items, customGrids, addCustomGrid, updateCustomGrid, setCustomGrids,
       savedTickets, saveTicket, removeTicket,
       // Global Ticket State
@@ -96,11 +96,16 @@ const SalesScreen: React.FC = () => {
   useEffect(() => {
     if (!isActive) return;
     
-    if (salesView === 'payment') setHeaderTitle('Checkout');
-    else if (editingTicket) setHeaderTitle(`Editing: ${editingTicket.name}`);
-    else if (currentOrder.length > 0) setHeaderTitle('New Order');
-    else setHeaderTitle('Sales');
-  }, [editingTicket, currentOrder.length, setHeaderTitle, salesView, isActive]);
+    let targetTitle = 'Sales';
+    if (salesView === 'payment') targetTitle = 'Checkout';
+    else if (editingTicket) targetTitle = `Editing: ${editingTicket.name}`;
+    else if (currentOrder.length > 0) targetTitle = 'New Order';
+    
+    // Only update if changed to prevent Context re-render loop
+    if (headerTitle !== targetTitle) {
+        setHeaderTitle(targetTitle);
+    }
+  }, [editingTicket, currentOrder.length, setHeaderTitle, salesView, isActive, headerTitle]);
 
   // Reset pagination and scroll position when category or search changes
   useEffect(() => {
