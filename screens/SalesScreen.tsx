@@ -18,9 +18,7 @@ import ItemGrid from '../components/sales/ItemGrid';
 import CategoryTabs from '../components/sales/CategoryTabs';
 import Ticket from '../components/sales/Ticket';
 import ChargeScreen from '../components/sales/ChargeScreen';
-import { ItemsIcon } from '../constants';
-
-const GRID_SIZE = 20; // 5 columns * 4 rows
+import { ItemsIcon, SalesIcon } from '../constants';
 
 type SalesView = 'grid' | 'payment';
 
@@ -28,8 +26,6 @@ type SalesView = 'grid' | 'payment';
 const generateId = () => crypto.randomUUID ? crypto.randomUUID() : `G${Date.now()}`;
 
 // --- SEARCH WORKER CODE ---
-// We define this as a string to create a Blob Worker.
-// This avoids complex build configuration for separate worker files.
 const SEARCH_WORKER_CODE = `
 self.onmessage = function(e) {
     const { items, query } = e.data;
@@ -44,7 +40,6 @@ self.onmessage = function(e) {
     // Perform filtering off-main-thread
     const results = items.filter(item => {
         const nameMatch = item.name.toLowerCase().includes(lowerQuery);
-        // Optional: Add category matching if desired
         const categoryMatch = item.category ? item.category.toLowerCase().includes(lowerQuery) : false;
         return nameMatch || categoryMatch;
     });
@@ -67,6 +62,18 @@ const SalesScreen: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isActive = location.pathname === '/sales';
+
+  // --- 1. DEVICE & LAYOUT DETECTION ---
+  // If Tablet/Desktop: 5 cols * 4 rows = 20
+  // If Mobile: 3 cols * 5 rows = 15
+  const getGridSize = () => window.innerWidth < 768 ? 15 : 20;
+  const [gridSize, setGridSize] = useState(getGridSize());
+
+  useEffect(() => {
+      const handleResize = () => setGridSize(getGridSize());
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Main screen view state
   const [salesView, setSalesView] = useState<SalesView>('grid');
@@ -133,9 +140,6 @@ const SalesScreen: React.FC = () => {
   // Post messages to worker when query or items change
   useEffect(() => {
       if (searchWorkerRef.current && debouncedSearchQuery.trim()) {
-          // Optimization: If items array is massive, we might want to avoid cloning it every time.
-          // However, for React apps < 10k items, structured cloning via postMessage is usually acceptable
-          // and much faster than blocking the main thread with filter logic.
           searchWorkerRef.current.postMessage({
               items: items,
               query: debouncedSearchQuery
@@ -145,17 +149,17 @@ const SalesScreen: React.FC = () => {
       }
   }, [debouncedSearchQuery, items]);
 
-  // Force scroll container reflow when active to fix mobile glitches
+  // Force scroll container reflow
   useEffect(() => {
     if (isActive && scrollContainerRef.current) {
         scrollContainerRef.current.scrollTop = 0;
     }
   }, [isActive]);
   
-  // Reset pagination and scroll position when category or search changes
+  // Reset pagination when category changes
   useEffect(() => {
     setDisplayLimit(40);
-    setIsGridEditing(false); // Always exit edit mode when switching views
+    setIsGridEditing(false);
     if (scrollContainerRef.current) {
         scrollContainerRef.current.scrollTop = 0;
     }
@@ -173,7 +177,6 @@ const SalesScreen: React.FC = () => {
     setEditingQuantityItemId(null);
   }, [editingQuantityItemId, tempQuantity, updateOrderItemQuantity]);
 
-  // Extracted Handlers to ensure stable props for Ticket
   const handleQuantityInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
       if (/^\d*$/.test(e.target.value)) {
           setTempQuantity(e.target.value);
@@ -203,13 +206,11 @@ const SalesScreen: React.FC = () => {
     const receiptId = `R${Date.now()}`;
     const receiptDate = new Date();
     
-    // OPTIMIZATION: Remove large image data from receipt items to save storage space
     const optimizedItems = currentOrder.map(item => ({
         ...item,
         imageUrl: '' // Strip base64 string
     }));
 
-    // Construct receipt safely to avoid undefined values
     const newReceipt: Receipt = { 
         id: receiptId, 
         date: receiptDate, 
@@ -234,38 +235,28 @@ const SalesScreen: React.FC = () => {
   }, [clearOrder]);
   
   const itemsForDisplay = useMemo<(Item | null)[]>(() => {
-    // If search is active, return worker results
-    if (debouncedSearchQuery.trim()) {
-        return workerSearchResults;
-    }
-    
-    // Otherwise, Standard Grid Logic
+    if (debouncedSearchQuery.trim()) return workerSearchResults;
     if (activeGridId === 'All') return items;
+    
     const grid = customGrids.find(g => g.id === activeGridId);
     if (grid) {
         const sourceIds = Array.isArray(grid.itemIds) ? grid.itemIds : [];
-        const finalItemIds = new Array(GRID_SIZE).fill(null);
-        for(let i = 0; i < Math.min(sourceIds.length, GRID_SIZE); i++) {
+        const finalItemIds = new Array(gridSize).fill(null);
+        for(let i = 0; i < Math.min(sourceIds.length, gridSize); i++) {
             finalItemIds[i] = sourceIds[i];
         }
         return finalItemIds.map(itemId => items.find(i => i.id === itemId) || null);
     }
-    return new Array(GRID_SIZE).fill(null);
-  }, [activeGridId, items, customGrids, debouncedSearchQuery, workerSearchResults]);
+    return new Array(gridSize).fill(null);
+  }, [activeGridId, items, customGrids, debouncedSearchQuery, workerSearchResults, gridSize]);
 
   const paginatedItems = useMemo(() => {
-      // Only paginate "All" view or Search results
-      if (activeGridId !== 'All' && !debouncedSearchQuery.trim()) {
-          return itemsForDisplay;
-      }
+      if (activeGridId !== 'All' && !debouncedSearchQuery.trim()) return itemsForDisplay;
       return itemsForDisplay.slice(0, displayLimit);
   }, [itemsForDisplay, displayLimit, activeGridId, debouncedSearchQuery]);
 
-  // Infinite Scroll Observer
   useEffect(() => {
-    if ((activeGridId !== 'All' && !debouncedSearchQuery.trim()) || paginatedItems.length >= itemsForDisplay.length) {
-        return; 
-    }
+    if ((activeGridId !== 'All' && !debouncedSearchQuery.trim()) || paginatedItems.length >= itemsForDisplay.length) return; 
 
     const observer = new IntersectionObserver(
         (entries) => {
@@ -276,19 +267,16 @@ const SalesScreen: React.FC = () => {
         { threshold: 0.1, rootMargin: '100px' }
     );
 
-    if (loadMoreRef.current) {
-        observer.observe(loadMoreRef.current);
-    }
-
+    if (loadMoreRef.current) observer.observe(loadMoreRef.current);
     return () => observer.disconnect();
   }, [paginatedItems.length, itemsForDisplay.length, activeGridId, debouncedSearchQuery]);
 
 
   const handleAddNewGrid = useCallback(() => setIsAddGridModalOpen(true), []);
   const handleSaveNewGrid = useCallback((name: string) => {
-      addCustomGrid({ id: generateId(), name, itemIds: new Array(GRID_SIZE).fill(null) });
+      addCustomGrid({ id: generateId(), name, itemIds: new Array(gridSize).fill(null) });
       setIsAddGridModalOpen(false);
-  }, [addCustomGrid]);
+  }, [addCustomGrid, gridSize]);
 
   const handleSaveGrids = useCallback((newGrids: CustomGrid[]) => {
       setCustomGrids(newGrids);
@@ -309,30 +297,30 @@ const SalesScreen: React.FC = () => {
       const gridToUpdate = customGrids.find(g => g.id === assigningSlot.gridId);
       if (gridToUpdate) {
           const sourceIds = Array.isArray(gridToUpdate.itemIds) ? gridToUpdate.itemIds : [];
-          const newItemIds = new Array(GRID_SIZE).fill(null);
-          for(let i = 0; i < Math.min(sourceIds.length, GRID_SIZE); i++) {
-              newItemIds[i] = sourceIds[i];
-          }
+          // Ensure array is large enough for current view
+          const newItemIds = [...sourceIds];
+          // Pad if necessary
+          while (newItemIds.length < gridSize) newItemIds.push(null);
+          
           newItemIds[assigningSlot.slotIndex] = item.id;
           updateCustomGrid({ ...gridToUpdate, itemIds: newItemIds });
       }
       setIsSelectItemModalOpen(false);
       setAssigningSlot(null);
-  }, [assigningSlot, customGrids, updateCustomGrid]);
+  }, [assigningSlot, customGrids, updateCustomGrid, gridSize]);
 
   const handleRemoveItemFromGrid = useCallback((slotIndex: number) => {
     if (activeGridId === 'All') return;
     const gridToUpdate = customGrids.find(g => g.id === activeGridId);
     if (gridToUpdate) {
         const sourceIds = Array.isArray(gridToUpdate.itemIds) ? gridToUpdate.itemIds : [];
-        const newItemIds = new Array(GRID_SIZE).fill(null);
-        for(let i = 0; i < Math.min(sourceIds.length, GRID_SIZE); i++) {
-            newItemIds[i] = sourceIds[i];
-        }
+        const newItemIds = [...sourceIds];
+        while (newItemIds.length < gridSize) newItemIds.push(null);
+        
         newItemIds[slotIndex] = null;
         updateCustomGrid({ ...gridToUpdate, itemIds: newItemIds });
     }
-  }, [activeGridId, customGrids, updateCustomGrid]);
+  }, [activeGridId, customGrids, updateCustomGrid, gridSize]);
 
   const handleClearTicket = useCallback(() => {
     clearOrder();
@@ -345,7 +333,6 @@ const SalesScreen: React.FC = () => {
           loadOrder(ticket.items);
           setEditingTicket(ticket);
           setIsOpenTicketsModalOpen(false);
-          // On mobile, show ticket after loading
           if (window.innerWidth < 768) {
               setIsTicketVisible(true);
           }
@@ -413,7 +400,6 @@ const SalesScreen: React.FC = () => {
       }
   };
   
-  // Memoized Primary Action
   const handlePrimarySaveAction = useCallback(() => {
       if (editingTicket) {
           saveTicket({ ...editingTicket, items: currentOrder });
@@ -438,36 +424,31 @@ const SalesScreen: React.FC = () => {
       {/* 
         LAYOUT STRATEGY:
         Mobile: 
-          - Grid is always Layer 0.
-          - Ticket is Layer 1 (Full screen Overlay).
-          - Bottom Cart Bar is fixed on Layer 0.
+          - Grid Area is flexible middle (Layer 0).
+          - Tabs are fixed bottom (Layer 1).
+          - Floating Cart is positioned absolute at the bottom of the LEFT SECTION to float over tabs/grid.
+          - Ticket is separate Overlay (Layer 3).
         Tablet/Desktop:
           - Grid is Left Column.
           - Ticket is Right Column.
       */}
 
-      {/* --- GRID SECTION (Main Content) --- */}
+      {/* --- LEFT SECTION (Grid + Tabs) --- */}
       <div className="flex-1 flex flex-col min-w-0 h-full relative">
         <SalesHeader openDrawer={openDrawer} onSearchChange={setSearchQuery} searchQuery={searchQuery} />
         
-        {/* Scrollable Container */}
-        <div className="flex-1 flex flex-col relative overflow-hidden">
+        {/* Grid Container (Takes remaining space) */}
+        <div className="flex-1 relative overflow-hidden">
             <div 
               ref={scrollContainerRef} 
-              className="flex-1 overflow-y-auto overflow-x-hidden p-2 md:p-4 scroll-smooth pb-24 md:pb-4"
-              style={{ 
-                  WebkitOverflowScrolling: 'touch',
-                  transform: 'translateZ(0)' // Fix for painting glitches on iOS
-              }}
+              className="absolute inset-0 overflow-y-auto overflow-x-hidden p-2 md:p-4 scroll-smooth"
+              style={{ WebkitOverflowScrolling: 'touch', transform: 'translateZ(0)' }}
             >
               {items.length === 0 && !debouncedSearchQuery.trim() ? (
                 <div className="flex flex-col items-center justify-center h-full text-center text-text-secondary p-4">
                   <div className="max-w-md">
                     <ItemsIcon className="h-16 w-16 mx-auto text-gray-300 dark:text-gray-600" />
                     <h2 className="mt-4 text-xl font-semibold text-text-primary">Your Menu is Empty</h2>
-                    <p className="mt-2 text-sm">
-                      Get started by adding your first menu item.
-                    </p>
                     <button
                       onClick={() => navigate('/items')}
                       className="mt-6 px-6 py-3 bg-primary text-primary-content font-bold rounded-lg hover:bg-primary-hover shadow-md"
@@ -477,61 +458,64 @@ const SalesScreen: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <ItemGrid
-                  itemsForDisplay={paginatedItems}
-                  mode={isViewingAll ? 'all' : 'grid'}
-                  onAddItemToOrder={addToOrder}
-                  onAssignItem={handleOpenSelectItemModal}
-                  onRemoveItem={handleRemoveItemFromGrid}
-                  isEditing={!isViewingAll && isGridEditing}
-                  loadMoreRef={isViewingAll ? loadMoreRef : undefined}
-                />
+                <div className="pb-24 md:pb-4">
+                    <ItemGrid
+                    itemsForDisplay={paginatedItems}
+                    mode={isViewingAll ? 'all' : 'grid'}
+                    onAddItemToOrder={addToOrder}
+                    onAssignItem={handleOpenSelectItemModal}
+                    onRemoveItem={handleRemoveItemFromGrid}
+                    isEditing={!isViewingAll && isGridEditing}
+                    loadMoreRef={isViewingAll ? loadMoreRef : undefined}
+                    />
+                </div>
               )}
             </div>
+        </div>
 
-            {/* Floating Mobile Cart Bar */}
-            {currentOrder.length > 0 && (
-                <div className="md:hidden absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-background via-background to-transparent z-10 pb-safe-bottom">
-                    <button 
-                        onClick={() => setIsTicketVisible(true)}
-                        className="w-full bg-primary text-primary-content rounded-xl shadow-lg flex items-center justify-center p-4 active:scale-[0.98] transition-transform"
-                    >
-                        <div className="flex items-center gap-3 w-full justify-between">
-                            <div className="flex items-center gap-3">
-                                <span className="bg-white/20 px-2 py-1 rounded-md text-sm font-bold">
-                                    {currentOrder.reduce((acc, item) => acc + item.quantity, 0)}
-                                </span>
-                                <span className="font-bold">View Cart</span>
-                            </div>
-                            <span className="font-bold text-lg">₹{total.toFixed(2)}</span>
-                        </div>
-                    </button>
-                </div>
-            )}
-
-            {/* Category Tabs - Anchored at bottom of Grid Area on Mobile for thumbs */}
-            <div className="bg-surface border-t border-border z-20">
-                 <CategoryTabs
-                    grids={customGrids}
-                    activeGridId={activeGridId}
-                    setActiveGridId={setActiveGridId}
-                    onAddNew={handleAddNewGrid}
-                    onManage={() => setIsManageGridsModalOpen(true)}
-                    isSearchActive={debouncedSearchQuery.trim().length > 0}
-                    searchResultsCount={itemsForDisplay.length}
-                    searchQuery={searchQuery}
-                    isEditing={isGridEditing}
-                    onToggleEditMode={() => setIsGridEditing(prev => !prev)}
-                  />
+        {/* Floating Mobile Cart Button (Moved outside overflow container to float strictly above Tabs) */}
+        {currentOrder.length > 0 && (
+            <div className="md:hidden absolute bottom-[50px] left-0 right-0 p-4 z-50 pointer-events-none">
+                <button 
+                    onClick={() => setIsTicketVisible(true)}
+                    className="w-full bg-primary text-primary-content rounded-xl shadow-xl shadow-primary/30 flex items-center justify-between p-4 active:scale-[0.98] transition-transform pointer-events-auto"
+                >
+                    <div className="flex items-center gap-3">
+                        <span className="bg-white/20 px-2.5 py-1 rounded-md text-sm font-bold backdrop-blur-sm">
+                            {currentOrder.reduce((acc, item) => acc + item.quantity, 0)}
+                        </span>
+                        <span className="font-bold text-sm uppercase tracking-wide">View Cart</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="font-bold text-lg">₹{total.toFixed(2)}</span>
+                        <SalesIcon className="h-5 w-5 opacity-80" />
+                    </div>
+                </button>
             </div>
+        )}
+
+        {/* Category Tabs - Fixed at bottom of the Left Section */}
+        <div className="bg-surface border-t border-border z-40 flex-shrink-0 relative shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+             <CategoryTabs
+                grids={customGrids}
+                activeGridId={activeGridId}
+                setActiveGridId={setActiveGridId}
+                onAddNew={handleAddNewGrid}
+                onManage={() => setIsManageGridsModalOpen(true)}
+                isSearchActive={debouncedSearchQuery.trim().length > 0}
+                searchResultsCount={itemsForDisplay.length}
+                searchQuery={searchQuery}
+                isEditing={isGridEditing}
+                onToggleEditMode={() => setIsGridEditing(prev => !prev)}
+              />
         </div>
       </div>
 
       {/* --- TICKET SECTION --- */}
-      {/* Mobile: Full Screen Slide-Up Overlay. Desktop: Static Right Column */}
+      {/* Mobile: Full Screen Overlay. Desktop: Static Right Column */}
       <div 
         className={`
-            fixed inset-0 z-[50] bg-background flex flex-col
+            fixed inset-0 z-[60] bg-background flex flex-col
             transition-transform duration-300 ease-out will-change-transform
             md:static md:z-auto md:w-[320px] lg:w-[380px] md:border-l md:border-border md:translate-y-0
             ${isTicketVisible ? 'translate-y-0' : 'translate-y-full'}
