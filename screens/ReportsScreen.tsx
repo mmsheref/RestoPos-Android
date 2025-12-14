@@ -38,6 +38,74 @@ const StatCard: React.FC<{ title: string, value: string, icon: React.ReactNode, 
     </div>
 );
 
+// --- COMPONENT: HOURLY SALES CHART ---
+const HourlySalesChart: React.FC<{ data: Record<number, number> }> = ({ data }) => {
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+    const values = hours.map(h => data[h] || 0);
+    const maxValue = Math.max(...values, 1); // Avoid div by zero
+
+    return (
+        <div className="w-full h-80 bg-surface rounded-2xl border border-border p-6 shadow-sm flex flex-col">
+            <h3 className="text-lg font-bold text-text-primary mb-6">Sales Activity (24h)</h3>
+            
+            <div className="flex-1 relative w-full min-h-0">
+                {/* Y-Axis Grid Lines Background */}
+                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none z-0 pb-6">
+                    {[1, 0.75, 0.5, 0.25, 0].map((tick, i) => (
+                        <div key={tick} className="w-full border-t border-dashed border-border/50 relative">
+                             {i < 4 && (
+                                <span className="absolute -top-3 left-0 text-[10px] text-text-muted bg-surface pr-1">
+                                    {Math.round(maxValue * tick)}
+                                </span>
+                             )}
+                        </div>
+                    ))}
+                </div>
+
+                {/* Bars Container */}
+                <div className="absolute inset-0 flex items-end justify-between gap-1 pt-2 pb-6 px-4 z-10">
+                    {hours.map((hour) => {
+                        const value = data[hour] || 0;
+                        const heightPct = (value / maxValue) * 100;
+                        
+                        return (
+                            <div 
+                                key={hour} 
+                                className="relative flex-1 h-full flex items-end group"
+                            >
+                                {/* The Bar */}
+                                <div 
+                                    className="w-full bg-primary hover:bg-primary-hover rounded-t-sm transition-all duration-500 ease-out min-h-[2px]"
+                                    style={{ height: `${heightPct}%` }}
+                                ></div>
+                                
+                                {/* Tooltip */}
+                                <div className="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 pointer-events-none transition-opacity duration-200">
+                                    <div className="bg-neutral-900 text-white text-xs py-1.5 px-3 rounded-lg whitespace-nowrap shadow-xl border border-neutral-700">
+                                        <div className="font-bold">{hour}:00 - {hour + 1}:00</div>
+                                        <div className="text-emerald-400 font-mono">₹{value.toFixed(0)}</div>
+                                    </div>
+                                    {/* Arrow */}
+                                    <div className="w-2 h-2 bg-neutral-900 rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-1 border-r border-b border-neutral-700"></div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+                
+                {/* X-Axis Labels */}
+                <div className="absolute bottom-0 left-0 right-0 flex justify-between px-4 text-[10px] text-text-secondary font-medium uppercase tracking-wide">
+                    <span>12 AM</span>
+                    <span>6 AM</span>
+                    <span>12 PM</span>
+                    <span>6 PM</span>
+                    <span>11 PM</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- COMPONENT: PAGINATION CONTROLS ---
 const PaginationControls: React.FC<{ 
     currentPage: number; 
@@ -225,7 +293,6 @@ const ReportsScreen: React.FC = () => {
     }, [filter, shiftFilter, customStartDate, customEndDate, settings]);
 
     // Fetch data whenever date range changes
-    // This optimization is CRITICAL for 1000+ days usage
     useEffect(() => {
         const fetchData = async () => {
             setIsLoadingData(true);
@@ -234,18 +301,13 @@ const ReportsScreen: React.FC = () => {
                 const rangeData = await idb.getReceiptsByDateRange(dateRange.start, dateRange.end);
                 
                 // Merge with context receipts (recent unsaved data might be in context)
-                // We create a Map to deduplicate, prioritizing context (more recent) if overlap
                 const map = new Map<string, Receipt>();
                 rangeData.forEach(r => map.set(r.id, r));
                 
                 // Overlay any matching receipts from the lightweight context
-                // Optimization: contextReceipts is sorted (newest first).
-                // We only need to check items that fall within our date range.
-                // If we encounter an item OLDER than start date, we can stop iterating.
                 for (const r of contextReceipts) {
                     const rDate = new Date(r.date);
                     if (rDate < dateRange.start) {
-                        // Context receipts are sorted desc. If we hit one older than start, we are done.
                         break; 
                     }
                     if (rDate <= dateRange.end) {
@@ -261,7 +323,7 @@ const ReportsScreen: React.FC = () => {
             }
         };
         fetchData();
-    }, [dateRange, contextReceipts]); // Re-run if filter changes or if new data arrives in context
+    }, [dateRange, contextReceipts]);
 
     // --- ANALYTICS LOGIC (Runs on the fetched subset) ---
     const { filteredReceipts, metrics } = useMemo(() => {
@@ -352,7 +414,6 @@ const ReportsScreen: React.FC = () => {
     }, [metrics.allItems, itemSortConfig]);
 
     const isLocked = !!settings.reportsPIN && !isReportsUnlocked;
-    const maxHourlySales = Math.max(...(Object.values(metrics.salesByHour) as number[]), 1);
 
     const handleUnlock = (pin: string) => {
         if (pin === settings.reportsPIN) {
@@ -590,31 +651,8 @@ const ReportsScreen: React.FC = () => {
                                 </div>
 
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    {/* Hourly Chart */}
-                                    <div className="bg-surface p-6 rounded-2xl shadow-sm border border-border">
-                                        <h3 className="text-lg font-bold text-text-primary mb-6">Sales Activity (24h)</h3>
-                                        <div className="h-48 flex items-end gap-1.5 px-2">
-                                            {/* Explicitly iterate 0-23 to guarantee correct order and presence of all bars */}
-                                            {Array.from({ length: 24 }).map((_, hour) => {
-                                                const value = metrics.salesByHour[hour] || 0;
-                                                return (
-                                                    <div key={hour} className="flex-1 flex flex-col items-center group relative h-full justify-end">
-                                                        <div 
-                                                            className="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all relative min-h-[4px]"
-                                                            style={{ height: `${((value) / maxHourlySales) * 100}%` }}
-                                                        ></div>
-                                                        {/* Tooltip */}
-                                                        <div className="opacity-0 group-hover:opacity-100 absolute bottom-full mb-2 bg-black/80 text-white text-[10px] px-2 py-1 rounded pointer-events-none whitespace-nowrap z-10 transition-opacity">
-                                                            {hour}:00 - ₹{value}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                        <div className="flex justify-between text-[10px] text-text-muted mt-2 border-t border-border pt-2 uppercase tracking-wide">
-                                            <span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>11 PM</span>
-                                        </div>
-                                    </div>
+                                    {/* Hourly Chart - NEW ROBUST COMPONENT */}
+                                    <HourlySalesChart data={metrics.salesByHour} />
 
                                     {/* Payment Methods Breakdown */}
                                     <div className="bg-surface p-6 rounded-2xl shadow-sm border border-border">
