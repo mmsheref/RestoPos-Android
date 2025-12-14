@@ -20,18 +20,12 @@ const ItemGrid = React.memo<ItemGridProps>(({
 }) => {
   const isFixedGrid = mode === 'grid';
 
-  // Mobile: Auto height (scrollable). Tablet: Full height (fixed).
-  const gridContainerClasses = isFixedGrid ? 'h-auto md:h-full' : '';
-  
-  // LAYOUT LOGIC:
-  // Mobile: grid-cols-3 (Requested 3 columns). Auto rows for scrolling.
-  // Tablet (md): grid-cols-5 (Preserved 5 columns). grid-rows-4 (Preserved 4 rows fixed).
-  const gridClasses = isFixedGrid
-    ? 'grid grid-cols-3 md:grid-cols-5 md:grid-rows-4 gap-2 md:gap-3 h-auto md:h-full'
-    : 'grid grid-cols-3 md:grid-cols-5 gap-2 md:gap-3';
+  // Fix: Use simple grid classes without forcing height or rows.
+  // This prevents the "stretched" look and allows tiles to maintain aspect ratio.
+  const gridClasses = 'grid grid-cols-3 md:grid-cols-5 gap-2 md:gap-3 pb-20 md:pb-0';
 
   return (
-    <div className={gridContainerClasses}>
+    <div>
       <div className={gridClasses}>
         {itemsForDisplay.map((item, index) => {
           if (!item) {
@@ -46,10 +40,9 @@ const ItemGrid = React.memo<ItemGridProps>(({
                     if (isEditing) onAssignItem(index);
                 }}
                 disabled={!isEditing}
-                className={`w-full rounded-lg border-2 border-dashed border-border 
+                className={`w-full rounded-xl border-2 border-dashed border-border 
                            flex items-center justify-center text-text-muted transition-colors 
-                           aspect-square md:aspect-auto
-                           ${isFixedGrid ? 'md:h-full' : ''}
+                           aspect-square
                            ${isEditing ? 'cursor-pointer hover:bg-surface-muted hover:border-primary hover:text-primary bg-surface-muted/20' : 'opacity-50 cursor-default'}`}
               >
                 {isEditing && <PlusIcon className="h-8 w-8" />}

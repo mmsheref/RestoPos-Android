@@ -25,7 +25,7 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
     if (isEditing && mode === 'grid') {
         return (
             <div 
-                className={`relative w-full rounded-xl overflow-hidden border-2 border-dashed border-primary/60 bg-primary/5 ${isFixedGrid ? 'aspect-square md:h-full md:aspect-auto' : 'aspect-square'} animate-pulse`}
+                className={`relative w-full rounded-xl overflow-hidden border-2 border-dashed border-primary/60 bg-primary/5 aspect-square animate-pulse`}
             >
                 {/* Background Image (Dimmed) */}
                 {hasRealImage && (
@@ -88,8 +88,8 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
             <button
                 type="button"
                 onClick={handleClick}
-                // Mobile: aspect-square (fits 3x5 well). Tablet: h-full (fits grid-rows-4).
-                className={`relative w-full rounded-xl overflow-hidden cursor-pointer shadow-sm border border-border/50 bg-surface-muted group ${isFixedGrid ? 'aspect-square md:h-full md:aspect-auto' : 'aspect-square'} touch-manipulation select-none`}
+                // Enforce aspect-square to prevent stretching/squashing
+                className={`relative w-full rounded-xl overflow-hidden cursor-pointer shadow-sm border border-border/50 bg-surface-muted group aspect-square touch-manipulation select-none`}
                 aria-label={`Add ${item.name} to order`}
             >
                 <div className="w-full h-full pointer-events-none relative">
@@ -123,8 +123,8 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
             <button
                 type="button"
                 onClick={handleClick}
-                // Mobile: aspect-square. Tablet: h-full.
-                className={`relative w-full rounded-xl cursor-pointer shadow-sm border border-border bg-surface group ${isFixedGrid ? 'aspect-square md:h-full md:aspect-auto' : 'aspect-square'} touch-manipulation select-none hover:border-primary/50`}
+                // Enforce aspect-square
+                className={`relative w-full rounded-xl cursor-pointer shadow-sm border border-border bg-surface group aspect-square touch-manipulation select-none hover:border-primary/50`}
                 aria-label={`Add ${item.name} to order`}
             >
                 {/* Active Overlay */}

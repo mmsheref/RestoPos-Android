@@ -302,46 +302,49 @@ const Ticket: React.FC<TicketProps> = (props) => {
   }, [editingTicket, currentOrder.length]);
 
   return (
+    // Added pt-safe-top to outer container, remove fixed height from header, use inner container
     <section className={`${className} bg-surface border-l border-border h-full flex flex-col pt-safe-top relative`}>
-      <header className="bg-surface shadow-sm w-full z-30 flex-shrink-0 h-16 flex items-center justify-between px-4 border-b border-border">
-        <div className="flex items-center gap-3 overflow-hidden">
-            {onClose && (
+      <header className="bg-surface shadow-sm w-full z-30 flex-shrink-0 border-b border-border">
+        <div className="h-14 flex items-center justify-between px-4">
+            <div className="flex items-center gap-3 overflow-hidden">
+                {onClose && (
+                    <button 
+                    onClick={onClose} 
+                    className="md:hidden p-2 -ml-2 text-text-secondary active:text-text-primary rounded-full hover:bg-surface-muted transition-colors"
+                    >
+                        <ArrowLeftIcon className="h-6 w-6" />
+                    </button>
+                )}
+                <div className="flex flex-col min-w-0">
+                    <h1 className="text-lg font-bold text-text-primary truncate leading-tight">{ticketHeaderTitle}</h1>
+                    {currentOrder.length > 0 && (
+                        <span className="text-xs text-text-secondary">{currentOrder.reduce((acc, i) => acc + i.quantity, 0)} items</span>
+                    )}
+                </div>
+            </div>
+            <div className="relative" ref={ticketMenuRef}>
                 <button 
-                  onClick={onClose} 
-                  className="md:hidden p-2 -ml-2 text-text-secondary active:text-text-primary rounded-full hover:bg-surface-muted transition-colors"
+                onClick={(e) => { e.stopPropagation(); setTicketMenuOpen(prev => !prev); }} 
+                className="p-2 text-text-secondary hover:text-text-primary rounded-full hover:bg-surface-muted transition-colors active:bg-surface-muted" 
+                aria-label="Ticket options"
                 >
-                    <ArrowLeftIcon className="h-6 w-6" />
+                <ThreeDotsIcon className="h-6 w-6" />
                 </button>
-            )}
-            <div className="flex flex-col min-w-0">
-                <h1 className="text-lg font-bold text-text-primary truncate leading-tight">{ticketHeaderTitle}</h1>
-                {currentOrder.length > 0 && (
-                    <span className="text-xs text-text-secondary">{currentOrder.reduce((acc, i) => acc + i.quantity, 0)} items</span>
+                {isTicketMenuOpen && (
+                    <div
+                        className="absolute right-0 mt-2 w-56 bg-surface rounded-xl shadow-xl ring-1 ring-black ring-opacity-5 dark:ring-white/10 z-50 overflow-hidden"
+                    >
+                        <div className="py-1">
+                            <button onClick={() => handleTicketAction('clear')} className="w-full text-left px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors">Clear Ticket</button>
+                            <button onClick={() => handleTicketAction('print')} className="w-full text-left px-4 py-3 text-sm font-medium text-text-primary hover:bg-surface-muted transition-colors">
+                            Print Bill (Preview)
+                            </button>
+                            <button onClick={() => handleTicketAction('edit')} className="w-full text-left px-4 py-3 text-sm font-medium text-text-primary hover:bg-surface-muted transition-colors">Edit Ticket Details</button>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>
-        <div className="relative" ref={ticketMenuRef}>
-            <button 
-              onClick={(e) => { e.stopPropagation(); setTicketMenuOpen(prev => !prev); }} 
-              className="p-2 text-text-secondary hover:text-text-primary rounded-full hover:bg-surface-muted transition-colors active:bg-surface-muted" 
-              aria-label="Ticket options"
-            >
-              <ThreeDotsIcon className="h-6 w-6" />
-            </button>
-            {isTicketMenuOpen && (
-                <div
-                    className="absolute right-0 mt-2 w-56 bg-surface rounded-xl shadow-xl ring-1 ring-black ring-opacity-5 dark:ring-white/10 z-50 overflow-hidden"
-                >
-                    <div className="py-1">
-                        <button onClick={() => handleTicketAction('clear')} className="w-full text-left px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors">Clear Ticket</button>
-                        <button onClick={() => handleTicketAction('print')} className="w-full text-left px-4 py-3 text-sm font-medium text-text-primary hover:bg-surface-muted transition-colors">
-                          Print Bill (Preview)
-                        </button>
-                        <button onClick={() => handleTicketAction('edit')} className="w-full text-left px-4 py-3 text-sm font-medium text-text-primary hover:bg-surface-muted transition-colors">Edit Ticket Details</button>
-                    </div>
-                </div>
-            )}
-          </div>
       </header>
       
       {/* Scrollable Area: Items + Sticky Totals */}
