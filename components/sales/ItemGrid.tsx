@@ -20,10 +20,12 @@ const ItemGrid = React.memo<ItemGridProps>(({
 }) => {
   const isFixedGrid = mode === 'grid';
 
-  const gridContainerClasses = isFixedGrid ? 'h-full' : '';
+  // Mobile: Auto height (scrollable). Tablet: Full height (fixed).
+  const gridContainerClasses = isFixedGrid ? 'h-auto md:h-full' : '';
   
-  // Mobile: 3 columns (dense but tap-friendly). Tablet/Desktop: 5 columns.
-  // Gap adjusted for touch targets.
+  // LAYOUT LOGIC:
+  // Mobile: grid-cols-3 (Requested 3 columns). Auto rows for scrolling.
+  // Tablet (md): grid-cols-5 (Preserved 5 columns). grid-rows-4 (Preserved 4 rows fixed).
   const gridClasses = isFixedGrid
     ? 'grid grid-cols-3 md:grid-cols-5 md:grid-rows-4 gap-2 md:gap-3 h-auto md:h-full'
     : 'grid grid-cols-3 md:grid-cols-5 gap-2 md:gap-3';

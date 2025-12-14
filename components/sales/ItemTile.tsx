@@ -25,7 +25,7 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
     if (isEditing && mode === 'grid') {
         return (
             <div 
-                className={`relative w-full rounded-xl overflow-hidden border-2 border-dashed border-primary/60 bg-primary/5 ${isFixedGrid ? 'h-full' : 'aspect-square'} animate-pulse`}
+                className={`relative w-full rounded-xl overflow-hidden border-2 border-dashed border-primary/60 bg-primary/5 ${isFixedGrid ? 'aspect-square md:h-full md:aspect-auto' : 'aspect-square'} animate-pulse`}
             >
                 {/* Background Image (Dimmed) */}
                 {hasRealImage && (
@@ -78,7 +78,7 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
 
     // Price Badge Component
     const PriceBadge = () => (
-        <div className="absolute top-2 right-2 bg-black/60 text-white backdrop-blur-sm px-2 py-1 rounded-md text-xs font-bold shadow-lg z-10 tabular-nums tracking-tight border border-white/20 pointer-events-none">
+        <div className="absolute top-1 right-1 md:top-2 md:right-2 bg-black/60 text-white backdrop-blur-sm px-1.5 py-0.5 md:px-2 md:py-1 rounded-md text-[10px] md:text-xs font-bold shadow-lg z-10 tabular-nums tracking-tight border border-white/20 pointer-events-none">
             ₹{item.price.toFixed(0)}
         </div>
     );
@@ -88,9 +88,8 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
             <button
                 type="button"
                 onClick={handleClick}
-                // Optimized: Removed transition-all and active scale/opacity on container.
-                // Using a separate overlay div for feedback avoids complex image repaints.
-                className={`relative w-full rounded-xl overflow-hidden cursor-pointer shadow-sm border border-border/50 bg-surface-muted group ${isFixedGrid ? 'h-full' : 'aspect-square'} touch-manipulation select-none`}
+                // Mobile: aspect-square (fits 3x5 well). Tablet: h-full (fits grid-rows-4).
+                className={`relative w-full rounded-xl overflow-hidden cursor-pointer shadow-sm border border-border/50 bg-surface-muted group ${isFixedGrid ? 'aspect-square md:h-full md:aspect-auto' : 'aspect-square'} touch-manipulation select-none`}
                 aria-label={`Add ${item.name} to order`}
             >
                 <div className="w-full h-full pointer-events-none relative">
@@ -102,17 +101,16 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
                         decoding="async"
                     />
                     
-                    {/* Performance Optimization: Active State Overlay */}
-                    {/* This div only shows when the parent button (group) is active. */}
-                    {/* It prevents the browser from having to recalculate opacity for the image layer. */}
+                    {/* Active State Overlay */}
                     <div className="absolute inset-0 bg-black opacity-0 group-active:opacity-20 z-30 transition-none"></div>
 
                     <PriceBadge />
                     
-                    {/* Gradient Overlay for Text Readability */}
+                    {/* Gradient Overlay */}
                     <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-10"></div>
                     
                     <div className="absolute bottom-0 left-0 right-0 p-2 z-20">
+                        {/* Mobile: text-xs, line-clamp-2. Tablet: slightly larger. */}
                         <h3 className="font-bold text-white text-xs md:text-sm leading-tight text-center line-clamp-2 drop-shadow-sm">
                             {item.name}
                         </h3>
@@ -125,17 +123,18 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
             <button
                 type="button"
                 onClick={handleClick}
-                // Consistent with image tile: use overlay for active state
-                className={`relative w-full rounded-xl cursor-pointer shadow-sm border border-border bg-surface group ${isFixedGrid ? 'h-full' : 'aspect-square'} touch-manipulation select-none hover:border-primary/50`}
+                // Mobile: aspect-square. Tablet: h-full.
+                className={`relative w-full rounded-xl cursor-pointer shadow-sm border border-border bg-surface group ${isFixedGrid ? 'aspect-square md:h-full md:aspect-auto' : 'aspect-square'} touch-manipulation select-none hover:border-primary/50`}
                 aria-label={`Add ${item.name} to order`}
             >
-                {/* Active Overlay for Text Tile */}
+                {/* Active Overlay */}
                 <div className="absolute inset-0 bg-primary opacity-0 group-active:opacity-10 z-10 rounded-xl transition-none"></div>
 
                 <PriceBadge />
-                <div className="w-full h-full flex flex-col justify-center items-center p-3 text-center pointer-events-none relative z-0">
-                     <div className="w-8 h-1 bg-primary/20 rounded-full mb-3"></div>
-                    <h3 className="font-bold text-text-primary text-sm md:text-base leading-snug line-clamp-3">
+                <div className="w-full h-full flex flex-col justify-center items-center p-2 md:p-3 text-center pointer-events-none relative z-0">
+                     <div className="w-6 h-1 md:w-8 bg-primary/20 rounded-full mb-2 md:mb-3"></div>
+                    {/* Mobile: text-xs. Tablet: text-base. */}
+                    <h3 className="font-bold text-text-primary text-xs md:text-base leading-snug line-clamp-3">
                         {item.name}
                     </h3>
                 </div>

@@ -3,6 +3,11 @@
 
 This log tracks the major features, improvements, and bug fixes that have led to the current stable version.
 
+### **v2.5.0 (Stable Release)**
+-   **Feature:** Completely redesigned **Reports Graph** with intelligent time scaling. It now automatically switches between Hourly views (for Today/Yesterday) and Daily views (for Week/Month).
+-   **Feature:** Graph visual enhancements including clearer tooltips, dynamic X-axis labels, and proper dark mode support.
+-   **Refactor:** Reports logic now correctly respects "Business Day" shifts when aggregating daily sales (e.g., sales at 2 AM count towards the previous day's shift).
+
 ### **v2.4.0 (Production Release)**
 -   **Feature:** Implemented **"System" Theme** support. The app now automatically syncs with the device's Light/Dark mode settings.
 -   **Feature:** Added a dedicated **Exit/Quit button** in the Navigation Drawer with a confirmation modal, improving the user experience on Android devices.

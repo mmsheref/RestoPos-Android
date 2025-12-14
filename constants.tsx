@@ -337,7 +337,7 @@ export const PaymentMethodIcon: React.FC<{ iconName?: PaymentTypeIcon, className
 // --- START: Added Constants ---
 
 /** The single source of truth for the application version. */
-export const APP_VERSION = "2.4.0";
+export const APP_VERSION = "2.5.0";
 
 export const NAV_LINKS = [
   { path: '/sales', label: 'Sales', Icon: SalesIcon },
