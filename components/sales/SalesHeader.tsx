@@ -42,7 +42,7 @@ const SalesHeader: React.FC<SalesHeaderProps> = ({ openDrawer, searchQuery, onSe
   };
 
   return (
-    <header className="bg-surface shadow-sm border-b border-border w-full z-10 flex-shrink-0 h-16 flex items-center justify-between px-4 transition-all">
+    <header className="bg-surface shadow-sm border-b border-border w-full z-10 flex-shrink-0 h-16 pt-safe-top box-content flex items-center justify-between px-4 transition-all">
       {isSearching ? (
         <div className="flex items-center w-full gap-3 animate-fadeIn">
           <div className="relative flex-grow">

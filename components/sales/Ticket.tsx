@@ -210,13 +210,16 @@ const Ticket: React.FC<TicketProps> = (props) => {
 
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    // Use 'click' instead of 'mousedown' for better reliability on touch devices/hybrid apps
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
         if (ticketMenuRef.current && !ticketMenuRef.current.contains(event.target as Node)) {
             setTicketMenuOpen(false);
         }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    
+    // Using click handles both mouse and touch tap emulation effectively in most React envs
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
   }, []);
   
   useEffect(() => {
@@ -318,7 +321,11 @@ const Ticket: React.FC<TicketProps> = (props) => {
             </div>
         </div>
         <div className="relative" ref={ticketMenuRef}>
-            <button onClick={() => setTicketMenuOpen(prev => !prev)} className="p-2 text-text-secondary hover:text-text-primary rounded-full hover:bg-surface-muted transition-colors" aria-label="Ticket options">
+            <button 
+              onClick={(e) => { e.stopPropagation(); setTicketMenuOpen(prev => !prev); }} 
+              className="p-2 text-text-secondary hover:text-text-primary rounded-full hover:bg-surface-muted transition-colors active:bg-surface-muted" 
+              aria-label="Ticket options"
+            >
               <ThreeDotsIcon className="h-6 w-6" />
             </button>
             {isTicketMenuOpen && (
