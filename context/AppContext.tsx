@@ -15,7 +15,8 @@ import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, 
 import { onAuthStateChanged, User } from 'firebase/auth';
 import FirebaseError from '../components/modals/FirebaseError';
 import { APP_VERSION } from '../constants';
-import { idb } from '../utils/indexedDB'; // Import the new DB helper
+import { idb } from '../utils/indexedDB'; 
+import { useStatusContext } from './StatusContext'; // Consume status actions
 
 // Default configuration for new users
 const DEFAULT_SETTINGS: AppSettings = { 
@@ -54,10 +55,12 @@ const SETTINGS_CACHE_KEY = 'pos_settings_cache';
 const GRIDS_CACHE_KEY = 'pos_grids_cache'; 
 const ONBOARDING_COMPLETED_KEY = 'pos_onboarding_completed_v1';
 const ACTIVE_GRID_KEY = 'pos_active_grid_id';
-// Removed RECEIPTS_CACHE_KEY in favor of IndexedDB
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   
+  // Access Status Context to update sync indicators without causing AppContext consumers to re-render
+  const { setPendingSyncCount } = useStatusContext();
+
   // ==========================================
   // SECTION: AUTH & INITIALIZATION
   // ==========================================
@@ -97,18 +100,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [headerTitle, setHeaderTitle] = useState('');
   const [isReportsUnlocked, setReportsUnlocked] = useState(false); // Session-based security
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-        window.removeEventListener('online', handleOnline);
-        window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
 
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
@@ -202,9 +193,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [paymentTypes, setPaymentTypesState] = useState<PaymentType[]>([]);
   const [savedTickets, setSavedTicketsState] = useState<SavedTicket[]>([]);
   const [tables, setTablesState] = useState<Table[]>([]);
-  
-  // Status State
-  const [pendingSyncCount, setPendingSyncCount] = useState(0);
   
   // Sales Screen Persistence
   const [activeGridId, setActiveGridIdState] = useState<string>(() => {
@@ -362,27 +350,52 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             // 4. Real-time Listener for Receipts
             const qReceipts = query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(100));
+            
             const unsubReceipts = onSnapshot(qReceipts, { includeMetadataChanges: true }, (snapshot) => {
+                // Sync to IDB: Handle Adds, Modifications, and REMOVALS
+                const changes = snapshot.docChanges();
+                
+                const toSave: Receipt[] = [];
+                const toDeleteIds: string[] = [];
+
+                changes.forEach(change => {
+                    // Safe cast with date conversion
+                    const data = change.doc.data();
+                    if (!data) return;
+                    
+                    const receipt = { ...data, date: (data.date as Timestamp).toDate() } as Receipt;
+                    
+                    if (change.type === 'removed') {
+                        toDeleteIds.push(receipt.id);
+                    } else {
+                        toSave.push(receipt);
+                    }
+                });
+
+                // Execute IDB writes (Non-blocking)
+                if (toSave.length > 0) idb.saveBulkReceipts(toSave);
+                toDeleteIds.forEach(id => idb.deleteReceipt(id));
+
+                // Update React State (UI)
                 const latestReceipts = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
                 
-                // PERFORMANCE FIX: Trigger IndexedDB save OUTSIDE the React state updater.
-                // This prevents blocking the UI render cycle with non-UI async work.
-                idb.saveBulkReceipts(latestReceipts);
-
                 setReceiptsState(currentLocalReceipts => {
                     const mergedMap = new Map<string, Receipt>();
                     
-                    // 1. Put active local receipts into map
+                    // 1. Put active local receipts into map (Preserve older items if scrolled down)
                     currentLocalReceipts.forEach(r => mergedMap.set(r.id, r));
                     
-                    // 2. Overwrite with latest data from listener
+                    // 2. Remove deleted items from local state
+                    toDeleteIds.forEach(id => mergedMap.delete(id));
+
+                    // 3. Overwrite with latest data from listener
                     latestReceipts.forEach(r => mergedMap.set(r.id, r));
                     
                     const combined = Array.from(mergedMap.values()).sort((a,b) => b.date.getTime() - a.date.getTime());
-                    
                     return combined;
                 });
                 
+                // Update sync status in StatusContext
                 const pendingCount = snapshot.docs.filter(doc => doc.metadata.hasPendingWrites).length;
                 setPendingSyncCount(pendingCount);
                 
@@ -831,7 +844,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   if (initializationError) return <FirebaseError error={initializationError} />;
 
   // MEMOIZED CONTEXT VALUE
-  // Prevents re-creation of the object on every render, which triggers re-renders in all consumers.
+  // Removed pendingSyncCount and isOnline from here to prevent re-renders.
   const contextValue = useMemo<AppContextType>(() => ({
       user, signOut: signOutUser,
       isDrawerOpen, openDrawer, closeDrawer, toggleDrawer, 
@@ -850,14 +863,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       activeGridId, setActiveGridId,
       currentOrder, addToOrder, removeFromOrder, deleteLineItem, updateOrderItemQuantity, clearOrder, loadOrder,
       exportData, restoreData, exportItemsCsv, replaceItems,
-      isReportsUnlocked, setReportsUnlocked,
-      pendingSyncCount,
-      isOnline
+      isReportsUnlocked, setReportsUnlocked
   }), [
       user, isDrawerOpen, headerTitle, theme, showOnboarding, isLoading,
       settings, printers, paymentTypes, receipts, items, savedTickets, 
       customGrids, tables, activeGridId, currentOrder, isReportsUnlocked, 
-      pendingSyncCount, isOnline,
       openDrawer, closeDrawer, toggleDrawer, setHeaderTitle, setTheme, completeOnboarding,
       updateSettings, addPrinter, removePrinter, addPaymentType, updatePaymentType, removePaymentType,
       addReceipt, loadMoreReceipts, hasMoreReceipts, deleteReceipt, addItem, updateItem, deleteItem,

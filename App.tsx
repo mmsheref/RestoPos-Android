@@ -2,6 +2,7 @@
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
+import { StatusProvider } from './context/StatusContext';
 import Layout from './components/Layout';
 import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
@@ -55,9 +56,11 @@ const AppRoutes: React.FC = () => {
 const App: React.FC = () => {
   return (
     <HashRouter>
-      <AppProvider>
-        <AppRoutes />
-      </AppProvider>
+      <StatusProvider>
+        <AppProvider>
+          <AppRoutes />
+        </AppProvider>
+      </StatusProvider>
     </HashRouter>
   );
 };

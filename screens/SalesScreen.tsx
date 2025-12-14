@@ -27,6 +27,32 @@ type SalesView = 'grid' | 'payment';
 // UUID Generator Fallback
 const generateId = () => crypto.randomUUID ? crypto.randomUUID() : `G${Date.now()}`;
 
+// --- SEARCH WORKER CODE ---
+// We define this as a string to create a Blob Worker.
+// This avoids complex build configuration for separate worker files.
+const SEARCH_WORKER_CODE = `
+self.onmessage = function(e) {
+    const { items, query } = e.data;
+    
+    if (!query || !query.trim()) {
+        self.postMessage([]);
+        return;
+    }
+
+    const lowerQuery = query.trim().toLowerCase();
+    
+    // Perform filtering off-main-thread
+    const results = items.filter(item => {
+        const nameMatch = item.name.toLowerCase().includes(lowerQuery);
+        // Optional: Add category matching if desired
+        const categoryMatch = item.category ? item.category.toLowerCase().includes(lowerQuery) : false;
+        return nameMatch || categoryMatch;
+    });
+
+    self.postMessage(results);
+};
+`;
+
 const SalesScreen: React.FC = () => {
   const { 
       openDrawer, settings, printers, addReceipt, 
@@ -46,6 +72,10 @@ const SalesScreen: React.FC = () => {
   const [salesView, setSalesView] = useState<SalesView>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  
+  // Search Results from Worker
+  const [workerSearchResults, setWorkerSearchResults] = useState<Item[]>([]);
+  const searchWorkerRef = useRef<Worker | null>(null);
   
   // Ticket management state
   const [editingTicket, setEditingTicket] = useState<SavedTicket | null>(null);
@@ -85,6 +115,36 @@ const SalesScreen: React.FC = () => {
   
   const [isTicketVisible, setIsTicketVisible] = useState(false);
 
+  // Initialize Search Worker
+  useEffect(() => {
+      const blob = new Blob([SEARCH_WORKER_CODE], { type: 'application/javascript' });
+      const worker = new Worker(URL.createObjectURL(blob));
+      searchWorkerRef.current = worker;
+
+      worker.onmessage = (e) => {
+          setWorkerSearchResults(e.data);
+      };
+
+      return () => {
+          worker.terminate();
+      };
+  }, []);
+
+  // Post messages to worker when query or items change
+  useEffect(() => {
+      if (searchWorkerRef.current && debouncedSearchQuery.trim()) {
+          // Optimization: If items array is massive, we might want to avoid cloning it every time.
+          // However, for React apps < 10k items, structured cloning via postMessage is usually acceptable
+          // and much faster than blocking the main thread with filter logic.
+          searchWorkerRef.current.postMessage({
+              items: items,
+              query: debouncedSearchQuery
+          });
+      } else {
+          setWorkerSearchResults([]);
+      }
+  }, [debouncedSearchQuery, items]);
+
   // Force scroll container reflow when active to fix mobile glitches
   useEffect(() => {
     if (isActive && scrollContainerRef.current) {
@@ -92,10 +152,6 @@ const SalesScreen: React.FC = () => {
     }
   }, [isActive]);
   
-  // PERFORMANCE: Removed useEffect updating global headerTitle.
-  // SalesScreen renders its own SalesHeader, so updating the global context 
-  // just caused the entire app layout to re-render for no visual reason.
-
   // Reset pagination and scroll position when category or search changes
   useEffect(() => {
     setDisplayLimit(40);
@@ -178,10 +234,12 @@ const SalesScreen: React.FC = () => {
   }, [clearOrder]);
   
   const itemsForDisplay = useMemo<(Item | null)[]>(() => {
+    // If search is active, return worker results
     if (debouncedSearchQuery.trim()) {
-        const lowerQuery = debouncedSearchQuery.trim().toLowerCase();
-        return items.filter(item => item.name.toLowerCase().includes(lowerQuery));
+        return workerSearchResults;
     }
+    
+    // Otherwise, Standard Grid Logic
     if (activeGridId === 'All') return items;
     const grid = customGrids.find(g => g.id === activeGridId);
     if (grid) {
@@ -193,7 +251,7 @@ const SalesScreen: React.FC = () => {
         return finalItemIds.map(itemId => items.find(i => i.id === itemId) || null);
     }
     return new Array(GRID_SIZE).fill(null);
-  }, [activeGridId, items, customGrids, debouncedSearchQuery]);
+  }, [activeGridId, items, customGrids, debouncedSearchQuery, workerSearchResults]);
 
   const paginatedItems = useMemo(() => {
       // Only paginate "All" view or Search results

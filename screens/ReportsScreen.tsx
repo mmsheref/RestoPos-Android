@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { LockIcon, MenuIcon, DollarSignIcon, ChartIcon, CheckIcon, DownloadIcon, CloseIcon } from '../constants';
+import { LockIcon, MenuIcon, DollarSignIcon, ChartIcon, CheckIcon, DownloadIcon, CloseIcon, ArrowLeftIcon } from '../constants';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -37,6 +37,37 @@ const StatCard: React.FC<{ title: string, value: string, icon: React.ReactNode, 
         </div>
     </div>
 );
+
+// --- COMPONENT: PAGINATION CONTROLS ---
+const PaginationControls: React.FC<{ 
+    currentPage: number; 
+    totalPages: number; 
+    onPageChange: (page: number) => void;
+}> = ({ currentPage, totalPages, onPageChange }) => {
+    if (totalPages <= 1) return null;
+    
+    return (
+        <div className="flex justify-between items-center p-4 border-t border-border bg-surface">
+            <button
+                disabled={currentPage === 1}
+                onClick={() => onPageChange(currentPage - 1)}
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-border hover:bg-surface-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+                Previous
+            </button>
+            <span className="text-sm text-text-secondary font-medium">
+                Page {currentPage} of {totalPages}
+            </span>
+            <button
+                disabled={currentPage === totalPages}
+                onClick={() => onPageChange(currentPage + 1)}
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-border hover:bg-surface-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+                Next
+            </button>
+        </div>
+    );
+};
 
 // --- COMPONENT: SECURITY OVERLAY ---
 const SecurityOverlay: React.FC<{ onUnlock: (pin: string) => boolean }> = ({ onUnlock }) => {
@@ -102,11 +133,11 @@ const SecurityOverlay: React.FC<{ onUnlock: (pin: string) => boolean }> = ({ onU
 };
 
 const ReportsScreen: React.FC = () => {
-    const { openDrawer, receipts: recentReceipts, settings, isReportsUnlocked, setReportsUnlocked, paymentTypes } = useAppContext();
+    const { openDrawer, receipts: contextReceipts, settings, isReportsUnlocked, setReportsUnlocked, paymentTypes } = useAppContext();
     
-    // Local state for FULL history to calculate correct reports
-    const [allReceipts, setAllReceipts] = useState<Receipt[]>([]);
-    const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+    // Instead of holding ALL receipts, we only hold receipts for the current view
+    const [fetchedReceipts, setFetchedReceipts] = useState<Receipt[]>([]);
+    const [isLoadingData, setIsLoadingData] = useState(true);
 
     // Filters State
     const [filter, setFilter] = useState<DateFilter>('today');
@@ -120,35 +151,17 @@ const ReportsScreen: React.FC = () => {
     const [orderSortConfig, setOrderSortConfig] = useState<SortConfig>({ key: 'date', direction: 'desc' });
     const [itemSortConfig, setItemSortConfig] = useState<SortConfig>({ key: 'revenue', direction: 'desc' });
 
-    // Load full history on mount
+    // Pagination State
+    const ITEMS_PER_PAGE = 50;
+    const [currentPage, setCurrentPage] = useState(1);
+
+    // Reset pagination when tab or filters change
     useEffect(() => {
-        const loadFullHistory = async () => {
-            setIsLoadingHistory(true);
-            try {
-                const history = await idb.getAllReceipts();
-                setAllReceipts(history);
-            } catch (e) {
-                console.error("Failed to load report history", e);
-            } finally {
-                setIsLoadingHistory(false);
-            }
-        };
-        loadFullHistory();
-    }, []);
+        setCurrentPage(1);
+    }, [activeTab, filter, shiftFilter, paymentMethodFilter, orderSortConfig, itemSortConfig]);
 
-    // Combine local history with recent updates from context (deduplicated)
-    const mergedReceipts = useMemo(() => {
-        const map = new Map<string, Receipt>();
-        // 1. History first
-        allReceipts.forEach(r => map.set(r.id, r));
-        // 2. Recent context (updates) overwrite history
-        recentReceipts.forEach(r => map.set(r.id, r));
-        return Array.from(map.values());
-    }, [allReceipts, recentReceipts]);
-
-    // --- ANALYTICS LOGIC ---
-    const { filteredReceipts, metrics } = useMemo(() => {
-        // 1. Calculate Date Range (Base)
+    // Determine the effective date range based on filter
+    const dateRange = useMemo<{ start: Date, end: Date }>(() => {
         let startTime: Date;
         let endTime: Date;
 
@@ -168,7 +181,6 @@ const ReportsScreen: React.FC = () => {
             startTime = new Date(customStartDate);
             endTime = new Date(customEndDate);
         } else {
-            // Determine the "Anchor Day"
             let anchorDayStart = new Date(todayStart);
             let anchorDayEnd = new Date(todayEnd);
 
@@ -185,7 +197,7 @@ const ReportsScreen: React.FC = () => {
             }
 
             // Apply Shift Logic ONLY for 'today' and 'yesterday'
-            if ((filter === 'today' || filter === 'yesterday') && shiftFilter !== 'all') {
+            if (filter === 'today' || filter === 'yesterday') {
                 const morningStartStr = settings.shiftMorningStart || '06:00';
                 const morningEndStr = settings.shiftMorningEnd || '17:30';
                 const nightEndStr = settings.shiftNightEnd || '05:00';
@@ -193,27 +205,72 @@ const ReportsScreen: React.FC = () => {
                 if (shiftFilter === 'morning') {
                     startTime = setTime(anchorDayStart, morningStartStr, '06:00');
                     endTime = setTime(anchorDayStart, morningEndStr, '17:30');
-                } else { // shiftFilter === 'night'
-                    startTime = setTime(anchorDayStart, morningEndStr, '17:30'); // Night starts when morning ends
+                } else if (shiftFilter === 'night') {
+                    startTime = setTime(anchorDayStart, morningEndStr, '17:30');
                     endTime = setTime(anchorDayStart, nightEndStr, '05:00');
-                    // CRITICAL: Night shift ends on the NEXT day
-                    endTime.setDate(endTime.getDate() + 1);
+                    endTime.setDate(endTime.getDate() + 1); // Next day
+                } else {
+                    // shiftFilter === 'all' (All Day)
+                    // Configured to cover the full business day: Morning Start -> Night End (Next Day)
+                    startTime = setTime(anchorDayStart, morningStartStr, '06:00');
+                    endTime = setTime(anchorDayStart, nightEndStr, '05:00');
+                    endTime.setDate(endTime.getDate() + 1); // Next day
                 }
             } else {
                 startTime = anchorDayStart;
                 endTime = anchorDayEnd;
             }
         }
+        return { start: startTime, end: endTime };
+    }, [filter, shiftFilter, customStartDate, customEndDate, settings]);
 
-        // 2. Filter Data
-        const filtered = mergedReceipts.filter(r => {
-            const date = new Date(r.date);
-            const matchesDate = date >= startTime && date <= endTime;
-            const matchesPayment = paymentMethodFilter === 'all' || r.paymentMethod === paymentMethodFilter;
-            return matchesDate && matchesPayment;
+    // Fetch data whenever date range changes
+    // This optimization is CRITICAL for 1000+ days usage
+    useEffect(() => {
+        const fetchData = async () => {
+            setIsLoadingData(true);
+            try {
+                // Fetch only the range we need from IndexedDB
+                const rangeData = await idb.getReceiptsByDateRange(dateRange.start, dateRange.end);
+                
+                // Merge with context receipts (recent unsaved data might be in context)
+                // We create a Map to deduplicate, prioritizing context (more recent) if overlap
+                const map = new Map<string, Receipt>();
+                rangeData.forEach(r => map.set(r.id, r));
+                
+                // Overlay any matching receipts from the lightweight context
+                // Optimization: contextReceipts is sorted (newest first).
+                // We only need to check items that fall within our date range.
+                // If we encounter an item OLDER than start date, we can stop iterating.
+                for (const r of contextReceipts) {
+                    const rDate = new Date(r.date);
+                    if (rDate < dateRange.start) {
+                        // Context receipts are sorted desc. If we hit one older than start, we are done.
+                        break; 
+                    }
+                    if (rDate <= dateRange.end) {
+                        map.set(r.id, r);
+                    }
+                }
+
+                setFetchedReceipts(Array.from(map.values()));
+            } catch (error) {
+                console.error("Error fetching reports data:", error);
+            } finally {
+                setIsLoadingData(false);
+            }
+        };
+        fetchData();
+    }, [dateRange, contextReceipts]); // Re-run if filter changes or if new data arrives in context
+
+    // --- ANALYTICS LOGIC (Runs on the fetched subset) ---
+    const { filteredReceipts, metrics } = useMemo(() => {
+        // Apply Payment Method Filter (Memory-side, on the small subset)
+        const filtered = fetchedReceipts.filter(r => {
+            return paymentMethodFilter === 'all' || r.paymentMethod === paymentMethodFilter;
         });
         
-        // 2.1 Sort Data (Orders)
+        // Sort Data (Orders)
         const sorted = [...filtered].sort((a, b) => {
              if (orderSortConfig.key === 'date') {
                  const timeA = new Date(a.date).getTime();
@@ -226,7 +283,7 @@ const ReportsScreen: React.FC = () => {
              return 0;
         });
 
-        // 3. Aggregate Metrics
+        // Aggregate Metrics
         let totalSales = 0;
         let totalOrders = sorted.length;
         const paymentMethods: Record<string, number> = {};
@@ -241,7 +298,6 @@ const ReportsScreen: React.FC = () => {
             totalSales += r.total;
             paymentMethods[r.paymentMethod] = (paymentMethods[r.paymentMethod] || 0) + r.total;
             
-            // Safe Hour Extraction
             const rDate = new Date(r.date);
             if (!isNaN(rDate.getTime())) {
                 const hour = rDate.getHours();
@@ -274,7 +330,7 @@ const ReportsScreen: React.FC = () => {
                 salesByCategory
             }
         };
-    }, [mergedReceipts, filter, shiftFilter, customStartDate, customEndDate, paymentMethodFilter, orderSortConfig, settings]);
+    }, [fetchedReceipts, paymentMethodFilter, orderSortConfig]);
 
     // Derived state for Sorted Items List
     const sortedItems = useMemo(() => {
@@ -379,6 +435,20 @@ const ReportsScreen: React.FC = () => {
         </div>
     );
 
+    // Pagination Logic: Slice data for current page
+    const paginatedItems = useMemo(() => {
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        return sortedItems.slice(start, start + ITEMS_PER_PAGE);
+    }, [sortedItems, currentPage]);
+
+    const paginatedOrders = useMemo(() => {
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        return filteredReceipts.slice(start, start + ITEMS_PER_PAGE);
+    }, [filteredReceipts, currentPage]);
+
+    const totalItemPages = Math.ceil(sortedItems.length / ITEMS_PER_PAGE);
+    const totalOrderPages = Math.ceil(filteredReceipts.length / ITEMS_PER_PAGE);
+
     return (
         <div className="flex h-full flex-col bg-background overflow-hidden font-sans">
             {/* --- HEADER --- */}
@@ -468,7 +538,7 @@ const ReportsScreen: React.FC = () => {
             {/* --- CONTENT AREA --- */}
             {isLocked ? (
                 <SecurityOverlay onUnlock={handleUnlock} />
-            ) : isLoadingHistory ? (
+            ) : isLoadingData ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-text-secondary">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
                     <p className="text-sm">Calculating reports...</p>
@@ -600,7 +670,7 @@ const ReportsScreen: React.FC = () => {
                                             </tr>
                                         </thead>
                                         <tbody className="bg-surface divide-y divide-border">
-                                            {sortedItems.map((item) => (
+                                            {paginatedItems.map((item) => (
                                                 <tr key={item.name} className="hover:bg-surface-muted/50 transition-colors">
                                                     <td className="px-6 py-3.5 whitespace-nowrap text-sm font-medium text-text-primary">{item.name}</td>
                                                     <td className="px-6 py-3.5 whitespace-nowrap text-sm text-text-secondary">{item.category}</td>
@@ -608,9 +678,14 @@ const ReportsScreen: React.FC = () => {
                                                     <td className="px-6 py-3.5 whitespace-nowrap text-sm text-text-primary font-bold text-right font-mono">₹{item.revenue.toFixed(2)}</td>
                                                 </tr>
                                             ))}
-                                            {sortedItems.length === 0 && <tr><td colSpan={4} className="px-6 py-8 text-center text-text-muted">No items found.</td></tr>}
+                                            {sortedItems.length === 0 && <tr><td colSpan={4} className="px-6 py-8 text-center text-text-muted">No items found for this period.</td></tr>}
                                         </tbody>
                                     </table>
+                                    <PaginationControls 
+                                        currentPage={currentPage} 
+                                        totalPages={totalItemPages} 
+                                        onPageChange={setCurrentPage} 
+                                    />
                                 </div>
                             </div>
                         )}
@@ -639,7 +714,7 @@ const ReportsScreen: React.FC = () => {
                                             </tr>
                                         </thead>
                                         <tbody className="bg-surface divide-y divide-border">
-                                            {filteredReceipts.map((r) => (
+                                            {paginatedOrders.map((r) => (
                                                 <tr key={r.id} className="hover:bg-surface-muted/50 transition-colors">
                                                     <td className="px-6 py-3.5 text-xs font-mono text-text-secondary">#{r.id.slice(-6)}</td>
                                                     <td className="px-6 py-3.5 text-sm text-text-primary">{new Date(r.date).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</td>
@@ -647,9 +722,14 @@ const ReportsScreen: React.FC = () => {
                                                     <td className="px-6 py-3.5 text-sm font-bold text-text-primary text-right font-mono">₹{r.total.toFixed(2)}</td>
                                                 </tr>
                                             ))}
-                                            {filteredReceipts.length === 0 && <tr><td colSpan={4} className="px-6 py-8 text-center text-text-muted">No orders found.</td></tr>}
+                                            {filteredReceipts.length === 0 && <tr><td colSpan={4} className="px-6 py-8 text-center text-text-muted">No orders found for this period.</td></tr>}
                                         </tbody>
                                     </table>
+                                    <PaginationControls 
+                                        currentPage={currentPage} 
+                                        totalPages={totalOrderPages} 
+                                        onPageChange={setCurrentPage} 
+                                    />
                                 </div>
                             </div>
                         )}

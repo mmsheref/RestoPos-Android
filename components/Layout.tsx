@@ -14,6 +14,9 @@ import SettingsScreen from '../screens/SettingsScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import AboutScreen from '../screens/AboutScreen';
 
+// Screen Timeout in milliseconds (e.g., 10 minutes)
+const SCREEN_TIMEOUT = 10 * 60 * 1000; 
+
 // Memoized wrapper for kept-alive screens to prevent unnecessary re-renders when parent Layout updates (e.g. drawer toggle)
 const KeepAliveScreen = React.memo(({ isVisible, children }: { isVisible: boolean, children: React.ReactNode }) => {
     return (
@@ -36,19 +39,48 @@ const Layout: React.FC = () => {
   const location = useLocation();
   const { pathname } = location;
 
-  // State to track which screens have been visited to lazy-load them
-  const [visitedRoutes, setVisitedRoutes] = useState<Record<string, boolean>>({
-      '/sales': true // Always load Sales first
+  // State to track which screens are currently kept alive in the DOM
+  // Maps path -> timestamp of last access
+  const [activeScreens, setActiveScreens] = useState<Record<string, number>>({
+      '/sales': Date.now() // Sales is always active initially
   });
 
   // Swipe Gesture Ref
   const touchStartRef = useRef<{x: number, y: number} | null>(null);
 
+  // Update active timestamp when visiting a route
   useEffect(() => {
-      if (!visitedRoutes[pathname]) {
-          setVisitedRoutes(prev => ({ ...prev, [pathname]: true }));
-      }
-  }, [pathname, visitedRoutes]);
+      setActiveScreens(prev => ({
+          ...prev,
+          [pathname]: Date.now()
+      }));
+  }, [pathname]);
+
+  // Garbage Collection Effect: Unmount screens that haven't been visited in SCREEN_TIMEOUT
+  useEffect(() => {
+      const interval = setInterval(() => {
+          const now = Date.now();
+          setActiveScreens(prev => {
+              const next = { ...prev };
+              let hasChanges = false;
+
+              Object.keys(next).forEach(path => {
+                  // Never unmount Sales screen (Home) or the currently active screen
+                  if (path === '/sales' || path === pathname) return;
+
+                  if (now - next[path] > SCREEN_TIMEOUT) {
+                      delete next[path];
+                      hasChanges = true;
+                      console.log(`[Layout] Garbage collecting screen: ${path}`);
+                  }
+              });
+
+              return hasChanges ? next : prev;
+          });
+      }, 60000); // Check every minute
+
+      return () => clearInterval(interval);
+  }, [pathname]);
 
   // DERIVED STATE: Determine Header Title without causing re-renders via useEffect/setState
   const displayTitle = useMemo(() => {
@@ -123,37 +155,38 @@ const Layout: React.FC = () => {
             2. Opacity transition for smoothness (hardware accelerated).
             3. Visibility toggling to remove inactive screens from access tree.
             4. Memoized wrappers to prevent children re-rendering on Layout updates.
+            5. Automatic unmounting (GC) of inactive screens via `activeScreens` state.
         */}
         
         <KeepAliveScreen isVisible={pathname === '/sales'}>
             <SalesScreen />
         </KeepAliveScreen>
 
-        {visitedRoutes['/receipts'] && (
+        {activeScreens['/receipts'] && (
             <KeepAliveScreen isVisible={pathname === '/receipts'}>
                 <ReceiptsScreen />
             </KeepAliveScreen>
         )}
 
-        {visitedRoutes['/reports'] && (
+        {activeScreens['/reports'] && (
             <KeepAliveScreen isVisible={pathname === '/reports'}>
                 <ReportsScreen />
             </KeepAliveScreen>
         )}
 
-        {visitedRoutes['/items'] && (
+        {activeScreens['/items'] && (
             <KeepAliveScreen isVisible={pathname === '/items'}>
                 <ItemsScreen />
             </KeepAliveScreen>
         )}
 
-        {visitedRoutes['/settings'] && (
+        {activeScreens['/settings'] && (
             <KeepAliveScreen isVisible={pathname === '/settings'}>
                 <SettingsScreen />
             </KeepAliveScreen>
         )}
         
-        {visitedRoutes['/about'] && (
+        {activeScreens['/about'] && (
             <KeepAliveScreen isVisible={pathname === '/about'}>
                 <AboutScreen />
             </KeepAliveScreen>

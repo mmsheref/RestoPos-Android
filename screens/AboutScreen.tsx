@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { useStatusContext } from '../context/StatusContext';
 import { MenuIcon, InfoIcon, UserIcon, ArrowLeftIcon } from '../constants';
 import { APP_VERSION } from '../constants';
 import { Capacitor } from '@capacitor/core';
@@ -8,7 +9,8 @@ import { Capacitor } from '@capacitor/core';
 type AboutSection = 'app_info' | 'developer';
 
 const AboutScreen: React.FC = () => {
-  const { openDrawer, isOnline, pendingSyncCount } = useAppContext();
+  const { openDrawer } = useAppContext();
+  const { isOnline, pendingSyncCount } = useStatusContext();
   const [activeSection, setActiveSection] = useState<AboutSection>('app_info');
   const [isDetailView, setIsDetailView] = useState(false);
 

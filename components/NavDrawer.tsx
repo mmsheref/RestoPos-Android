@@ -2,13 +2,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
+import { useStatusContext } from '../context/StatusContext';
 import { NAV_LINKS, SignOutIcon, SyncIcon, OfflineIcon, CheckIcon, UserIcon, PowerIcon } from '../constants';
 import ConfirmModal from './modals/ConfirmModal';
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 
 const NavDrawer: React.FC = () => {
-  const { isDrawerOpen, closeDrawer, user, signOut, settings, pendingSyncCount, isOnline } = useAppContext();
+  const { isDrawerOpen, closeDrawer, user, signOut, settings } = useAppContext();
+  const { pendingSyncCount, isOnline } = useStatusContext();
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
   

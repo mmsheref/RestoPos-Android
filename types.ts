@@ -197,6 +197,16 @@ export interface BackupData {
 // ==========================================
 
 /**
+ * Context for high-frequency status updates.
+ * Separated to prevent re-rendering the main AppContext consumers.
+ */
+export interface StatusContextType {
+  pendingSyncCount: number;
+  setPendingSyncCount: (count: number) => void;
+  isOnline: boolean;
+}
+
+/**
  * The Shape of the Global App Context.
  * Contains all state and actions available throughout the application.
  */
@@ -283,8 +293,4 @@ export interface AppContextType {
   restoreData: (data: BackupData) => void;
   exportItemsCsv: () => void;
   replaceItems: (items: Item[]) => void;
-  
-  // --- Status ---
-  pendingSyncCount: number;
-  isOnline: boolean;
 }

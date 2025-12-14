@@ -2,7 +2,8 @@
 import { Receipt } from '../types';
 
 const DB_NAME = 'restaurant_pos_db';
-const DB_VERSION = 1;
+// Bumping version to trigger schema upgrade (adding index)
+const DB_VERSION = 2;
 const STORE_NAME = 'receipts';
 
 /**
@@ -15,9 +16,21 @@ const openDB = (): Promise<IDBDatabase> => {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
+      const transaction = (event.target as IDBOpenDBRequest).transaction;
+      
+      let store: IDBObjectStore;
+
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         // Create the 'receipts' store, using 'id' as the primary key
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      } else {
+        // Retrieve existing store for modification
+        store = transaction!.objectStore(STORE_NAME);
+      }
+
+      // Create 'date' index for range queries if it doesn't exist
+      if (!store.indexNames.contains('date')) {
+          store.createIndex('date', 'date', { unique: false });
       }
     };
 
@@ -34,9 +47,8 @@ const openDB = (): Promise<IDBDatabase> => {
 
 export const idb = {
   /**
-   * Retrieves all receipts from the local database.
-   * Returns them sorted by date (newest first).
-   * WARNING: Use carefully with large datasets.
+   * Retrieves all receipts.
+   * WARNING: High memory usage. Only use for backups.
    */
   getAllReceipts: async (): Promise<Receipt[]> => {
     try {
@@ -48,7 +60,6 @@ export const idb = {
 
             request.onsuccess = () => {
                 const results = request.result as Receipt[];
-                // Sort in memory after retrieval
                 results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 resolve(results);
             };
@@ -62,9 +73,36 @@ export const idb = {
   },
 
   /**
+   * Efficiently fetches receipts within a specific date range using the IDB Index.
+   * This is O(log n) + k, vastly faster than loading all and filtering in memory.
+   */
+  getReceiptsByDateRange: async (start: Date, end: Date): Promise<Receipt[]> => {
+      try {
+          const db = await openDB();
+          return new Promise((resolve, reject) => {
+              const transaction = db.transaction(STORE_NAME, 'readonly');
+              const store = transaction.objectStore(STORE_NAME);
+              const index = store.index('date');
+              const range = IDBKeyRange.bound(start, end);
+              const request = index.getAll(range);
+
+              request.onsuccess = () => {
+                  const results = request.result as Receipt[];
+                  // Sort newest first
+                  results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                  resolve(results);
+              };
+              
+              request.onerror = () => reject(request.error);
+          });
+      } catch (error) {
+          console.error("Failed to get range receipts", error);
+          return [];
+      }
+  },
+
+  /**
    * Retrieves only the most recent receipts.
-   * Uses a cursor to avoid loading the entire database into memory.
-   * Assumes ID generation (R + Timestamp) correlates with time, or simply returns latest added.
    */
   getRecentReceipts: async (limit: number): Promise<Receipt[]> => {
     try {
@@ -75,9 +113,14 @@ export const idb = {
             const results: Receipt[] = [];
             
             // Open cursor in 'prev' direction to get last keys (newest) first
-            // Note: This relies on IDs being somewhat chronological or inserted in order. 
-            // Since IDs are R{Timestamp}, they sort correctly as strings for time.
-            const request = store.openCursor(null, 'prev');
+            // Note: We use the 'date' index now if available, otherwise fallback to store (id)
+            // Using 'date' index ensures true chronological order regardless of ID format
+            let request: IDBRequest;
+            if (store.indexNames.contains('date')) {
+                request = store.index('date').openCursor(null, 'prev');
+            } else {
+                request = store.openCursor(null, 'prev');
+            }
 
             request.onsuccess = (event) => {
                 const cursor = (event.target as IDBRequest).result as IDBCursorWithValue;
@@ -99,7 +142,6 @@ export const idb = {
 
   /**
    * Saves a single receipt to the local database.
-   * Updates it if it already exists.
    */
   saveReceipt: async (receipt: Receipt): Promise<void> => {
     try {
@@ -118,8 +160,7 @@ export const idb = {
   },
 
   /**
-   * Efficiently saves multiple receipts in a single transaction.
-   * Used when syncing batch updates from Firebase.
+   * Efficiently saves multiple receipts.
    */
   saveBulkReceipts: async (receipts: Receipt[]): Promise<void> => {
     if (receipts.length === 0) return;
@@ -161,7 +202,7 @@ export const idb = {
   },
   
   /**
-   * Clears all data (Used on logout/restore)
+   * Clears all data.
    */
   clearAll: async (): Promise<void> => {
       try {

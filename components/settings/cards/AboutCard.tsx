@@ -1,11 +1,13 @@
 
 import React from 'react';
 import { useAppContext } from '../../../context/AppContext';
+import { useStatusContext } from '../../../context/StatusContext';
 import { Capacitor } from '@capacitor/core';
 import { APP_VERSION } from '../../../constants';
+import { UserIcon } from '../../../constants'; // Fixed missing import
 
 const AboutCard: React.FC = () => {
-  const { pendingSyncCount, isOnline } = useAppContext();
+  const { pendingSyncCount, isOnline } = useStatusContext();
   
   const getPlatformLabel = () => {
     const platform = Capacitor.getPlatform();
