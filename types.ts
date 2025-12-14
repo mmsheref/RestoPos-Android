@@ -2,12 +2,6 @@
 import { User } from 'firebase/auth';
 
 // ==========================================
-// DOMAIN: GLOBAL
-// ==========================================
-
-export type Theme = 'light' | 'dark' | 'system';
-
-// ==========================================
 // DOMAIN: INVENTORY & ITEMS
 // ==========================================
 
@@ -148,13 +142,7 @@ export interface AppSettings {
   currencySymbol?: string;
   timezone?: string;
   language?: string;
-  
-  // Notifications
   notificationsEnabled?: boolean;
-  notifyLowStock?: boolean;
-  lowStockThreshold?: number;
-  notifyDailySummary?: boolean;
-  dailySummaryTime?: string; // "HH:MM"
 
   // Shift Configuration
   shiftMorningStart?: string; // e.g. "06:00"
@@ -212,8 +200,8 @@ export interface AppContextType {
   toggleDrawer: () => void;
   headerTitle: string;
   setHeaderTitle: (title: string) => void;
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
+  theme: 'light' | 'dark';
+  setTheme: (theme: 'light' | 'dark') => void;
   showOnboarding: boolean;
   completeOnboarding: () => Promise<boolean>;
   isLoading: boolean;

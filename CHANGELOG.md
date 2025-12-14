@@ -1,13 +1,6 @@
-
 # Changelog
 
 This log tracks the major features, improvements, and bug fixes that have led to the current stable version.
-
-### **v2.4.0 (Production Release)**
--   **Feature:** Implemented **"System" Theme** support. The app now automatically syncs with the device's Light/Dark mode settings.
--   **Feature:** Added a dedicated **Exit/Quit button** in the Navigation Drawer with a confirmation modal, improving the user experience on Android devices.
--   **Refactor:** Enhanced the app's stability and production readiness. Confirmed core workflows (Sales, Sync, Backup) are robust.
--   **Maintenance:** Updated dependencies and validated offline-first capabilities.
 
 ### **v2.3.0 (Polish & Bug Fixes)**
 -   **UI/UX Improvement:** Completely redesigned the item list within the ticket for a cleaner, two-line layout that handles long item names gracefully.

@@ -1,7 +1,7 @@
 {
   "name": "restaurant-pos",
   "private": true,
-  "version": "2.4.0",
+  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,9 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@capacitor/app": "^7.0.0",
     "@capacitor/filesystem": "^7.1.4",
-    "@capacitor/local-notifications": "^7.0.0",
     "@capacitor/share": "^7.0.2",
     "cordova-plugin-android-permissions": "^1.1.5",
     "cordova-plugin-bluetooth-serial": "^0.4.7",

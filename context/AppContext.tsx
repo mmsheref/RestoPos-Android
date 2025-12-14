@@ -1,21 +1,22 @@
 
-import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useMemo } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
 import { 
     Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, 
-    CustomGrid, PaymentType, OrderItem, AppContextType, Table, Theme
+    CustomGrid, PaymentType, OrderItem, AppContextType, Table 
 } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { exportItemsToCsv } from '../utils/csvHelper';
 import { requestAppPermissions } from '../utils/permissions';
-import { requestNotificationPermission, scheduleDailySummary, cancelDailySummary, sendLowStockAlert } from '../utils/notificationHelper';
 import { db, signOutUser, clearAllData, firebaseConfig, auth } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, query, orderBy, limit, startAfter, getDocs, getDoc, QueryDocumentSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import FirebaseError from '../components/modals/FirebaseError';
 import { APP_VERSION } from '../constants';
 import { idb } from '../utils/indexedDB'; // Import the new DB helper
+
+type Theme = 'light' | 'dark';
 
 // Default configuration for new users
 const DEFAULT_SETTINGS: AppSettings = { 
@@ -30,13 +31,6 @@ const DEFAULT_SETTINGS: AppSettings = {
     shiftMorningStart: '06:00',
     shiftMorningEnd: '17:30',
     shiftNightEnd: '05:00',
-
-    // Default Notifications
-    notificationsEnabled: false,
-    notifyLowStock: false,
-    lowStockThreshold: 10,
-    notifyDailySummary: false,
-    dailySummaryTime: '22:00'
 };
 
 interface FirebaseErrorState {
@@ -74,10 +68,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // If native, request permissions first
     if (Capacitor.isNativePlatform()) {
       const permissionsGranted = await requestAppPermissions();
-      // Also request notification permissions if platform supports it, 
-      // but we don't block onboarding for it (optional)
-      await requestNotificationPermission();
-      
       if (permissionsGranted) {
         localStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
         setShowOnboarding(false);
@@ -113,50 +103,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
         const storedPrefs = localStorage.getItem('theme');
-        // Validate stored preference
-        if (storedPrefs === 'light' || storedPrefs === 'dark' || storedPrefs === 'system') {
-            return storedPrefs as Theme;
-        }
-        return 'system'; // Default to system
+        if (storedPrefs) return storedPrefs as Theme;
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
-    return 'system';
+    return 'light';
   });
 
-  const setTheme = useCallback((newTheme: Theme) => {
+  const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem('theme', newTheme);
-  }, []);
+  };
   
-  // Apply theme class to HTML body
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
-    const applyTheme = () => {
-        let effectiveTheme = theme;
-        
-        if (theme === 'system') {
-            effectiveTheme = mediaQuery.matches ? 'dark' : 'light';
-        }
-        
-        if (effectiveTheme === 'dark') {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-    };
-
-    applyTheme();
-
-    // Listener for system preference changes when in 'system' mode
-    const handleChange = () => {
-        if (theme === 'system') {
-            applyTheme();
-        }
-    };
-
-    // Modern browsers use addEventListener
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    if (theme === 'dark') document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
   }, [theme]);
 
   const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
@@ -304,16 +264,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     const merged = { ...DEFAULT_SETTINGS, ...fetched };
                     setSettingsState(merged);
                     localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(merged));
-                    
-                    // Initialize notifications based on fetched settings
-                    if (merged.notificationsEnabled) {
-                        requestNotificationPermission().then(() => {
-                            if (merged.notifyDailySummary && merged.dailySummaryTime) {
-                                scheduleDailySummary(merged.dailySummaryTime);
-                            }
-                        });
-                    }
-
                 } else {
                     await setDoc(doc(db, 'users', uid, 'config', 'settings'), DEFAULT_SETTINGS);
                     setSettingsState(DEFAULT_SETTINGS);
@@ -377,6 +327,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     const combined = Array.from(mergedMap.values()).sort((a,b) => b.date.getTime() - a.date.getTime());
                     
                     // 3. Save updates to IndexedDB (Async, don't await)
+                    // We only save the `latestReceipts` to update any changes.
+                    // This is efficient and ensures our local DB stays in sync with the server's view of the latest items.
                     idb.saveBulkReceipts(latestReceipts);
                     
                     return combined;
@@ -443,53 +395,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [lastReceiptDoc, user]);
   
   const addReceipt = useCallback(async (receipt: Receipt) => {
-    // 1. Save Receipt (Optimistic) - Optimized: Prepend (O(1)) instead of full sort (O(N log N))
-    setReceiptsState(prev => [receipt, ...prev]);
-    idb.saveReceipt(receipt); 
-    
-    // 2. Prepare Batch for Receipt + Stock Deductions
-    const batch = writeBatch(db);
-    const receiptRef = doc(db, 'users', getUid(), 'receipts', receipt.id);
-    batch.set(receiptRef, receipt);
-
-    // 3. Handle Inventory Updates & Low Stock Alerts
-    const updatedItems = [...items]; 
-    let stockUpdated = false;
-
-    receipt.items.forEach(orderItem => {
-        const itemIndex = updatedItems.findIndex(i => i.id === orderItem.id);
-        if (itemIndex > -1) {
-            const currentItem = updatedItems[itemIndex];
-            const newStock = Math.max(0, currentItem.stock - orderItem.quantity);
-            
-            // Update local state copy
-            updatedItems[itemIndex] = { ...currentItem, stock: newStock };
-            
-            // Add to batch write
-            const itemRef = doc(db, 'users', getUid(), 'items', currentItem.id);
-            batch.update(itemRef, { stock: newStock });
-            
-            stockUpdated = true;
-
-            // Check for Low Stock Notification
-            if (settings.notificationsEnabled && settings.notifyLowStock && settings.lowStockThreshold !== undefined) {
-                if (newStock <= settings.lowStockThreshold) {
-                    sendLowStockAlert(currentItem.name, newStock);
-                }
-            }
-        }
+    // Optimistic Update: Update UI & IndexedDB immediately
+    setReceiptsState(prev => {
+        const newHistory = [receipt, ...prev].sort((a,b) => b.date.getTime() - a.date.getTime());
+        return newHistory;
     });
-
-    if (stockUpdated) {
-        setItemsState(updatedItems);
-        localStorage.setItem(ITEMS_CACHE_KEY, JSON.stringify(updatedItems));
-    }
-
+    idb.saveReceipt(receipt); // Non-blocking save
+    
     try { 
-        await batch.commit();
+        await setDoc(doc(db, 'users', getUid(), 'receipts', receipt.id), receipt);
     } 
-    catch (e) { console.error("Failed to save transaction", e); alert("Saved locally. Sync failed (Offline).");}
-  }, [getUid, items, settings]); // Added items and settings dependencies for stock logic
+    catch (e) { console.error("Failed to save receipt", e); alert("Saved locally. Sync failed (Offline).");}
+  }, [getUid]);
 
   const deleteReceipt = useCallback(async (id: string) => {
     setReceiptsState(prev => prev.filter(r => r.id !== id));
@@ -505,29 +422,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const updated = { ...settings, ...newSettings };
     setSettingsState(updated);
     localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(updated));
-    
-    // Notification Logic Handling
-    if (newSettings.notificationsEnabled === true) {
-        requestNotificationPermission(); // Request permission when master toggle enabled
-    }
-    
-    // Handle Schedule Updates
-    if (updated.notificationsEnabled) {
-        if (updated.notifyDailySummary && updated.dailySummaryTime) {
-            // Re-schedule if time changed or just enabled
-            if (newSettings.dailySummaryTime || newSettings.notifyDailySummary || newSettings.notificationsEnabled) {
-                scheduleDailySummary(updated.dailySummaryTime);
-            }
-        } else {
-            // Cancel if specifically the daily summary was disabled
-            if (newSettings.notifyDailySummary === false) {
-                cancelDailySummary();
-            }
-        }
-    } else {
-        cancelDailySummary(); // Cancel if master disabled
-    }
-
     try { await setDoc(doc(db, 'users', getUid(), 'config', 'settings'), updated, { merge: true }); } 
     catch (e) { console.error(e); }
   }, [settings, getUid]);
@@ -827,9 +721,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   if (initializationError) return <FirebaseError error={initializationError} />;
 
-  // MEMOIZED CONTEXT VALUE
-  // Prevents re-creation of the object on every render, which triggers re-renders in all consumers.
-  const contextValue = useMemo<AppContextType>(() => ({
+  const contextValue: AppContextType = {
       user, signOut: signOutUser,
       isDrawerOpen, openDrawer, closeDrawer, toggleDrawer, 
       headerTitle, setHeaderTitle,
@@ -850,18 +742,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       isReportsUnlocked, setReportsUnlocked,
       pendingSyncCount,
       isOnline
-  }), [
-      user, isDrawerOpen, headerTitle, theme, showOnboarding, isLoading,
-      settings, printers, paymentTypes, receipts, items, savedTickets, 
-      customGrids, tables, activeGridId, currentOrder, isReportsUnlocked, 
-      pendingSyncCount, isOnline,
-      openDrawer, closeDrawer, toggleDrawer, setHeaderTitle, setTheme, completeOnboarding,
-      updateSettings, addPrinter, removePrinter, addPaymentType, updatePaymentType, removePaymentType,
-      addReceipt, loadMoreReceipts, hasMoreReceipts, deleteReceipt, addItem, updateItem, deleteItem,
-      saveTicket, removeTicket, mergeTickets, addCustomGrid, updateCustomGrid, deleteCustomGrid, setCustomGrids,
-      addTable, updateTable, setTables, removeTable, setActiveGridId, addToOrder, removeFromOrder, deleteLineItem,
-      updateOrderItemQuantity, clearOrder, loadOrder, exportData, restoreData, exportItemsCsv, replaceItems, setReportsUnlocked
-  ]);
+  };
 
   return (
     <AppContext.Provider value={contextValue}>

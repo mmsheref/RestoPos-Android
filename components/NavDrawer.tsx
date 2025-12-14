@@ -1,59 +1,15 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { NavLink } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { NAV_LINKS, SignOutIcon, SyncIcon, OfflineIcon, CheckIcon, UserIcon, PowerIcon } from '../constants';
+import { NAV_LINKS, SignOutIcon, SyncIcon, OfflineIcon, CheckIcon, UserIcon } from '../constants';
 import ConfirmModal from './modals/ConfirmModal';
-import { App } from '@capacitor/app';
-import { Capacitor } from '@capacitor/core';
 
 const NavDrawer: React.FC = () => {
   const { isDrawerOpen, closeDrawer, user, signOut, settings, pendingSyncCount, isOnline } = useAppContext();
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
-  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
-  
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  // State Ref for Back Button Listener Closure
-  const stateRef = useRef({ isDrawerOpen, isExitModalOpen, pathname: location.pathname });
-
-  useEffect(() => {
-      stateRef.current = { isDrawerOpen, isExitModalOpen, pathname: location.pathname };
-  }, [isDrawerOpen, isExitModalOpen, location.pathname]);
-
-  // Hardware Back Button Handler
-  useEffect(() => {
-      if (!Capacitor.isNativePlatform()) return;
-
-      const setupListener = async () => {
-          await App.addListener('backButton', ({ canGoBack }) => {
-              const { isDrawerOpen, isExitModalOpen, pathname } = stateRef.current;
-
-              if (isDrawerOpen) {
-                  closeDrawer();
-              } else if (isExitModalOpen) {
-                  // If exit modal is already open, back button closes it
-                  setIsExitModalOpen(false);
-              } else if (pathname !== '/sales') {
-                  // Navigate back if not on home screen
-                  navigate(-1);
-              } else {
-                  // On Home Screen (Sales), show Exit Confirmation
-                  setIsExitModalOpen(true);
-              }
-          });
-      };
-
-      setupListener();
-
-      return () => {
-          App.removeAllListeners();
-      };
-  }, [closeDrawer, navigate]);
 
   const handleSignOutClick = () => {
-    closeDrawer();
     setIsSignOutModalOpen(true);
   };
 
@@ -62,37 +18,18 @@ const NavDrawer: React.FC = () => {
     setIsSignOutModalOpen(false);
   };
 
-  const handleExitClick = () => {
-    closeDrawer();
-    setIsExitModalOpen(true);
-  };
-
-  const confirmExit = async () => {
-    if (Capacitor.isNativePlatform()) {
-        await App.exitApp();
-    } else {
-        // Web fallback
-        window.close();
-    }
-    setIsExitModalOpen(false);
-  };
-
   return (
     <>
-      {/* Backdrop: Always rendered, toggle opacity/pointer-events for performance */}
-      <div
-        onClick={closeDrawer}
-        className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] transition-opacity duration-300 ease-out ${
-          isDrawerOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
-        aria-hidden="true"
-      />
-
+      {isDrawerOpen && (
+        <div
+          onClick={closeDrawer}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] transition-opacity duration-300"
+        />
+      )}
       <aside
-        className={`fixed top-0 left-0 h-screen w-72 bg-neutral-900 text-white z-[70] flex flex-col shadow-2xl transform transition-transform duration-300 ease-out will-change-transform border-r border-neutral-800 ${
+        className={`fixed top-0 left-0 h-screen w-72 bg-neutral-900 text-white z-[70] flex flex-col shadow-2xl transform transition-transform duration-300 ease-in-out will-change-transform border-r border-neutral-800 ${
           isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
-        style={{ backfaceVisibility: 'hidden' }} // Fix for flickering text during transition
       >
         <div className="p-6 border-b border-neutral-800 bg-neutral-900">
           <h2 className="text-xl font-bold text-white truncate tracking-tight">
@@ -162,27 +99,16 @@ const NavDrawer: React.FC = () => {
                     <p className="text-xs text-neutral-500">Administrator</p>
                 </div>
             </div>
-            
-            <div className="grid grid-cols-2 gap-2">
-                <button 
-                    onClick={handleSignOutClick}
-                    className="flex items-center justify-center px-3 py-2 text-sm font-medium transition-colors duration-200 text-neutral-400 hover:bg-neutral-800 hover:text-white rounded-lg border border-transparent"
-                >
-                    <SignOutIcon className="h-4 w-4 mr-2"/>
-                    <span>Sign Out</span>
-                </button>
-                <button 
-                    onClick={handleExitClick}
-                    className="flex items-center justify-center px-3 py-2 text-sm font-medium transition-colors duration-200 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-lg border border-transparent hover:border-red-500/20"
-                >
-                    <PowerIcon className="h-4 w-4 mr-2"/>
-                    <span>Exit</span>
-                </button>
-            </div>
+            <button 
+                onClick={handleSignOutClick}
+                className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium transition-colors duration-200 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-lg border border-transparent hover:border-red-500/20"
+            >
+                <SignOutIcon className="h-4 w-4 mr-2"/>
+                <span>Sign Out</span>
+            </button>
         </div>
       </aside>
 
-      {/* Sign Out Confirmation */}
       <ConfirmModal
         isOpen={isSignOutModalOpen}
         onClose={() => setIsSignOutModalOpen(false)}
@@ -192,18 +118,6 @@ const NavDrawer: React.FC = () => {
         confirmButtonClass="bg-red-600 hover:bg-red-700"
       >
         <p>Are you sure you want to sign out of your session?</p>
-      </ConfirmModal>
-
-      {/* Exit Confirmation */}
-      <ConfirmModal
-        isOpen={isExitModalOpen}
-        onClose={() => setIsExitModalOpen(false)}
-        onConfirm={confirmExit}
-        title="Exit Application"
-        confirmText="Exit"
-        confirmButtonClass="bg-red-600 hover:bg-red-700"
-      >
-        <p>Are you sure you want to close the application?</p>
       </ConfirmModal>
     </>
   );

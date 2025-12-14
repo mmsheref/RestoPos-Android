@@ -67,7 +67,7 @@ const StoreInfoCard: React.FC<StoreInfoCardProps> = ({ settings, updateSettings 
                         id="morningStart"
                         value={settings.shiftMorningStart || '06:00'}
                         onChange={(e) => updateSettings({ shiftMorningStart: e.target.value })}
-                        className="w-full p-2 border border-border rounded-md bg-background text-text-primary text-sm font-mono focus:ring-2 focus:ring-primary outline-none"
+                        className="w-full p-2 border border-border rounded-md bg-background text-text-primary text-sm font-mono"
                     />
                 </div>
                 <div>
@@ -77,7 +77,7 @@ const StoreInfoCard: React.FC<StoreInfoCardProps> = ({ settings, updateSettings 
                         id="morningEnd"
                         value={settings.shiftMorningEnd || '17:30'}
                         onChange={(e) => updateSettings({ shiftMorningEnd: e.target.value })}
-                        className="w-full p-2 border border-border rounded-md bg-background text-text-primary text-sm font-mono focus:ring-2 focus:ring-primary outline-none"
+                        className="w-full p-2 border border-border rounded-md bg-background text-text-primary text-sm font-mono"
                     />
                 </div>
                 <div>
@@ -87,12 +87,12 @@ const StoreInfoCard: React.FC<StoreInfoCardProps> = ({ settings, updateSettings 
                         id="nightEnd"
                         value={settings.shiftNightEnd || '05:00'}
                         onChange={(e) => updateSettings({ shiftNightEnd: e.target.value })}
-                        className="w-full p-2 border border-border rounded-md bg-background text-text-primary text-sm font-mono focus:ring-2 focus:ring-primary outline-none"
+                        className="w-full p-2 border border-border rounded-md bg-background text-text-primary text-sm font-mono"
                     />
                 </div>
             </div>
-            <p className="text-[10px] text-text-muted mt-3 italic">
-                Changes are saved automatically. Shift timings affect report filtering.
+            <p className="text-[10px] text-text-muted mt-2">
+                Shift timings affect how reports are filtered. Night shifts extending past midnight will be included in the starting date's report.
             </p>
         </div>
 

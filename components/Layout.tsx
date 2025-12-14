@@ -1,6 +1,6 @@
 
-import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { useLocation, Navigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useLocation, Navigate, Routes, Route } from 'react-router-dom';
 import Header from './Header';
 import NavDrawer from './NavDrawer';
 import { useAppContext } from '../context/AppContext';
@@ -14,25 +14,11 @@ import SettingsScreen from '../screens/SettingsScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import AboutScreen from '../screens/AboutScreen';
 
-// Memoized wrapper for kept-alive screens to prevent unnecessary re-renders when parent Layout updates (e.g. drawer toggle)
-const KeepAliveScreen = React.memo(({ isVisible, children }: { isVisible: boolean, children: React.ReactNode }) => {
-    return (
-        <div 
-            className={`flex flex-col h-full w-full absolute inset-0 bg-background transition-opacity duration-200 ${isVisible ? 'opacity-100 z-10' : 'opacity-0 z-[-1] pointer-events-none'}`}
-            // Use visibility: hidden for accessibility/focus management when not active, but keep display: flex to preserve layout calculations
-            style={{ visibility: isVisible ? 'visible' : 'hidden' }}
-        >
-            {children}
-        </div>
-    );
-});
-
 const Layout: React.FC = () => {
   const { 
     isDrawerOpen, openDrawer, 
-    headerTitle
+    headerTitle, setHeaderTitle, 
   } = useAppContext();
-  
   const location = useLocation();
   const { pathname } = location;
 
@@ -41,124 +27,80 @@ const Layout: React.FC = () => {
       '/sales': true // Always load Sales first
   });
 
-  // Swipe Gesture Ref
-  const touchStartRef = useRef<{x: number, y: number} | null>(null);
-
   useEffect(() => {
       if (!visitedRoutes[pathname]) {
           setVisitedRoutes(prev => ({ ...prev, [pathname]: true }));
       }
   }, [pathname, visitedRoutes]);
 
-  // DERIVED STATE: Determine Header Title without causing re-renders via useEffect/setState
-  const displayTitle = useMemo(() => {
-      if (pathname === '/sales') {
-          return headerTitle || 'Sales';
-      }
-      const currentLink = NAV_LINKS.find(link => pathname.startsWith(link.path));
-      return currentLink ? currentLink.label : 'Restaurant POS';
-  }, [pathname, headerTitle]);
+  const currentLink = NAV_LINKS.find(link => pathname.startsWith(link.path));
+  const baseTitle = currentLink ? currentLink.label : 'Sales';
+  
+  // Sales handles its own title. For others, we use the base title.
+  const finalTitle = pathname === '/sales' && headerTitle ? headerTitle : baseTitle;
   
   // Determine which screens need a default header.
   const showDefaultHeader = !['/sales', '/receipts', '/settings', '/items', '/reports', '/about'].includes(pathname); 
 
+  useEffect(() => {
+    // When navigating to non-Sales pages, ensure the title is set correctly
+    if(pathname !== '/sales') {
+        setHeaderTitle(''); // Reset custom titles
+    }
+  }, [pathname, setHeaderTitle]);
+
   const validPaths = ['/sales', '/receipts', '/items', '/settings', '/reports', '/about'];
   const isRootOrInvalid = !validPaths.some(p => pathname.startsWith(p));
-  
   if (isRootOrInvalid) {
       return <Navigate to="/sales" replace />;
   }
 
-  // --- Swipe Handlers ---
-  const handleTouchStart = (e: React.TouchEvent) => {
-    // Only track single touch
-    if (e.touches.length !== 1) return;
-    touchStartRef.current = {
-        x: e.touches[0].clientX,
-        y: e.touches[0].clientY
-    };
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStartRef.current || isDrawerOpen) return;
-    
-    const touchX = e.touches[0].clientX;
-    const touchY = e.touches[0].clientY;
-    
-    const deltaX = touchX - touchStartRef.current.x;
-    const deltaY = Math.abs(touchY - touchStartRef.current.y);
-
-    // Logic:
-    // 1. Swipe must start near left edge (within 50px)
-    // 2. Swipe must be horizontal (deltaX > 50px)
-    // 3. Vertical movement must be minimal (deltaY < 30px)
-    
-    if (touchStartRef.current.x < 50 && deltaX > 50 && deltaY < 30) {
-        openDrawer();
-        touchStartRef.current = null; // Reset
-    }
-  };
-
-  const handleTouchEnd = () => {
-      touchStartRef.current = null;
-  };
+  // Helper to determine visibility
+  const isVisible = (path: string) => pathname === path;
 
   return (
-    <div 
-        className="relative h-screen w-full overflow-hidden bg-background text-text-primary flex flex-col"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-    >
+    <div className="relative h-screen w-full overflow-x-hidden bg-background text-text-primary flex flex-col">
       {showDefaultHeader && <Header 
-        title={displayTitle} 
+        title={finalTitle} 
         onMenuClick={openDrawer}
       />}
       
       <NavDrawer />
       
-      <main className="flex-1 relative overflow-hidden">
+      {/* 
+         REMOVED: transform translate-x-64
+         Fixed: Laggy drawer animation by using overlay instead of pushing content.
+      */}
+      <main className="flex-1 flex flex-col overflow-hidden relative">
         {/* 
-            PERFORMANCE OPTIMIZATION: 
-            1. Absolute positioning for all screens to stack them.
-            2. Opacity transition for smoothness (hardware accelerated).
-            3. Visibility toggling to remove inactive screens from access tree.
-            4. Memoized wrappers to prevent children re-rendering on Layout updates.
+            PERFORMANCE OPTIMIZATION: "Keep Alive" Screens
+            Instead of unmounting screens (which destroys DOM and triggers heavy re-renders),
+            we hide them using CSS. This makes navigation instantaneous.
         */}
         
-        <KeepAliveScreen isVisible={pathname === '/sales'}>
+        <div className={isVisible('/sales') ? 'flex flex-col h-full' : 'hidden'}>
             <SalesScreen />
-        </KeepAliveScreen>
+        </div>
 
-        {visitedRoutes['/receipts'] && (
-            <KeepAliveScreen isVisible={pathname === '/receipts'}>
-                <ReceiptsScreen />
-            </KeepAliveScreen>
-        )}
+        <div className={isVisible('/receipts') ? 'flex flex-col h-full' : 'hidden'}>
+            {visitedRoutes['/receipts'] && <ReceiptsScreen />}
+        </div>
 
-        {visitedRoutes['/reports'] && (
-            <KeepAliveScreen isVisible={pathname === '/reports'}>
-                <ReportsScreen />
-            </KeepAliveScreen>
-        )}
+        <div className={isVisible('/reports') ? 'flex flex-col h-full' : 'hidden'}>
+            {visitedRoutes['/reports'] && <ReportsScreen />}
+        </div>
 
-        {visitedRoutes['/items'] && (
-            <KeepAliveScreen isVisible={pathname === '/items'}>
-                <ItemsScreen />
-            </KeepAliveScreen>
-        )}
+        <div className={isVisible('/items') ? 'flex flex-col h-full' : 'hidden'}>
+            {visitedRoutes['/items'] && <ItemsScreen />}
+        </div>
 
-        {visitedRoutes['/settings'] && (
-            <KeepAliveScreen isVisible={pathname === '/settings'}>
-                <SettingsScreen />
-            </KeepAliveScreen>
-        )}
+        <div className={isVisible('/settings') ? 'flex flex-col h-full' : 'hidden'}>
+            {visitedRoutes['/settings'] && <SettingsScreen />}
+        </div>
         
-        {visitedRoutes['/about'] && (
-            <KeepAliveScreen isVisible={pathname === '/about'}>
-                <AboutScreen />
-            </KeepAliveScreen>
-        )}
+        <div className={isVisible('/about') ? 'flex flex-col h-full' : 'hidden'}>
+            {visitedRoutes['/about'] && <AboutScreen />}
+        </div>
 
       </main>
     </div>

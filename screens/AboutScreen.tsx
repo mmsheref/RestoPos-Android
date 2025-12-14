@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { MenuIcon, InfoIcon, UserIcon, ArrowLeftIcon } from '../constants';
 import { APP_VERSION } from '../constants';
-import { Capacitor } from '@capacitor/core';
 
 type AboutSection = 'app_info' | 'developer';
 
@@ -22,16 +21,6 @@ const AboutScreen: React.FC = () => {
     setIsDetailView(true);
   };
 
-  const getPlatformLabel = () => {
-    const platform = Capacitor.getPlatform();
-    switch (platform) {
-        case 'android': return 'Android App';
-        case 'ios': return 'iOS App';
-        case 'web': return 'Web (Browser)';
-        default: return platform; // e.g. 'electron'
-    }
-  };
-
   const renderContent = () => {
     switch (activeSection) {
       case 'app_info':
@@ -45,7 +34,7 @@ const AboutScreen: React.FC = () => {
                     </div>
                     <div className="flex justify-between border-b border-border pb-2">
                         <span className="font-medium text-text-primary">Environment</span>
-                        <span>{getPlatformLabel()}</span>
+                        <span>Web (Browser)</span>
                     </div>
                     <div className="flex justify-between items-center pt-2">
                         <span className="font-medium text-text-primary">Data Status</span>
