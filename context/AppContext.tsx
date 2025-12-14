@@ -365,12 +365,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const unsubReceipts = onSnapshot(qReceipts, { includeMetadataChanges: true }, (snapshot) => {
                 const latestReceipts = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
                 
-                // HYBRID STORAGE STRATEGY (IndexedDB):
+                // PERFORMANCE FIX: Trigger IndexedDB save OUTSIDE the React state updater.
+                // This prevents blocking the UI render cycle with non-UI async work.
+                idb.saveBulkReceipts(latestReceipts);
+
                 setReceiptsState(currentLocalReceipts => {
                     const mergedMap = new Map<string, Receipt>();
-                    
-                    // Optimization: We are NOT iterating the entire history here anymore,
-                    // just the active 'view' set (limit 50 from IDB + 100 from snapshot).
                     
                     // 1. Put active local receipts into map
                     currentLocalReceipts.forEach(r => mergedMap.set(r.id, r));
@@ -379,9 +379,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     latestReceipts.forEach(r => mergedMap.set(r.id, r));
                     
                     const combined = Array.from(mergedMap.values()).sort((a,b) => b.date.getTime() - a.date.getTime());
-                    
-                    // 3. Save updates to IndexedDB (Async, don't await)
-                    idb.saveBulkReceipts(latestReceipts);
                     
                     return combined;
                 });
@@ -433,9 +430,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (!snapshot.empty) {
               const newReceipts = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
               
+              // Save to IDB in background, don't block
+              idb.saveBulkReceipts(newReceipts);
+
               setReceiptsState(prev => {
                   const merged = [...prev, ...newReceipts].sort((a,b) => b.date.getTime() - a.date.getTime());
-                  idb.saveBulkReceipts(newReceipts); // Persist fetched history
                   return merged;
               });
               

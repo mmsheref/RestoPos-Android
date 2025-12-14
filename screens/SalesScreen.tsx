@@ -29,7 +29,7 @@ const generateId = () => crypto.randomUUID ? crypto.randomUUID() : `G${Date.now(
 
 const SalesScreen: React.FC = () => {
   const { 
-      headerTitle, setHeaderTitle, openDrawer, settings, printers, addReceipt, 
+      openDrawer, settings, printers, addReceipt, 
       items, customGrids, addCustomGrid, updateCustomGrid, setCustomGrids,
       savedTickets, saveTicket, removeTicket,
       // Global Ticket State
@@ -92,20 +92,9 @@ const SalesScreen: React.FC = () => {
     }
   }, [isActive]);
   
-  // Update header title only when active
-  useEffect(() => {
-    if (!isActive) return;
-    
-    let targetTitle = 'Sales';
-    if (salesView === 'payment') targetTitle = 'Checkout';
-    else if (editingTicket) targetTitle = `Editing: ${editingTicket.name}`;
-    else if (currentOrder.length > 0) targetTitle = 'New Order';
-    
-    // Only update if changed to prevent Context re-render loop
-    if (headerTitle !== targetTitle) {
-        setHeaderTitle(targetTitle);
-    }
-  }, [editingTicket, currentOrder.length, setHeaderTitle, salesView, isActive, headerTitle]);
+  // PERFORMANCE: Removed useEffect updating global headerTitle.
+  // SalesScreen renders its own SalesHeader, so updating the global context 
+  // just caused the entire app layout to re-render for no visual reason.
 
   // Reset pagination and scroll position when category or search changes
   useEffect(() => {

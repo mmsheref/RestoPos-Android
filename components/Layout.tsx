@@ -52,12 +52,11 @@ const Layout: React.FC = () => {
 
   // DERIVED STATE: Determine Header Title without causing re-renders via useEffect/setState
   const displayTitle = useMemo(() => {
-      if (pathname === '/sales') {
-          return headerTitle || 'Sales';
-      }
+      // Note: SalesScreen renders its own header, so this value is ignored there.
+      // We rely on this for generic screens like Items, Receipts, etc.
       const currentLink = NAV_LINKS.find(link => pathname.startsWith(link.path));
       return currentLink ? currentLink.label : 'Restaurant POS';
-  }, [pathname, headerTitle]);
+  }, [pathname]);
   
   // Determine which screens need a default header.
   const showDefaultHeader = !['/sales', '/receipts', '/settings', '/items', '/reports', '/about'].includes(pathname); 
@@ -89,11 +88,11 @@ const Layout: React.FC = () => {
     const deltaY = Math.abs(touchY - touchStartRef.current.y);
 
     // Optimized Swipe Logic:
-    // 1. Swipe must start near left edge (increased from 60px to 80px for easier detection)
-    // 2. Swipe must be horizontal (deltaX > 50px)
+    // 1. Swipe must start near left edge (Increased to 120px to account for cases/bezels)
+    // 2. Swipe must be horizontal (Reduced threshold to 30px for faster response)
     // 3. Dominant direction must be horizontal (deltaX > deltaY * 1.2) to prevent accidental diagonal triggers
     
-    if (touchStartRef.current.x < 80 && deltaX > 50 && deltaX > (deltaY * 1.2)) {
+    if (touchStartRef.current.x < 120 && deltaX > 30 && deltaX > (deltaY * 1.2)) {
         openDrawer();
         touchStartRef.current = null; // Reset to prevent multiple triggers
     }
