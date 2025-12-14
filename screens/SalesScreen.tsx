@@ -458,7 +458,8 @@ const SalesScreen: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="pb-24 md:pb-4">
+                // Tablet Fix: Use h-full to allow grid to fill the screen space exactly without scroll when in fixed grid mode.
+                <div className={`pb-24 md:pb-0 ${!isViewingAll ? 'md:h-full' : 'md:pb-4'}`}>
                     <ItemGrid
                     itemsForDisplay={paginatedItems}
                     mode={isViewingAll ? 'all' : 'grid'}

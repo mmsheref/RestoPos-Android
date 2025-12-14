@@ -20,12 +20,14 @@ const ItemGrid = React.memo<ItemGridProps>(({
 }) => {
   const isFixedGrid = mode === 'grid';
 
-  // Fix: Use simple grid classes without forcing height or rows.
-  // This prevents the "stretched" look and allows tiles to maintain aspect ratio.
-  const gridClasses = 'grid grid-cols-3 md:grid-cols-5 gap-2 md:gap-3 pb-20 md:pb-0';
+  // Apply fixed height and row constraints only in 'grid' mode on tablet.
+  // 'grid-rows-4' + 'h-full' ensures it fills the container exactly.
+  const gridClasses = isFixedGrid
+    ? 'grid grid-cols-3 gap-2 pb-20 md:grid-cols-5 md:grid-rows-4 md:gap-3 md:pb-0 md:h-full'
+    : 'grid grid-cols-3 md:grid-cols-5 gap-2 md:gap-3 pb-20 md:pb-0';
 
   return (
-    <div>
+    <div className={isFixedGrid ? 'md:h-full' : ''}>
       <div className={gridClasses}>
         {itemsForDisplay.map((item, index) => {
           if (!item) {
@@ -42,7 +44,7 @@ const ItemGrid = React.memo<ItemGridProps>(({
                 disabled={!isEditing}
                 className={`w-full rounded-xl border-2 border-dashed border-border 
                            flex items-center justify-center text-text-muted transition-colors 
-                           aspect-square
+                           ${isFixedGrid ? 'aspect-square md:aspect-auto md:h-full' : 'aspect-square'}
                            ${isEditing ? 'cursor-pointer hover:bg-surface-muted hover:border-primary hover:text-primary bg-surface-muted/20' : 'opacity-50 cursor-default'}`}
               >
                 {isEditing && <PlusIcon className="h-8 w-8" />}
@@ -65,7 +67,7 @@ const ItemGrid = React.memo<ItemGridProps>(({
           );
         })}
       </div>
-      {/* Sentinel for infinite scrolling */}
+      {/* Sentinel for infinite scrolling (only for 'all' mode) */}
       {loadMoreRef && itemsForDisplay.length > 0 && (
           <div ref={loadMoreRef} className="h-20 w-full flex items-center justify-center mt-4">
               <div className="w-2 h-2 bg-surface-muted rounded-full"></div>
