@@ -15,10 +15,10 @@ type ReportTab = 'overview' | 'items' | 'orders';
 type SortConfig = { key: string; direction: 'asc' | 'desc' };
 
 interface GraphDataPoint {
-    label: string; // "14:00"
-    hour: number;
+    label: string; // "14:00" or "Oct 12"
     value: number;
     fullDate: Date;
+    type: 'hourly' | 'daily';
 }
 
 interface Metrics {
@@ -45,15 +45,24 @@ const StatCard: React.FC<{ title: string, value: string, icon: React.ReactNode, 
     </div>
 );
 
-// --- COMPONENT: HOURLY SALES CHART ---
-const HourlySalesChart: React.FC<{ data: GraphDataPoint[] }> = ({ data }) => {
+// --- COMPONENT: SALES ACTIVITY CHART ---
+const SalesActivityChart: React.FC<{ data: GraphDataPoint[] }> = ({ data }) => {
     // Determine max value for Y-axis scaling
     const values = data.map(d => d.value);
     const maxValue = Math.max(...values, 1); 
 
-    // Helper to format label simply (e.g. 2 PM)
-    const formatTimeLabel = (date: Date) => {
-        return date.toLocaleTimeString([], { hour: 'numeric', hour12: true }).replace(' ', '');
+    // Helper to format labels based on type
+    const formatLabel = (point: GraphDataPoint, isTooltip = false) => {
+        if (point.type === 'daily') {
+            return point.fullDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        }
+        // Hourly
+        if (isTooltip) {
+            const endHour = new Date(point.fullDate);
+            endHour.setHours(endHour.getHours() + 1);
+            return `${point.label} - ${endHour.toLocaleTimeString([], { hour: 'numeric', hour12: true })}`;
+        }
+        return point.fullDate.toLocaleTimeString([], { hour: 'numeric', hour12: true }).replace(' ', '');
     };
 
     if (data.length === 0) {
@@ -69,7 +78,7 @@ const HourlySalesChart: React.FC<{ data: GraphDataPoint[] }> = ({ data }) => {
             <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-bold text-text-primary">Sales Activity</h3>
                 <span className="text-xs font-medium text-text-secondary bg-surface-muted px-2 py-1 rounded-md">
-                    {formatTimeLabel(data[0].fullDate)} - {formatTimeLabel(data[data.length-1].fullDate)}
+                    {formatLabel(data[0])} - {formatLabel(data[data.length-1])}
                 </span>
             </div>
             
@@ -100,15 +109,15 @@ const HourlySalesChart: React.FC<{ data: GraphDataPoint[] }> = ({ data }) => {
                             >
                                 {/* The Bar */}
                                 <div 
-                                    className={`w-full rounded-t-sm transition-all duration-500 ease-out min-h-[2px] ${isNonZero ? 'bg-primary hover:bg-primary-hover' : 'bg-surface-muted hover:bg-border'}`}
+                                    className={`w-full rounded-t-sm transition-all duration-500 ease-out min-h-[4px] ${isNonZero ? 'bg-primary hover:bg-primary-hover' : 'bg-surface-muted hover:bg-border'}`}
                                     style={{ height: `${heightPct}%` }}
                                 ></div>
                                 
                                 {/* Tooltip */}
                                 <div className="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 pointer-events-none transition-opacity duration-200">
                                     <div className="bg-neutral-900 text-white text-xs py-1.5 px-3 rounded-lg whitespace-nowrap shadow-xl border border-neutral-700">
-                                        <div className="font-bold">{formatTimeLabel(point.fullDate)}</div>
-                                        <div className="text-emerald-400 font-mono">₹{point.value.toFixed(0)}</div>
+                                        <div className="font-bold mb-0.5">{formatLabel(point, true)}</div>
+                                        <div className="text-emerald-400 font-mono text-sm">₹{point.value.toFixed(0)}</div>
                                     </div>
                                     {/* Arrow */}
                                     <div className="w-2 h-2 bg-neutral-900 rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-1 border-r border-b border-neutral-700"></div>
@@ -120,9 +129,9 @@ const HourlySalesChart: React.FC<{ data: GraphDataPoint[] }> = ({ data }) => {
                 
                 {/* X-Axis Labels (Dynamic: Start, Middle, End) */}
                 <div className="absolute bottom-0 left-0 right-0 flex justify-between pl-6 text-[10px] text-text-secondary font-medium uppercase tracking-wide">
-                    <span>{formatTimeLabel(data[0].fullDate)}</span>
-                    {data.length > 4 && <span>{formatTimeLabel(data[Math.floor(data.length / 2)].fullDate)}</span>}
-                    <span>{formatTimeLabel(data[data.length - 1].fullDate)}</span>
+                    <span>{formatLabel(data[0])}</span>
+                    {data.length > 4 && <span>{formatLabel(data[Math.floor(data.length / 2)])}</span>}
+                    <span>{formatLabel(data[data.length - 1])}</span>
                 </div>
             </div>
         </div>
@@ -350,7 +359,7 @@ const ReportsScreen: React.FC = () => {
 
     // --- ANALYTICS LOGIC (Runs on the fetched subset) ---
     const { filteredReceipts, metrics } = useMemo(() => {
-        // Apply Payment Method Filter (Memory-side, on the small subset)
+        // Apply Payment Method Filter
         const filtered = fetchedReceipts.filter(r => {
             return paymentMethodFilter === 'all' || r.paymentMethod === paymentMethodFilter;
         });
@@ -375,58 +384,89 @@ const ReportsScreen: React.FC = () => {
         const itemsSold: Record<string, { count: number, revenue: number, category: string }> = {};
         const salesByCategory: Record<string, number> = {};
 
-        // --- DYNAMIC GRAPH BUCKETING ---
-        // Construct graph buckets based on dateRange.start -> dateRange.end
-        // We create one bucket per hour.
-        const graphData: GraphDataPoint[] = [];
-        let bucketPointer = new Date(dateRange.start);
+        // --- GRAPH BUCKETING ---
+        // Decision: Hourly (Today/Yesterday) vs Daily (Week/Month)
+        // If range > 48 hours, switch to daily bucketing.
+        const durationHours = (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60);
+        const isDailyMode = durationHours > 48;
         
-        // Safety Break: Don't loop more than 48 hours to prevent freezes on bad range
-        let iterations = 0;
-        const maxIterations = 48;
-        
-        // Determine the "cutoff" time for graph display
-        // If filter is 'today', cutoff is current wall-clock time.
-        // Otherwise, show full range.
-        const now = new Date();
-        const cutoffTime = filter === 'today' ? now : new Date(8640000000000000); // Far future if not today
+        let graphData: GraphDataPoint[] = [];
 
-        while (bucketPointer < dateRange.end && iterations < maxIterations) {
-            iterations++;
-            
-            // Define bucket range [current, current+1h)
-            const bucketStart = new Date(bucketPointer);
-            const bucketEnd = new Date(bucketPointer);
-            bucketEnd.setHours(bucketEnd.getHours() + 1);
-            
-            // Only add to graph if this bucket starts before our cutoff time (plus small buffer)
-            // If it's 2:15 PM, we want to show the 2:00-3:00 PM bucket (it is "current").
-            // So we compare bucketStart to cutoffTime.
-            if (bucketStart <= cutoffTime) {
-                const label = bucketStart.getHours().toString().padStart(2, '0') + ":00";
-                
-                // Aggregate sales for this bucket
-                const bucketSales = sorted.reduce((sum, r) => {
-                    const rDate = new Date(r.date);
-                    if (rDate >= bucketStart && rDate < bucketEnd) {
-                        return sum + r.total;
-                    }
-                    return sum;
-                }, 0);
+        if (isDailyMode) {
+            // --- DAILY BUCKETING ---
+            // Aggregate based on "Business Day" (Shift Start)
+            const [shiftH, shiftM] = (settings.shiftMorningStart || '06:00').split(':').map(Number);
+            const dailyMap = new Map<string, { date: Date, value: number }>();
 
-                graphData.push({
-                    label,
-                    hour: bucketStart.getHours(),
-                    value: bucketSales,
-                    fullDate: bucketStart
-                });
+            // 1. Initialize buckets for continuity (Last 7 or 30 days)
+            let pointer = new Date(dateRange.start);
+            // Normalize pointer to start of day to avoid skipping
+            pointer.setHours(0,0,0,0); 
+            
+            while(pointer <= dateRange.end) {
+                const key = pointer.toISOString().split('T')[0];
+                dailyMap.set(key, { date: new Date(pointer), value: 0 });
+                pointer.setDate(pointer.getDate() + 1);
             }
 
-            // Move pointer
-            bucketPointer = bucketEnd;
-        }
+            // 2. Aggregate Sales
+            sorted.forEach(r => {
+                const rDate = new Date(r.date);
+                // Adjust to Business Date: Subtract Shift Start Time
+                // e.g. If shift starts at 6AM, a 4AM receipt belongs to previous day.
+                rDate.setHours(rDate.getHours() - shiftH);
+                rDate.setMinutes(rDate.getMinutes() - shiftM);
+                
+                const key = rDate.toISOString().split('T')[0];
+                if (dailyMap.has(key)) {
+                    dailyMap.get(key)!.value += r.total;
+                }
+            });
 
-        // --- END DYNAMIC GRAPH ---
+            graphData = Array.from(dailyMap.values()).map(d => ({
+                label: d.date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }),
+                value: d.value,
+                fullDate: d.date,
+                type: 'daily'
+            }));
+
+        } else {
+            // --- HOURLY BUCKETING ---
+            // Construct graph buckets based on dateRange.start -> dateRange.end
+            let bucketPointer = new Date(dateRange.start);
+            let iterations = 0;
+            const maxIterations = 48;
+            
+            const now = new Date();
+            const cutoffTime = filter === 'today' ? now : new Date(8640000000000000); 
+
+            while (bucketPointer < dateRange.end && iterations < maxIterations) {
+                iterations++;
+                const bucketStart = new Date(bucketPointer);
+                const bucketEnd = new Date(bucketPointer);
+                bucketEnd.setHours(bucketEnd.getHours() + 1);
+                
+                if (bucketStart <= cutoffTime) {
+                    const label = bucketStart.getHours().toString().padStart(2, '0') + ":00";
+                    const bucketSales = sorted.reduce((sum, r) => {
+                        const rDate = new Date(r.date);
+                        if (rDate >= bucketStart && rDate < bucketEnd) {
+                            return sum + r.total;
+                        }
+                        return sum;
+                    }, 0);
+
+                    graphData.push({
+                        label,
+                        value: bucketSales,
+                        fullDate: bucketStart,
+                        type: 'hourly'
+                    });
+                }
+                bucketPointer = bucketEnd;
+            }
+        }
+        // --- END GRAPH ---
 
         sorted.forEach(r => {
             totalSales += r.total;
@@ -454,12 +494,12 @@ const ReportsScreen: React.FC = () => {
                 paymentMethods,
                 topItems: allItems.sort((a,b) => b.revenue - a.revenue).slice(0, 5),
                 allItems,
-                salesByHour: {}, // Deprecated, using graphData
+                salesByHour: {}, // Deprecated
                 graphData,
                 salesByCategory
             }
         };
-    }, [fetchedReceipts, paymentMethodFilter, orderSortConfig, dateRange, filter]);
+    }, [fetchedReceipts, paymentMethodFilter, orderSortConfig, dateRange, filter, settings]);
 
     // Derived state for Sorted Items List
     const sortedItems = useMemo(() => {
@@ -718,8 +758,8 @@ const ReportsScreen: React.FC = () => {
                                 </div>
 
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    {/* Hourly Chart - NEW ROBUST COMPONENT */}
-                                    <HourlySalesChart data={metrics.graphData} />
+                                    {/* Sales Activity Chart (Hourly or Daily) */}
+                                    <SalesActivityChart data={metrics.graphData} />
 
                                     {/* Payment Methods Breakdown */}
                                     <div className="bg-surface p-6 rounded-2xl shadow-sm border border-border">
