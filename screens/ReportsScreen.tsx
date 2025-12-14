@@ -14,6 +14,13 @@ type ShiftFilter = 'all' | 'morning' | 'night';
 type ReportTab = 'overview' | 'items' | 'orders'; 
 type SortConfig = { key: string; direction: 'asc' | 'desc' };
 
+interface GraphDataPoint {
+    label: string; // "14:00"
+    hour: number;
+    value: number;
+    fullDate: Date;
+}
+
 interface Metrics {
   totalSales: number;
   totalOrders: number;
@@ -21,7 +28,7 @@ interface Metrics {
   paymentMethods: Record<string, number>;
   topItems: { name: string, count: number, revenue: number }[];
   allItems: { name: string, count: number, revenue: number, category: string }[];
-  salesByHour: Record<number, number>;
+  graphData: GraphDataPoint[];
   salesByCategory: Record<string, number>;
 }
 
@@ -39,14 +46,32 @@ const StatCard: React.FC<{ title: string, value: string, icon: React.ReactNode, 
 );
 
 // --- COMPONENT: HOURLY SALES CHART ---
-const HourlySalesChart: React.FC<{ data: Record<number, number> }> = ({ data }) => {
-    const hours = Array.from({ length: 24 }, (_, i) => i);
-    const values = hours.map(h => data[h] || 0);
-    const maxValue = Math.max(...values, 1); // Avoid div by zero
+const HourlySalesChart: React.FC<{ data: GraphDataPoint[] }> = ({ data }) => {
+    // Determine max value for Y-axis scaling
+    const values = data.map(d => d.value);
+    const maxValue = Math.max(...values, 1); 
+
+    // Helper to format label simply (e.g. 2 PM)
+    const formatTimeLabel = (date: Date) => {
+        return date.toLocaleTimeString([], { hour: 'numeric', hour12: true }).replace(' ', '');
+    };
+
+    if (data.length === 0) {
+        return (
+            <div className="w-full h-80 bg-surface rounded-2xl border border-border p-6 shadow-sm flex flex-col items-center justify-center text-text-muted">
+                <p>No data for this period</p>
+            </div>
+        );
+    }
 
     return (
         <div className="w-full h-80 bg-surface rounded-2xl border border-border p-6 shadow-sm flex flex-col">
-            <h3 className="text-lg font-bold text-text-primary mb-6">Sales Activity (24h)</h3>
+            <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-bold text-text-primary">Sales Activity</h3>
+                <span className="text-xs font-medium text-text-secondary bg-surface-muted px-2 py-1 rounded-md">
+                    {formatTimeLabel(data[0].fullDate)} - {formatTimeLabel(data[data.length-1].fullDate)}
+                </span>
+            </div>
             
             <div className="flex-1 relative w-full min-h-0">
                 {/* Y-Axis Grid Lines Background */}
@@ -63,27 +88,27 @@ const HourlySalesChart: React.FC<{ data: Record<number, number> }> = ({ data }) 
                 </div>
 
                 {/* Bars Container */}
-                <div className="absolute inset-0 flex items-end justify-between gap-1 pt-2 pb-6 px-4 z-10">
-                    {hours.map((hour) => {
-                        const value = data[hour] || 0;
-                        const heightPct = (value / maxValue) * 100;
+                <div className="absolute inset-0 flex items-end justify-between gap-1 pt-2 pb-6 pl-6 z-10">
+                    {data.map((point, idx) => {
+                        const heightPct = (point.value / maxValue) * 100;
+                        const isNonZero = point.value > 0;
                         
                         return (
                             <div 
-                                key={hour} 
+                                key={idx} 
                                 className="relative flex-1 h-full flex items-end group"
                             >
                                 {/* The Bar */}
                                 <div 
-                                    className="w-full bg-primary hover:bg-primary-hover rounded-t-sm transition-all duration-500 ease-out min-h-[2px]"
+                                    className={`w-full rounded-t-sm transition-all duration-500 ease-out min-h-[2px] ${isNonZero ? 'bg-primary hover:bg-primary-hover' : 'bg-surface-muted hover:bg-border'}`}
                                     style={{ height: `${heightPct}%` }}
                                 ></div>
                                 
                                 {/* Tooltip */}
                                 <div className="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 pointer-events-none transition-opacity duration-200">
                                     <div className="bg-neutral-900 text-white text-xs py-1.5 px-3 rounded-lg whitespace-nowrap shadow-xl border border-neutral-700">
-                                        <div className="font-bold">{hour}:00 - {hour + 1}:00</div>
-                                        <div className="text-emerald-400 font-mono">₹{value.toFixed(0)}</div>
+                                        <div className="font-bold">{formatTimeLabel(point.fullDate)}</div>
+                                        <div className="text-emerald-400 font-mono">₹{point.value.toFixed(0)}</div>
                                     </div>
                                     {/* Arrow */}
                                     <div className="w-2 h-2 bg-neutral-900 rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-1 border-r border-b border-neutral-700"></div>
@@ -93,13 +118,11 @@ const HourlySalesChart: React.FC<{ data: Record<number, number> }> = ({ data }) 
                     })}
                 </div>
                 
-                {/* X-Axis Labels */}
-                <div className="absolute bottom-0 left-0 right-0 flex justify-between px-4 text-[10px] text-text-secondary font-medium uppercase tracking-wide">
-                    <span>12 AM</span>
-                    <span>6 AM</span>
-                    <span>12 PM</span>
-                    <span>6 PM</span>
-                    <span>11 PM</span>
+                {/* X-Axis Labels (Dynamic: Start, Middle, End) */}
+                <div className="absolute bottom-0 left-0 right-0 flex justify-between pl-6 text-[10px] text-text-secondary font-medium uppercase tracking-wide">
+                    <span>{formatTimeLabel(data[0].fullDate)}</span>
+                    {data.length > 4 && <span>{formatTimeLabel(data[Math.floor(data.length / 2)].fullDate)}</span>}
+                    <span>{formatTimeLabel(data[data.length - 1].fullDate)}</span>
                 </div>
             </div>
         </div>
@@ -350,22 +373,65 @@ const ReportsScreen: React.FC = () => {
         let totalOrders = sorted.length;
         const paymentMethods: Record<string, number> = {};
         const itemsSold: Record<string, { count: number, revenue: number, category: string }> = {};
-        const salesByHour: Record<number, number> = {};
         const salesByCategory: Record<string, number> = {};
 
-        // Initialize all 24 hours to 0 to ensure graph continuity
-        for(let i=0; i<24; i++) salesByHour[i] = 0;
+        // --- DYNAMIC GRAPH BUCKETING ---
+        // Construct graph buckets based on dateRange.start -> dateRange.end
+        // We create one bucket per hour.
+        const graphData: GraphDataPoint[] = [];
+        let bucketPointer = new Date(dateRange.start);
+        
+        // Safety Break: Don't loop more than 48 hours to prevent freezes on bad range
+        let iterations = 0;
+        const maxIterations = 48;
+        
+        // Determine the "cutoff" time for graph display
+        // If filter is 'today', cutoff is current wall-clock time.
+        // Otherwise, show full range.
+        const now = new Date();
+        const cutoffTime = filter === 'today' ? now : new Date(8640000000000000); // Far future if not today
+
+        while (bucketPointer < dateRange.end && iterations < maxIterations) {
+            iterations++;
+            
+            // Define bucket range [current, current+1h)
+            const bucketStart = new Date(bucketPointer);
+            const bucketEnd = new Date(bucketPointer);
+            bucketEnd.setHours(bucketEnd.getHours() + 1);
+            
+            // Only add to graph if this bucket starts before our cutoff time (plus small buffer)
+            // If it's 2:15 PM, we want to show the 2:00-3:00 PM bucket (it is "current").
+            // So we compare bucketStart to cutoffTime.
+            if (bucketStart <= cutoffTime) {
+                const label = bucketStart.getHours().toString().padStart(2, '0') + ":00";
+                
+                // Aggregate sales for this bucket
+                const bucketSales = sorted.reduce((sum, r) => {
+                    const rDate = new Date(r.date);
+                    if (rDate >= bucketStart && rDate < bucketEnd) {
+                        return sum + r.total;
+                    }
+                    return sum;
+                }, 0);
+
+                graphData.push({
+                    label,
+                    hour: bucketStart.getHours(),
+                    value: bucketSales,
+                    fullDate: bucketStart
+                });
+            }
+
+            // Move pointer
+            bucketPointer = bucketEnd;
+        }
+
+        // --- END DYNAMIC GRAPH ---
 
         sorted.forEach(r => {
             totalSales += r.total;
             paymentMethods[r.paymentMethod] = (paymentMethods[r.paymentMethod] || 0) + r.total;
             
-            const rDate = new Date(r.date);
-            if (!isNaN(rDate.getTime())) {
-                const hour = rDate.getHours();
-                salesByHour[hour] = (salesByHour[hour] || 0) + r.total;
-            }
-
             r.items.forEach((item: any) => {
                 if (!itemsSold[item.name]) itemsSold[item.name] = { count: 0, revenue: 0, category: item.category || 'Uncategorized' };
                 itemsSold[item.name].count += item.quantity;
@@ -388,11 +454,12 @@ const ReportsScreen: React.FC = () => {
                 paymentMethods,
                 topItems: allItems.sort((a,b) => b.revenue - a.revenue).slice(0, 5),
                 allItems,
-                salesByHour,
+                salesByHour: {}, // Deprecated, using graphData
+                graphData,
                 salesByCategory
             }
         };
-    }, [fetchedReceipts, paymentMethodFilter, orderSortConfig]);
+    }, [fetchedReceipts, paymentMethodFilter, orderSortConfig, dateRange, filter]);
 
     // Derived state for Sorted Items List
     const sortedItems = useMemo(() => {
@@ -652,7 +719,7 @@ const ReportsScreen: React.FC = () => {
 
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                     {/* Hourly Chart - NEW ROBUST COMPONENT */}
-                                    <HourlySalesChart data={metrics.salesByHour} />
+                                    <HourlySalesChart data={metrics.graphData} />
 
                                     {/* Payment Methods Breakdown */}
                                     <div className="bg-surface p-6 rounded-2xl shadow-sm border border-border">
