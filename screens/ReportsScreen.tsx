@@ -1,10 +1,12 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { LockIcon, MenuIcon, DollarSignIcon, ChartIcon, CheckIcon, DownloadIcon, CloseIcon } from '../constants';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { idb } from '../utils/indexedDB';
+import { Receipt } from '../types';
 
 // --- TYPES ---
 type DateFilter = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
@@ -100,8 +102,12 @@ const SecurityOverlay: React.FC<{ onUnlock: (pin: string) => boolean }> = ({ onU
 };
 
 const ReportsScreen: React.FC = () => {
-    const { openDrawer, receipts, settings, isReportsUnlocked, setReportsUnlocked, paymentTypes } = useAppContext();
+    const { openDrawer, receipts: recentReceipts, settings, isReportsUnlocked, setReportsUnlocked, paymentTypes } = useAppContext();
     
+    // Local state for FULL history to calculate correct reports
+    const [allReceipts, setAllReceipts] = useState<Receipt[]>([]);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+
     // Filters State
     const [filter, setFilter] = useState<DateFilter>('today');
     const [shiftFilter, setShiftFilter] = useState<ShiftFilter>('all');
@@ -113,6 +119,32 @@ const ReportsScreen: React.FC = () => {
     // Sorting State
     const [orderSortConfig, setOrderSortConfig] = useState<SortConfig>({ key: 'date', direction: 'desc' });
     const [itemSortConfig, setItemSortConfig] = useState<SortConfig>({ key: 'revenue', direction: 'desc' });
+
+    // Load full history on mount
+    useEffect(() => {
+        const loadFullHistory = async () => {
+            setIsLoadingHistory(true);
+            try {
+                const history = await idb.getAllReceipts();
+                setAllReceipts(history);
+            } catch (e) {
+                console.error("Failed to load report history", e);
+            } finally {
+                setIsLoadingHistory(false);
+            }
+        };
+        loadFullHistory();
+    }, []);
+
+    // Combine local history with recent updates from context (deduplicated)
+    const mergedReceipts = useMemo(() => {
+        const map = new Map<string, Receipt>();
+        // 1. History first
+        allReceipts.forEach(r => map.set(r.id, r));
+        // 2. Recent context (updates) overwrite history
+        recentReceipts.forEach(r => map.set(r.id, r));
+        return Array.from(map.values());
+    }, [allReceipts, recentReceipts]);
 
     // --- ANALYTICS LOGIC ---
     const { filteredReceipts, metrics } = useMemo(() => {
@@ -152,13 +184,7 @@ const ReportsScreen: React.FC = () => {
                 anchorDayEnd = todayEnd;
             }
 
-            // Apply Shift Logic ONLY for 'today' and 'yesterday' to keep it sane.
-            // For multi-day ranges (week/month), applying specific shift times across days is complex, 
-            // so we'll stick to full dates unless specifically requested.
-            // However, the prompt implies "filtering sales happening in these shifts".
-            // Implementation: If Shift Filter is ON, we modify the start/end times of the *Anchor Day*.
-            // This works best for single-day views.
-            
+            // Apply Shift Logic ONLY for 'today' and 'yesterday'
             if ((filter === 'today' || filter === 'yesterday') && shiftFilter !== 'all') {
                 const morningStartStr = settings.shiftMorningStart || '06:00';
                 const morningEndStr = settings.shiftMorningEnd || '17:30';
@@ -180,7 +206,7 @@ const ReportsScreen: React.FC = () => {
         }
 
         // 2. Filter Data
-        const filtered = receipts.filter(r => {
+        const filtered = mergedReceipts.filter(r => {
             const date = new Date(r.date);
             const matchesDate = date >= startTime && date <= endTime;
             const matchesPayment = paymentMethodFilter === 'all' || r.paymentMethod === paymentMethodFilter;
@@ -248,7 +274,7 @@ const ReportsScreen: React.FC = () => {
                 salesByCategory
             }
         };
-    }, [receipts, filter, shiftFilter, customStartDate, customEndDate, paymentMethodFilter, orderSortConfig, settings]);
+    }, [mergedReceipts, filter, shiftFilter, customStartDate, customEndDate, paymentMethodFilter, orderSortConfig, settings]);
 
     // Derived state for Sorted Items List
     const sortedItems = useMemo(() => {
@@ -442,6 +468,11 @@ const ReportsScreen: React.FC = () => {
             {/* --- CONTENT AREA --- */}
             {isLocked ? (
                 <SecurityOverlay onUnlock={handleUnlock} />
+            ) : isLoadingHistory ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-text-secondary">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+                    <p className="text-sm">Calculating reports...</p>
+                </div>
             ) : (
                 <div className="flex-1 flex flex-col overflow-hidden relative">
                     {/* Navigation Tabs */}

@@ -36,6 +36,7 @@ export const idb = {
   /**
    * Retrieves all receipts from the local database.
    * Returns them sorted by date (newest first).
+   * WARNING: Use carefully with large datasets.
    */
   getAllReceipts: async (): Promise<Receipt[]> => {
     try {
@@ -47,8 +48,7 @@ export const idb = {
 
             request.onsuccess = () => {
                 const results = request.result as Receipt[];
-                // Sort in memory after retrieval (Newest First)
-                // Note: Indexing by date in IDB is possible but sorting in JS is usually fast enough for <10k items
+                // Sort in memory after retrieval
                 results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 resolve(results);
             };
@@ -57,6 +57,42 @@ export const idb = {
         });
     } catch (error) {
         console.error("Failed to get receipts from IDB", error);
+        return [];
+    }
+  },
+
+  /**
+   * Retrieves only the most recent receipts.
+   * Uses a cursor to avoid loading the entire database into memory.
+   * Assumes ID generation (R + Timestamp) correlates with time, or simply returns latest added.
+   */
+  getRecentReceipts: async (limit: number): Promise<Receipt[]> => {
+    try {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const results: Receipt[] = [];
+            
+            // Open cursor in 'prev' direction to get last keys (newest) first
+            // Note: This relies on IDs being somewhat chronological or inserted in order. 
+            // Since IDs are R{Timestamp}, they sort correctly as strings for time.
+            const request = store.openCursor(null, 'prev');
+
+            request.onsuccess = (event) => {
+                const cursor = (event.target as IDBRequest).result as IDBCursorWithValue;
+                if (cursor && results.length < limit) {
+                    results.push(cursor.value);
+                    cursor.continue();
+                } else {
+                    resolve(results);
+                }
+            };
+
+            request.onerror = () => reject(request.error);
+        });
+    } catch (error) {
+        console.error("Failed to get recent receipts from IDB", error);
         return [];
     }
   },

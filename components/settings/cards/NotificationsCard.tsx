@@ -9,6 +9,11 @@ interface NotificationsCardProps {
 }
 
 const NotificationsCard: React.FC<NotificationsCardProps> = ({ settings, updateSettings }) => {
+  
+  const handleMasterToggle = (checked: boolean) => {
+      updateSettings({ notificationsEnabled: checked });
+  };
+
   return (
     <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
       <div className="flex items-center gap-3 mb-6">
@@ -32,34 +37,75 @@ const NotificationsCard: React.FC<NotificationsCardProps> = ({ settings, updateS
             type="checkbox" 
             id="notif-master-toggle" 
             className="sr-only peer"
-            checked={settings.notificationsEnabled} 
-            onChange={(e) => updateSettings({ notificationsEnabled: e.target.checked })}
+            checked={settings.notificationsEnabled ?? false} 
+            onChange={(e) => handleMasterToggle(e.target.checked)}
             />
             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
         </label>
       </div>
 
-      {/* Specific Settings (Coming Soon) */}
-      <div className={`mt-6 space-y-5 ${!settings.notificationsEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
+      {/* Specific Settings */}
+      <div className={`mt-6 space-y-6 ${!settings.notificationsEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
+          
+          {/* Daily Summary */}
           <div className="flex justify-between items-start">
               <div>
                   <p className="text-sm font-medium text-text-primary">Daily Sales Summary</p>
-                  <p className="text-xs text-text-secondary">Receive an email report at end of day.</p>
+                  <p className="text-xs text-text-secondary">Get a reminder to check reports.</p>
               </div>
-              <div className="flex items-center gap-2">
-                  <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-0.5 rounded font-bold uppercase">Soon</span>
-                  <div className="w-9 h-5 bg-gray-200 dark:bg-gray-700 rounded-full opacity-60"></div>
+              <div className="flex flex-col items-end gap-2">
+                  <label htmlFor="daily-summary-toggle" className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                        type="checkbox" 
+                        id="daily-summary-toggle" 
+                        className="sr-only peer"
+                        checked={settings.notifyDailySummary ?? false} 
+                        onChange={(e) => updateSettings({ notifyDailySummary: e.target.checked })}
+                        />
+                        <div className="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                  </label>
+                  
+                  {settings.notifyDailySummary && (
+                      <input 
+                        type="time" 
+                        value={settings.dailySummaryTime || '22:00'}
+                        onChange={(e) => updateSettings({ dailySummaryTime: e.target.value })}
+                        className="p-1 border border-border rounded text-xs bg-background text-text-primary outline-none focus:border-primary"
+                      />
+                  )}
               </div>
           </div>
 
+          {/* Low Stock */}
           <div className="flex justify-between items-start">
               <div>
                   <p className="text-sm font-medium text-text-primary">Low Stock Alerts</p>
-                  <p className="text-xs text-text-secondary">Get notified when items run low.</p>
+                  <p className="text-xs text-text-secondary">Get notified when stock falls below threshold.</p>
               </div>
-              <div className="flex items-center gap-2">
-                  <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-0.5 rounded font-bold uppercase">Soon</span>
-                  <div className="w-9 h-5 bg-gray-200 dark:bg-gray-700 rounded-full opacity-60"></div>
+              <div className="flex flex-col items-end gap-2">
+                  <label htmlFor="low-stock-toggle" className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                        type="checkbox" 
+                        id="low-stock-toggle" 
+                        className="sr-only peer"
+                        checked={settings.notifyLowStock ?? false} 
+                        onChange={(e) => updateSettings({ notifyLowStock: e.target.checked })}
+                        />
+                        <div className="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                  </label>
+
+                  {settings.notifyLowStock && (
+                      <div className="flex items-center gap-2">
+                          <span className="text-xs text-text-secondary">Threshold:</span>
+                          <input 
+                            type="number" 
+                            min="0"
+                            value={settings.lowStockThreshold || 10}
+                            onChange={(e) => updateSettings({ lowStockThreshold: parseInt(e.target.value) || 0 })}
+                            className="w-12 p-1 border border-border rounded text-xs bg-background text-text-primary outline-none focus:border-primary text-center"
+                          />
+                      </div>
+                  )}
               </div>
           </div>
       </div>

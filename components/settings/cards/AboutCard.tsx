@@ -1,10 +1,21 @@
 
 import React from 'react';
 import { useAppContext } from '../../../context/AppContext';
+import { Capacitor } from '@capacitor/core';
+import { APP_VERSION } from '../../../constants';
 
 const AboutCard: React.FC = () => {
   const { pendingSyncCount, isOnline } = useAppContext();
-  const appVersion = '2.2.0'; 
+  
+  const getPlatformLabel = () => {
+    const platform = Capacitor.getPlatform();
+    switch (platform) {
+        case 'android': return 'Android App';
+        case 'ios': return 'iOS App';
+        case 'web': return 'Web (Browser)';
+        default: return platform;
+    }
+  };
 
   return (
     <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
@@ -12,11 +23,11 @@ const AboutCard: React.FC = () => {
       <div className="space-y-3 text-sm text-text-secondary">
         <div className="flex justify-between">
           <span className="font-medium text-text-primary">App Version</span>
-          <span>{appVersion}</span>
+          <span>{APP_VERSION}</span>
         </div>
         <div className="flex justify-between">
           <span className="font-medium text-text-primary">Environment</span>
-          <span>Web (Browser)</span>
+          <span>{getPlatformLabel()}</span>
         </div>
         <div className="flex justify-between items-center">
           <span className="font-medium text-text-primary">Data Status</span>

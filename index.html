@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -35,6 +36,9 @@
     <style>
       /* --- NEW GREEN THEME & COLOR PALETTE --- */
       :root {
+        color-scheme: light; /* Ensures native inputs (date/time) use light theme */
+        accent-color: #059669; /* emerald-600 */
+        
         --color-background: #F8F9FA; /* slate-50 */
         --color-surface: #FFFFFF; /* white */
         --color-surface-muted: #F1F3F5; /* slate-100 */
@@ -54,6 +58,9 @@
       }
       
       html.dark {
+        color-scheme: dark; /* Ensures native inputs (date/time) use dark theme */
+        accent-color: #10B981; /* emerald-500 */
+
         --color-background: #303030; /* User requested dark grey */
         --color-surface: #262626; /* neutral-800 */
         --color-surface-muted: #404040; /* neutral-700 */
@@ -118,7 +125,11 @@
     </style>
 <script>
     // PRE-LOAD: Apply theme before React loads to prevent flash of unstyled content
-    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    // Logic: If 'dark' explicitly stored OR ('system' stored or no storage AND system is dark)
+    if (
+        localStorage.theme === 'dark' || 
+        ((!('theme' in localStorage) || localStorage.theme === 'system') && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    ) {
       document.documentElement.classList.add('dark')
     } else {
       document.documentElement.classList.remove('dark')
@@ -136,7 +147,9 @@
     "@capacitor/core": "https://aistudiocdn.com/@capacitor/core@^7.4.4",
     "@capacitor/filesystem": "https://aistudiocdn.com/@capacitor/filesystem@^7.1.5",
     "@capacitor/share": "https://aistudiocdn.com/@capacitor/share@^7.0.2",
-    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.10.1"
+    "@capacitor/app": "https://aistudiocdn.com/@capacitor/app@^7.0.0",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.10.1",
+    "@capacitor/local-notifications": "https://aistudiocdn.com/@capacitor/local-notifications@^7.0.0"
   }
 }
 </script>
