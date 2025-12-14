@@ -78,7 +78,7 @@ const SalesHeader: React.FC<SalesHeaderProps> = ({ openDrawer, searchQuery, onSe
         ) : (
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-3">
-               <button onClick={openDrawer} className="p-2 -ml-2 text-text-secondary hover:text-text-primary rounded-full hover:bg-surface-muted transition-colors">
+               <button onClick={openDrawer} className="p-2 text-text-secondary hover:text-text-primary rounded-full hover:bg-surface-muted transition-colors">
                   <MenuIcon className="h-6 w-6" />
                </button>
                <h1 className="text-lg font-bold text-text-primary tracking-tight">

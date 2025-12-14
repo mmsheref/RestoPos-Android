@@ -91,7 +91,7 @@ const NavDrawer: React.FC = () => {
       />
 
       <aside
-        className={`fixed top-0 left-0 h-screen w-72 bg-neutral-900 text-white z-[70] flex flex-col shadow-2xl transform transition-transform duration-300 ease-out will-change-transform border-r border-neutral-800 ${
+        className={`fixed top-0 left-0 bottom-0 w-[85vw] max-w-[320px] bg-neutral-900 text-white z-[70] flex flex-col shadow-2xl transform transition-transform duration-300 ease-out will-change-transform border-r border-neutral-800 pt-safe-top ${
           isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{ backfaceVisibility: 'hidden' }} // Fix for flickering text during transition
@@ -103,7 +103,7 @@ const NavDrawer: React.FC = () => {
           <p className="text-xs text-neutral-500 mt-1 uppercase tracking-wider font-semibold">Point of Sale</p>
         </div>
         
-        <nav className="flex-1 py-6 px-3 overflow-y-auto">
+        <nav className="flex-1 py-4 px-3 overflow-y-auto">
           <ul className="space-y-1">
             {NAV_LINKS.map(({ path, label, Icon }) => (
               <li key={path}>
@@ -111,7 +111,7 @@ const NavDrawer: React.FC = () => {
                   to={path}
                   onClick={closeDrawer}
                   className={({ isActive }) =>
-                    `flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group ${
+                    `flex items-center px-4 py-3 text-sm font-medium rounded-full transition-all duration-200 group ${
                       isActive
                         ? 'bg-primary text-primary-content shadow-lg shadow-primary/20'
                         : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
@@ -154,7 +154,7 @@ const NavDrawer: React.FC = () => {
             </div>
         </div>
         
-        <div className="p-4 border-t border-neutral-800 bg-neutral-900">
+        <div className="p-4 border-t border-neutral-800 bg-neutral-900 pb-safe-bottom">
             <div className="flex items-center gap-3 mb-3 px-2">
                 <div className="h-8 w-8 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-400">
                      <UserIcon className="h-4 w-4" />
