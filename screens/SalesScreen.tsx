@@ -13,6 +13,7 @@ import ManageGridsModal from '../components/modals/ManageGridsModal';
 import SelectItemModal from '../components/modals/SelectItemModal';
 import AddGridModal from '../components/modals/AddGridModal';
 import ConfirmModal from '../components/modals/ConfirmModal';
+import PriceInputModal from '../components/modals/PriceInputModal';
 import SalesHeader from '../components/sales/SalesHeader';
 import ItemGrid from '../components/sales/ItemGrid';
 import CategoryTabs from '../components/sales/CategoryTabs';
@@ -111,6 +112,9 @@ const SalesScreen: React.FC = () => {
   const [isAddGridModalOpen, setIsAddGridModalOpen] = useState(false);
   const [assigningSlot, setAssigningSlot] = useState<{gridId: string, slotIndex: number} | null>(null);
   
+  // Variable Price State
+  const [variablePriceItem, setVariablePriceItem] = useState<Item | null>(null);
+  
   const [confirmModalState, setConfirmModalState] = useState<{
       isOpen: boolean;
       title: string;
@@ -164,6 +168,27 @@ const SalesScreen: React.FC = () => {
         scrollContainerRef.current.scrollTop = 0;
     }
   }, [activeGridId, debouncedSearchQuery]);
+
+  // --- ITEM CLICK HANDLER ---
+  const handleItemClick = useCallback((item: Item) => {
+      if (item.price === 0) {
+          // Open Modal for variable price
+          setVariablePriceItem(item);
+      } else {
+          // Normal add
+          addToOrder(item);
+      }
+  }, [addToOrder]);
+
+  const handleVariablePriceConfirm = (price: number) => {
+      if (variablePriceItem) {
+          // Create a temporary item copy with the new price
+          // We DO NOT change the global item definition, only for this cart add
+          const tempItem = { ...variablePriceItem, price: price };
+          addToOrder(tempItem);
+          setVariablePriceItem(null);
+      }
+  };
 
   const handleQuantityClick = useCallback((item: OrderItem) => {
     setEditingQuantityItemId(item.lineItemId);
@@ -435,7 +460,12 @@ const SalesScreen: React.FC = () => {
 
       {/* --- LEFT SECTION (Grid + Tabs) --- */}
       <div className="flex-1 flex flex-col min-w-0 h-full relative">
-        <SalesHeader openDrawer={openDrawer} onSearchChange={setSearchQuery} searchQuery={searchQuery} />
+        <SalesHeader 
+            openDrawer={openDrawer} 
+            onSearchChange={setSearchQuery} 
+            searchQuery={searchQuery} 
+            storeName={settings.storeName}
+        />
         
         {/* Grid Container (Takes remaining space) */}
         <div className="flex-1 relative overflow-hidden">
@@ -463,7 +493,7 @@ const SalesScreen: React.FC = () => {
                     <ItemGrid
                     itemsForDisplay={paginatedItems}
                     mode={isViewingAll ? 'all' : 'grid'}
-                    onAddItemToOrder={addToOrder}
+                    onAddItemToOrder={handleItemClick}
                     onAssignItem={handleOpenSelectItemModal}
                     onRemoveItem={handleRemoveItemFromGrid}
                     isEditing={!isViewingAll && isGridEditing}
@@ -560,6 +590,14 @@ const SalesScreen: React.FC = () => {
       <ManageGridsModal isOpen={isManageGridsModalOpen} onClose={() => setIsManageGridsModalOpen(false)} initialGrids={customGrids} onSave={handleSaveGrids} />
       <AddGridModal isOpen={isAddGridModalOpen} onClose={() => setIsAddGridModalOpen(false)} onSave={handleSaveNewGrid} />
       
+      {/* Variable Price Modal */}
+      <PriceInputModal 
+        isOpen={!!variablePriceItem}
+        onClose={() => setVariablePriceItem(null)}
+        onConfirm={handleVariablePriceConfirm}
+        item={variablePriceItem}
+      />
+
       <ConfirmModal
         isOpen={confirmModalState.isOpen}
         onClose={() => setConfirmModalState(prev => ({ ...prev, isOpen: false }))}

@@ -6,9 +6,10 @@ interface SalesHeaderProps {
   openDrawer: () => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  storeName?: string;
 }
 
-const SalesHeader: React.FC<SalesHeaderProps> = ({ openDrawer, searchQuery, onSearchChange }) => {
+const SalesHeader: React.FC<SalesHeaderProps> = ({ openDrawer, searchQuery, onSearchChange, storeName }) => {
   const [isSearching, setIsSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -81,8 +82,8 @@ const SalesHeader: React.FC<SalesHeaderProps> = ({ openDrawer, searchQuery, onSe
                <button onClick={openDrawer} className="p-2 text-text-secondary hover:text-text-primary rounded-full hover:bg-surface-muted transition-colors">
                   <MenuIcon className="h-6 w-6" />
                </button>
-               <h1 className="text-lg font-bold text-text-primary tracking-tight">
-                 Restaurant POS
+               <h1 className="text-lg font-bold text-text-primary tracking-tight truncate max-w-[200px] md:max-w-md">
+                 {storeName || 'Restaurant POS'}
                </h1>
             </div>
             <button onClick={() => setIsSearching(true)} className="p-2 text-text-secondary hover:text-primary bg-surface-muted/50 hover:bg-primary/10 rounded-full transition-all">

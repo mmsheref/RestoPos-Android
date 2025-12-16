@@ -222,7 +222,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCurrentOrder(current => {
       const lastItem = current.length > 0 ? current[current.length - 1] : null;
 
-      if (lastItem && lastItem.id === item.id) {
+      // Ensure we only increment quantity if BOTH ID and Price match.
+      // This supports "Variable Price Items" where the same item ID might have different manual prices.
+      if (lastItem && lastItem.id === item.id && lastItem.price === item.price) {
         const newOrder = [...current];
         newOrder[newOrder.length - 1] = { ...lastItem, quantity: lastItem.quantity + 1 };
         return newOrder;
