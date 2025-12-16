@@ -243,102 +243,104 @@ const ItemsScreen: React.FC = () => {
   };
 
   return (
-    <div className="p-4 md:p-6 bg-background h-full flex flex-col min-h-0">
-      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 flex-shrink-0">
-        <div className="flex items-center self-start md:self-center w-full md:w-auto">
-            <button onClick={openDrawer} className="p-2 -ml-2 mr-2 text-text-secondary hover:text-text-primary">
-                <MenuIcon className="h-6 w-6" />
-            </button>
-            <h1 className="text-2xl md:text-3xl font-bold text-text-primary">Menu Items</h1>
-        </div>
-        
-        <div className="flex w-full md:w-auto items-center gap-2">
-            <div className="relative flex-grow md:flex-grow-0">
-                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted h-5 w-5" />
-                <input 
-                    type="text" 
-                    placeholder="Search..." 
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="pl-10 pr-10 py-2 border rounded-lg w-full md:w-64 bg-surface border-border text-text-primary focus:ring-2 focus:ring-primary"
-                />
-                {search && (
-                    <button 
-                        onClick={() => setSearch('')}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-muted hover:text-text-primary"
-                        aria-label="Clear search"
+    <div className="bg-background h-full flex flex-col min-h-0 pt-safe-top">
+      <div className="p-4 md:p-6 flex flex-col flex-grow min-h-0 overflow-hidden">
+        <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 flex-shrink-0">
+            <div className="flex items-center self-start md:self-center w-full md:w-auto">
+                <button onClick={openDrawer} className="p-2 -ml-2 mr-2 text-text-secondary hover:text-text-primary">
+                    <MenuIcon className="h-6 w-6" />
+                </button>
+                <h1 className="text-2xl md:text-3xl font-bold text-text-primary">Menu Items</h1>
+            </div>
+            
+            <div className="flex w-full md:w-auto items-center gap-2">
+                <div className="relative flex-grow md:flex-grow-0">
+                    <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted h-5 w-5" />
+                    <input 
+                        type="text" 
+                        placeholder="Search..." 
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="pl-10 pr-10 py-2 border rounded-lg w-full md:w-64 bg-surface border-border text-text-primary focus:ring-2 focus:ring-primary"
+                    />
+                    {search && (
+                        <button 
+                            onClick={() => setSearch('')}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-muted hover:text-text-primary"
+                            aria-label="Clear search"
+                        >
+                            <CloseIcon className="h-4 w-4" />
+                        </button>
+                    )}
+                </div>
+                
+                <div className="hidden md:flex gap-2">
+                    <button
+                        onClick={handleCsvImportClick}
+                        className="bg-teal-500 text-white font-semibold px-4 py-2 rounded-lg hover:bg-teal-600 transition-colors shadow-sm"
+                        title="Import CSV"
                     >
-                        <CloseIcon className="h-4 w-4" />
+                        Import
                     </button>
-                )}
-            </div>
-            
-            <div className="hidden md:flex gap-2">
+                    <button
+                        onClick={exportItemsCsv}
+                        className="bg-green-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+                        title="Export CSV"
+                    >
+                        Export
+                    </button>
+                </div>
+                
                 <button
-                    onClick={handleCsvImportClick}
-                    className="bg-teal-500 text-white font-semibold px-4 py-2 rounded-lg hover:bg-teal-600 transition-colors shadow-sm"
-                    title="Import CSV"
+                onClick={handleAddItem}
+                className="bg-primary text-primary-content font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors shadow-sm flex-shrink-0 whitespace-nowrap"
                 >
-                    Import
-                </button>
-                <button
-                    onClick={exportItemsCsv}
-                    className="bg-green-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-green-700 transition-colors shadow-sm"
-                    title="Export CSV"
-                >
-                    Export
+                + Add
                 </button>
             </div>
-            
-            <button
-              onClick={handleAddItem}
-              className="bg-primary text-primary-content font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors shadow-sm flex-shrink-0 whitespace-nowrap"
-            >
-              + Add
-            </button>
         </div>
-      </div>
 
-      <div className="bg-surface rounded-lg shadow-sm flex-grow border border-border overflow-auto min-h-0">
-        <table className="min-w-full divide-y divide-border relative">
-          <thead className="bg-surface-muted sticky top-0 z-20 shadow-sm hidden md:table-header-group">
-            <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Image</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Name</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Price</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Stock</th>
-              <th scope="col" className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
-            </tr>
-          </thead>
-          <tbody className="bg-surface divide-y divide-border">
-            {filteredItems.length === 0 ? (
+        <div className="bg-surface rounded-lg shadow-sm flex-grow border border-border overflow-auto min-h-0">
+            <table className="min-w-full divide-y divide-border relative">
+            <thead className="bg-surface-muted sticky top-0 z-20 shadow-sm hidden md:table-header-group">
                 <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-text-secondary">
-                        {search ? 'No items found matching your search.' : 'No items available. Add your first item!'}
-                    </td>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Image</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Name</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Price</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Stock</th>
+                <th scope="col" className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
                 </tr>
-            ) : (
-                <>
-                  {displayedItems.map((item) => (
-                      <ItemRow 
-                          key={item.id} 
-                          item={item} 
-                          onEdit={handleEditItem} 
-                          onDelete={handleDeleteRequest} 
-                      />
-                  ))}
-                  {/* Sentinel Row for Infinite Scroll */}
-                  {displayLimit < filteredItems.length && (
-                      <tr ref={loadMoreRef} className="bg-surface-muted/30">
-                          <td colSpan={5} className="py-4 text-center text-sm text-text-muted">
-                              Loading more items...
-                          </td>
-                      </tr>
-                  )}
-                </>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-surface divide-y divide-border">
+                {filteredItems.length === 0 ? (
+                    <tr>
+                        <td colSpan={5} className="px-6 py-12 text-center text-text-secondary">
+                            {search ? 'No items found matching your search.' : 'No items available. Add your first item!'}
+                        </td>
+                    </tr>
+                ) : (
+                    <>
+                    {displayedItems.map((item) => (
+                        <ItemRow 
+                            key={item.id} 
+                            item={item} 
+                            onEdit={handleEditItem} 
+                            onDelete={handleDeleteRequest} 
+                        />
+                    ))}
+                    {/* Sentinel Row for Infinite Scroll */}
+                    {displayLimit < filteredItems.length && (
+                        <tr ref={loadMoreRef} className="bg-surface-muted/30">
+                            <td colSpan={5} className="py-4 text-center text-sm text-text-muted">
+                                Loading more items...
+                            </td>
+                        </tr>
+                    )}
+                    </>
+                )}
+            </tbody>
+            </table>
+        </div>
       </div>
 
       <ItemFormModal 

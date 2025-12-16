@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { MenuIcon } from '../constants';
 
@@ -8,7 +9,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ title, onMenuClick }) => {
   return (
-    <header className="bg-surface shadow-sm w-full z-20 flex-shrink-0">
+    <header className="bg-surface shadow-sm w-full z-20 flex-shrink-0 pt-safe-top">
       <div className="h-16 flex items-center justify-between px-4">
         <button onClick={onMenuClick} className="p-2 text-text-secondary hover:text-text-primary">
           <MenuIcon className="h-6 w-6" />

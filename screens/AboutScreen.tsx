@@ -105,11 +105,13 @@ const AboutScreen: React.FC = () => {
     <div className="flex h-full bg-background overflow-hidden">
         {/* Left Panel (Navigation) */}
         <div className={`w-full md:w-1/3 lg:w-1/4 flex-col border-r border-border ${isDetailView ? 'hidden md:flex' : 'flex'}`}>
-            <div className="flex-shrink-0 h-16 flex items-center px-4 border-b border-border bg-surface">
-                <button onClick={openDrawer} className="p-2 -ml-2 text-text-secondary hover:text-text-primary">
-                    <MenuIcon className="h-6 w-6" />
-                </button>
-                <h1 className="text-xl font-semibold text-text-primary ml-4">About</h1>
+            <div className="flex-shrink-0 bg-surface border-b border-border pt-safe-top">
+                <div className="h-16 flex items-center px-4">
+                    <button onClick={openDrawer} className="p-2 -ml-2 text-text-secondary hover:text-text-primary">
+                        <MenuIcon className="h-6 w-6" />
+                    </button>
+                    <h1 className="text-xl font-semibold text-text-primary ml-4">About</h1>
+                </div>
             </div>
              <nav className="p-2 flex-1 overflow-y-auto">
                 <ul>
@@ -134,13 +136,15 @@ const AboutScreen: React.FC = () => {
 
         {/* Right Panel (Content) */}
         <div className={`w-full md:w-2/3 lg:w-3/4 flex-col ${isDetailView ? 'flex' : 'hidden md:flex'}`}>
-             <div className="flex-shrink-0 h-16 flex items-center px-4 md:px-6 border-b border-border bg-surface">
-                <button onClick={() => setIsDetailView(false)} className="p-2 -ml-2 text-text-secondary md:hidden">
-                    <ArrowLeftIcon className="h-6 w-6" />
-                </button>
-                <h1 className="text-xl font-semibold text-text-primary md:ml-0 ml-2">
-                     {sections.find(s => s.id === activeSection)?.label}
-                </h1>
+             <div className="flex-shrink-0 bg-surface border-b border-border pt-safe-top">
+                <div className="h-16 flex items-center px-4 md:px-6">
+                    <button onClick={() => setIsDetailView(false)} className="p-2 -ml-2 text-text-secondary md:hidden">
+                        <ArrowLeftIcon className="h-6 w-6" />
+                    </button>
+                    <h1 className="text-xl font-semibold text-text-primary md:ml-0 ml-2">
+                        {sections.find(s => s.id === activeSection)?.label}
+                    </h1>
+                </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-background">
                 <div className="max-w-2xl mx-auto">

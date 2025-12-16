@@ -124,37 +124,39 @@ const ReceiptsScreen: React.FC = () => {
     
     return selectedReceipt ? (
       <>
-        <div className="flex-shrink-0 h-16 flex justify-between items-center px-4 md:px-6 border-b border-border bg-surface">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setIsDetailView(false)} className="p-2 -ml-2 text-text-secondary md:hidden">
-                <ArrowLeftIcon className="h-6 w-6" />
-            </button>
-            <h2 className="text-lg font-semibold text-text-primary">Receipt #{selectedReceipt.id}</h2>
-          </div>
-          <div className="relative" ref={menuRef}>
-            <button onClick={() => setIsMenuOpen(prev => !prev)} className="p-2 text-text-muted hover:bg-surface-muted rounded-full">
-              <ThreeDotsIcon className="h-5 w-5" />
-            </button>
-            {isMenuOpen && (
-               <div className="absolute right-0 mt-2 w-48 bg-surface rounded-md shadow-lg ring-1 ring-black ring-opacity-5 dark:ring-white/10 z-20">
-                 <div className="py-1" role="menu" aria-orientation="vertical">
-                   <button onClick={handlePrintReceipt} disabled={isPrinting} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-text-primary hover:bg-surface-muted disabled:opacity-50" role="menuitem">
-                     <PrintIcon className="h-5 w-5" /> {isPrinting ? 'Printing...' : 'Print'}
-                   </button>
-                   <button className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-text-primary hover:bg-surface-muted" role="menuitem">
-                     <MailIcon className="h-5 w-5" /> Email
-                   </button>
-                   <button 
-                      onClick={() => { setIsMenuOpen(false); setIsPinModalOpen(true); }} 
-                      className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-surface-muted" 
-                      role="menuitem"
-                   >
-                     <TrashIcon className="h-5 w-5" /> Delete Receipt
-                   </button>
-                 </div>
-               </div>
-            )}
-          </div>
+        <div className="flex-shrink-0 bg-surface border-b border-border pt-safe-top">
+            <div className="h-16 flex justify-between items-center px-4 md:px-6">
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setIsDetailView(false)} className="p-2 -ml-2 text-text-secondary md:hidden">
+                        <ArrowLeftIcon className="h-6 w-6" />
+                    </button>
+                    <h2 className="text-lg font-semibold text-text-primary">Receipt #{selectedReceipt.id}</h2>
+                </div>
+                <div className="relative" ref={menuRef}>
+                    <button onClick={() => setIsMenuOpen(prev => !prev)} className="p-2 text-text-muted hover:bg-surface-muted rounded-full">
+                    <ThreeDotsIcon className="h-5 w-5" />
+                    </button>
+                    {isMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-surface rounded-md shadow-lg ring-1 ring-black ring-opacity-5 dark:ring-white/10 z-20">
+                        <div className="py-1" role="menu" aria-orientation="vertical">
+                        <button onClick={handlePrintReceipt} disabled={isPrinting} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-text-primary hover:bg-surface-muted disabled:opacity-50" role="menuitem">
+                            <PrintIcon className="h-5 w-5" /> {isPrinting ? 'Printing...' : 'Print'}
+                        </button>
+                        <button className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-text-primary hover:bg-surface-muted" role="menuitem">
+                            <MailIcon className="h-5 w-5" /> Email
+                        </button>
+                        <button 
+                            onClick={() => { setIsMenuOpen(false); setIsPinModalOpen(true); }} 
+                            className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-surface-muted" 
+                            role="menuitem"
+                        >
+                            <TrashIcon className="h-5 w-5" /> Delete Receipt
+                        </button>
+                        </div>
+                    </div>
+                    )}
+                </div>
+            </div>
         </div>
         <main className="flex-1 flex justify-center items-start p-4 md:p-8 overflow-y-auto bg-background">
           <div className="w-full max-w-md bg-surface shadow-lg rounded-lg p-6 md:p-8 font-sans">
@@ -199,7 +201,9 @@ const ReceiptsScreen: React.FC = () => {
       </>
     ) : (
       <div className="hidden md:flex flex-col flex-1">
-        <div className="flex-shrink-0 h-16 flex justify-between items-center px-4 md:px-6 border-b border-border bg-surface" />
+        <div className="flex-shrink-0 bg-surface border-b border-border pt-safe-top">
+             <div className="h-16 flex justify-between items-center px-4 md:px-6"></div>
+        </div>
         <div className="flex flex-1 justify-center items-center text-center text-text-muted">
             <div>
             <ReceiptIconPlaceholder className="h-16 w-16 mx-auto text-gray-300 dark:text-gray-600" />
@@ -214,12 +218,14 @@ const ReceiptsScreen: React.FC = () => {
   return (
     <div className="flex h-full bg-background overflow-hidden">
       <div className={`w-full md:w-1/3 flex-col border-r border-border ${isDetailView ? 'hidden md:flex' : 'flex'}`}>
-        <div className="flex-shrink-0 h-16 flex items-center px-4 border-b border-border bg-surface">
-            <button onClick={openDrawer} className="p-2 -ml-2 text-text-secondary hover:text-text-primary">
-                <MenuIcon className="h-6 w-6" />
-            </button>
-            <div className="flex items-center gap-2 ml-4">
-              <h1 className="text-xl font-semibold text-text-primary">Receipts</h1>
+        <div className="flex-shrink-0 bg-surface border-b border-border pt-safe-top">
+            <div className="h-16 flex items-center px-4">
+                <button onClick={openDrawer} className="p-2 -ml-2 text-text-secondary hover:text-text-primary">
+                    <MenuIcon className="h-6 w-6" />
+                </button>
+                <div className="flex items-center gap-2 ml-4">
+                <h1 className="text-xl font-semibold text-text-primary">Receipts</h1>
+                </div>
             </div>
         </div>
         <div className="p-4 border-b border-border flex-shrink-0">

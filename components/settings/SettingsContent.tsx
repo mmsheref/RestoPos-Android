@@ -165,11 +165,13 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory, onBac
 
     return (
         <>
-            <div className="flex-shrink-0 h-16 flex items-center px-4 md:px-6 border-b border-border bg-surface">
-                <button onClick={onBack} className="p-2 -ml-2 text-text-secondary md:hidden">
-                    <ArrowLeftIcon className="h-6 w-6" />
-                </button>
-                <h1 className="text-xl font-bold text-text-primary md:ml-0 ml-2">{detailTitle}</h1>
+            <div className="flex-shrink-0 bg-surface border-b border-border pt-safe-top">
+                <div className="h-16 flex items-center px-4 md:px-6">
+                    <button onClick={onBack} className="p-2 -ml-2 text-text-secondary md:hidden">
+                        <ArrowLeftIcon className="h-6 w-6" />
+                    </button>
+                    <h1 className="text-xl font-bold text-text-primary md:ml-0 ml-2">{detailTitle}</h1>
+                </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-background">
                 <div className="max-w-2xl mx-auto space-y-8 animate-fadeIn">

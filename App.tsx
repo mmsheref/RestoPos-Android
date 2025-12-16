@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { StatusProvider } from './context/StatusContext';
@@ -8,9 +8,40 @@ import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import { StoreIcon } from './constants';
+import { Capacitor } from '@capacitor/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
 
 const AppRoutes: React.FC = () => {
-    const { user, isLoading, showOnboarding } = useAppContext();
+    const { user, isLoading, showOnboarding, theme } = useAppContext();
+
+    // --- Status Bar Configuration ---
+    useEffect(() => {
+        if (Capacitor.isNativePlatform()) {
+            const configStatusBar = async () => {
+                try {
+                    // On Android, disabling overlay ensures the webview sits BELOW the status bar,
+                    // preventing content from being hidden behind it.
+                    if (Capacitor.getPlatform() === 'android') {
+                        await StatusBar.setOverlaysWebView({ overlay: false });
+                    }
+
+                    // Sync Status Bar style with App Theme
+                    const style = theme === 'dark' ? Style.Dark : Style.Light;
+                    await StatusBar.setStyle({ style });
+
+                    // Set Background Color for Android (Matches standard app background)
+                    if (Capacitor.getPlatform() === 'android') {
+                        // Dark: neutral-800 (#262626) | Light: white (#FFFFFF)
+                        const color = theme === 'dark' ? '#262626' : '#FFFFFF';
+                        await StatusBar.setBackgroundColor({ color });
+                    }
+                } catch (e) {
+                    console.warn('StatusBar config failed', e);
+                }
+            };
+            configStatusBar();
+        }
+    }, [theme]);
 
     if (showOnboarding) {
         return <OnboardingScreen />;
