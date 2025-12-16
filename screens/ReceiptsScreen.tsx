@@ -124,7 +124,7 @@ const ReceiptsScreen: React.FC = () => {
     
     return selectedReceipt ? (
       <>
-        <div className="flex-shrink-0 bg-surface border-b border-border pt-safe-top">
+        <div className="flex-shrink-0 bg-surface border-b border-border">
             <div className="h-16 flex justify-between items-center px-4 md:px-6">
                 <div className="flex items-center gap-2">
                     <button onClick={() => setIsDetailView(false)} className="p-2 -ml-2 text-text-secondary md:hidden">
@@ -201,7 +201,7 @@ const ReceiptsScreen: React.FC = () => {
       </>
     ) : (
       <div className="hidden md:flex flex-col flex-1">
-        <div className="flex-shrink-0 bg-surface border-b border-border pt-safe-top">
+        <div className="flex-shrink-0 bg-surface border-b border-border">
              <div className="h-16 flex justify-between items-center px-4 md:px-6"></div>
         </div>
         <div className="flex flex-1 justify-center items-center text-center text-text-muted">
@@ -218,7 +218,7 @@ const ReceiptsScreen: React.FC = () => {
   return (
     <div className="flex h-full bg-background overflow-hidden">
       <div className={`w-full md:w-1/3 flex-col border-r border-border ${isDetailView ? 'hidden md:flex' : 'flex'}`}>
-        <div className="flex-shrink-0 bg-surface border-b border-border pt-safe-top">
+        <div className="flex-shrink-0 bg-surface border-b border-border">
             <div className="h-16 flex items-center px-4">
                 <button onClick={openDrawer} className="p-2 -ml-2 text-text-secondary hover:text-text-primary">
                     <MenuIcon className="h-6 w-6" />

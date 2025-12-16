@@ -644,7 +644,7 @@ const ReportsScreen: React.FC = () => {
     return (
         <div className="flex h-full flex-col bg-background overflow-hidden font-sans">
             {/* --- HEADER --- */}
-            <header className="flex-shrink-0 bg-surface border-b border-border z-20 pt-safe-top">
+            <header className="flex-shrink-0 bg-surface border-b border-border z-20">
                 <div className="h-16 flex items-center justify-between px-4">
                     <div className="flex items-center">
                         <button onClick={openDrawer} className="p-2 -ml-2 text-text-secondary hover:text-text-primary rounded-full hover:bg-surface-muted transition-colors">

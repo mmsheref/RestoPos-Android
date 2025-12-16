@@ -243,7 +243,7 @@ const ItemsScreen: React.FC = () => {
   };
 
   return (
-    <div className="bg-background h-full flex flex-col min-h-0 pt-safe-top">
+    <div className="bg-background h-full flex flex-col min-h-0">
       <div className="p-4 md:p-6 flex flex-col flex-grow min-h-0 overflow-hidden">
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 flex-shrink-0">
             <div className="flex items-center self-start md:self-center w-full md:w-auto">

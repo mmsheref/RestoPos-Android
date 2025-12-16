@@ -165,7 +165,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory, onBac
 
     return (
         <>
-            <div className="flex-shrink-0 bg-surface border-b border-border pt-safe-top">
+            <div className="flex-shrink-0 bg-surface border-b border-border">
                 <div className="h-16 flex items-center px-4 md:px-6">
                     <button onClick={onBack} className="p-2 -ml-2 text-text-secondary md:hidden">
                         <ArrowLeftIcon className="h-6 w-6" />

@@ -105,7 +105,7 @@ const AboutScreen: React.FC = () => {
     <div className="flex h-full bg-background overflow-hidden">
         {/* Left Panel (Navigation) */}
         <div className={`w-full md:w-1/3 lg:w-1/4 flex-col border-r border-border ${isDetailView ? 'hidden md:flex' : 'flex'}`}>
-            <div className="flex-shrink-0 bg-surface border-b border-border pt-safe-top">
+            <div className="flex-shrink-0 bg-surface border-b border-border">
                 <div className="h-16 flex items-center px-4">
                     <button onClick={openDrawer} className="p-2 -ml-2 text-text-secondary hover:text-text-primary">
                         <MenuIcon className="h-6 w-6" />
@@ -136,7 +136,7 @@ const AboutScreen: React.FC = () => {
 
         {/* Right Panel (Content) */}
         <div className={`w-full md:w-2/3 lg:w-3/4 flex-col ${isDetailView ? 'flex' : 'hidden md:flex'}`}>
-             <div className="flex-shrink-0 bg-surface border-b border-border pt-safe-top">
+             <div className="flex-shrink-0 bg-surface border-b border-border">
                 <div className="h-16 flex items-center px-4 md:px-6">
                     <button onClick={() => setIsDetailView(false)} className="p-2 -ml-2 text-text-secondary md:hidden">
                         <ArrowLeftIcon className="h-6 w-6" />
