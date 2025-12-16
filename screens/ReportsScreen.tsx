@@ -5,8 +5,9 @@ import { LockIcon, MenuIcon, DollarSignIcon, ChartIcon, CheckIcon, DownloadIcon,
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
-import { idb } from '../utils/indexedDB';
 import { Receipt } from '../types';
+import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
+import { db } from '../firebase';
 
 // --- TYPES ---
 type DateFilter = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
@@ -233,9 +234,10 @@ const SecurityOverlay: React.FC<{ onUnlock: (pin: string) => boolean }> = ({ onU
 };
 
 const ReportsScreen: React.FC = () => {
-    const { openDrawer, receipts: contextReceipts, settings, isReportsUnlocked, setReportsUnlocked, paymentTypes } = useAppContext();
+    const { openDrawer, user, settings, isReportsUnlocked, setReportsUnlocked, paymentTypes } = useAppContext();
     
-    // Instead of holding ALL receipts, we only hold receipts for the current view
+    // Local state to hold the fetched data. We do NOT use the AppContext 'receipts' here 
+    // because that list is truncated for performance. Reports need full history.
     const [fetchedReceipts, setFetchedReceipts] = useState<Receipt[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
 
@@ -324,30 +326,35 @@ const ReportsScreen: React.FC = () => {
         return { start: startTime, end: endTime };
     }, [filter, shiftFilter, customStartDate, customEndDate, settings]);
 
-    // Fetch data whenever date range changes
+    // Fetch data directly from Firestore on Demand (Lazy Loading)
     useEffect(() => {
         const fetchData = async () => {
+            if (!user) return;
             setIsLoadingData(true);
             try {
-                // Fetch only the range we need from IndexedDB
-                const rangeData = await idb.getReceiptsByDateRange(dateRange.start, dateRange.end);
-                
-                // Merge with context receipts (recent unsaved data might be in context)
-                const map = new Map<string, Receipt>();
-                rangeData.forEach(r => map.set(r.id, r));
-                
-                // Overlay any matching receipts from the lightweight context
-                for (const r of contextReceipts) {
-                    const rDate = new Date(r.date);
-                    if (rDate < dateRange.start) {
-                        break; 
-                    }
-                    if (rDate <= dateRange.end) {
-                        map.set(r.id, r);
-                    }
-                }
+                // Best Practice: Direct Query to Firestore for specific range
+                // This bypasses the 100-item limit in AppContext and ensures accuracy.
+                const q = query(
+                    collection(db, 'users', user.uid, 'receipts'),
+                    where('date', '>=', dateRange.start),
+                    where('date', '<=', dateRange.end),
+                    orderBy('date', 'desc')
+                );
 
-                setFetchedReceipts(Array.from(map.values()));
+                const snapshot = await getDocs(q);
+                
+                // Transform Firestore data
+                const receipts = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        ...data,
+                        id: doc.id,
+                        // Ensure date is a JS Date object
+                        date: data.date instanceof Timestamp ? data.date.toDate() : new Date(data.date)
+                    } as Receipt;
+                });
+
+                setFetchedReceipts(receipts);
             } catch (error) {
                 console.error("Error fetching reports data:", error);
             } finally {
@@ -355,7 +362,7 @@ const ReportsScreen: React.FC = () => {
             }
         };
         fetchData();
-    }, [dateRange, contextReceipts]);
+    }, [dateRange, user]);
 
     // --- ANALYTICS LOGIC (Runs on the fetched subset) ---
     const { filteredReceipts, metrics } = useMemo(() => {
@@ -556,20 +563,61 @@ const ReportsScreen: React.FC = () => {
     };
 
     const handleExport = async () => {
-        let csv = `REPORT,${new Date().toLocaleString()}\nFilter,${filter}\nTotal Sales,${metrics.totalSales}\n\n`;
-        csv += "ID,Date,Method,Total\n";
-        filteredReceipts.forEach(r => csv += `${r.id},${new Date(r.date).toLocaleString()},${r.paymentMethod},${r.total}\n`);
-        
-        const fileName = `sales_report_${Date.now()}.csv`;
+        const timestamp = new Date().toLocaleString();
+        let csv = '';
+        let fileName = '';
+
+        if (activeTab === 'items') {
+            // Export Item Summary
+            csv = `ITEM SALES REPORT\nGenerated,${timestamp}\nPeriod,${filter}\nPayment Filter,${paymentMethodFilter}\n\n`;
+            csv += "Item Name,Category,Quantity Sold,Total Revenue\n";
+            sortedItems.forEach(item => {
+                csv += `"${item.name.replace(/"/g, '""')}","${item.category.replace(/"/g, '""')}",${item.count},${item.revenue.toFixed(2)}\n`;
+            });
+            fileName = `items_report_${Date.now()}.csv`;
+        } else {
+            // Export Transaction List (Default for Overview & Orders)
+            csv = `SALES TRANSACTION REPORT\nGenerated,${timestamp}\nPeriod,${filter}\nPayment Filter,${paymentMethodFilter}\n\n`;
+            csv += "Receipt ID,Date,Time,Payment Method,Total,Items\n";
+            
+            filteredReceipts.forEach(r => {
+                // Create a simple summary string for items: "Burger x2; Fries x1"
+                const itemSummary = r.items.map(i => `${i.name.replace(/"/g, '""')} x${i.quantity}`).join('; ');
+                const date = new Date(r.date);
+                csv += `${r.id},${date.toLocaleDateString()},${date.toLocaleTimeString()},${r.paymentMethod},${r.total.toFixed(2)},"${itemSummary}"\n`;
+            });
+            fileName = `sales_report_${Date.now()}.csv`;
+        }
+
         try {
             if (Capacitor.isNativePlatform()) {
-                const res = await Filesystem.writeFile({ path: fileName, data: csv, directory: Directory.Documents, encoding: Encoding.UTF8 });
-                await Share.share({ url: res.uri });
+                const res = await Filesystem.writeFile({ 
+                    path: fileName, 
+                    data: csv, 
+                    directory: Directory.Documents, 
+                    encoding: Encoding.UTF8 
+                });
+                await Share.share({ 
+                    url: res.uri, 
+                    title: 'Export Report', 
+                    dialogTitle: 'Share Report' 
+                });
             } else {
-                const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-                const a = document.createElement('a'); a.href = url; a.download = fileName; a.click();
+                // Web Fallback
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', fileName);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
             }
-        } catch (e) { alert("Export failed"); }
+        } catch (e) {
+            console.error(e);
+            alert("Export failed");
+        }
     };
 
     const handleClearFilters = () => {
