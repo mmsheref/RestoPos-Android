@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { LockIcon, MenuIcon, DollarSignIcon, ChartIcon, CheckIcon, DownloadIcon, CloseIcon, ArrowLeftIcon } from '../constants';
@@ -16,7 +15,7 @@ type ReportTab = 'overview' | 'items' | 'orders';
 type SortConfig = { key: string; direction: 'asc' | 'desc' };
 
 interface GraphDataPoint {
-    label: string; // "14:00" or "Oct 12"
+    label: string; 
     value: number;
     fullDate: Date;
     type: 'hourly' | 'daily';
@@ -34,7 +33,7 @@ interface Metrics {
 }
 
 // --- COMPONENT: REPORT STAT CARD ---
-const StatCard: React.FC<{ title: string, value: string, icon: React.ReactNode, colorClass: string }> = ({ title, value, icon, colorClass }) => (
+const StatCard: React.FC<{ title: string, value: string, icon: React.ReactNode, colorClass: string }> = React.memo(({ title, value, icon, colorClass }) => (
     <div className="bg-surface p-5 rounded-2xl shadow-sm border border-border flex items-center gap-4 transition-transform hover:scale-[1.01]">
         <div className={`p-3 rounded-xl ${colorClass}`}>
             {icon}
@@ -44,10 +43,10 @@ const StatCard: React.FC<{ title: string, value: string, icon: React.ReactNode, 
             <p className="text-2xl font-bold text-text-primary tracking-tight">{value}</p>
         </div>
     </div>
-);
+));
 
 // --- COMPONENT: SALES ACTIVITY CHART ---
-const SalesActivityChart: React.FC<{ data: GraphDataPoint[] }> = ({ data }) => {
+const SalesActivityChart: React.FC<{ data: GraphDataPoint[] }> = React.memo(({ data }) => {
     // Determine max value for Y-axis scaling
     const values = data.map(d => d.value);
     const maxValue = Math.max(...values, 1); 
@@ -137,7 +136,7 @@ const SalesActivityChart: React.FC<{ data: GraphDataPoint[] }> = ({ data }) => {
             </div>
         </div>
     );
-};
+});
 
 // --- COMPONENT: PAGINATION CONTROLS ---
 const PaginationControls: React.FC<{ 
@@ -181,7 +180,7 @@ const SecurityOverlay: React.FC<{ onUnlock: (pin: string) => boolean }> = ({ onU
         if (!success) {
             setIsError(true);
             setPin('');
-            setTimeout(() => setIsError(false), 500); // Reset shake animation
+            setTimeout(() => setIsError(false), 500); 
         }
     };
 
@@ -236,10 +235,9 @@ const SecurityOverlay: React.FC<{ onUnlock: (pin: string) => boolean }> = ({ onU
 const ReportsScreen: React.FC = () => {
     const { openDrawer, user, settings, isReportsUnlocked, setReportsUnlocked, paymentTypes } = useAppContext();
     
-    // Local state to hold the fetched data. We do NOT use the AppContext 'receipts' here 
-    // because that list is truncated for performance. Reports need full history.
     const [fetchedReceipts, setFetchedReceipts] = useState<Receipt[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
+    const [loadedRange, setLoadedRange] = useState<{ start: number, end: number } | null>(null);
 
     // Filters State
     const [filter, setFilter] = useState<DateFilter>('today');
@@ -257,12 +255,10 @@ const ReportsScreen: React.FC = () => {
     const ITEMS_PER_PAGE = 50;
     const [currentPage, setCurrentPage] = useState(1);
 
-    // Reset pagination when tab or filters change
     useEffect(() => {
         setCurrentPage(1);
     }, [activeTab, filter, shiftFilter, paymentMethodFilter, orderSortConfig, itemSortConfig]);
 
-    // Determine the effective date range based on filter
     const dateRange = useMemo<{ start: Date, end: Date }>(() => {
         let startTime: Date;
         let endTime: Date;
@@ -271,7 +267,6 @@ const ReportsScreen: React.FC = () => {
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
         const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-        // Helper to adjust time based on "HH:MM" string
         const setTime = (baseDate: Date, timeStr: string | undefined, defaultTime: string): Date => {
             const [hours, minutes] = (timeStr || defaultTime).split(':').map(Number);
             const newDate = new Date(baseDate);
@@ -298,7 +293,6 @@ const ReportsScreen: React.FC = () => {
                 anchorDayEnd = todayEnd;
             }
 
-            // Apply Shift Logic ONLY for 'today' and 'yesterday'
             if (filter === 'today' || filter === 'yesterday') {
                 const morningStartStr = settings.shiftMorningStart || '06:00';
                 const morningEndStr = settings.shiftMorningEnd || '17:30';
@@ -310,13 +304,11 @@ const ReportsScreen: React.FC = () => {
                 } else if (shiftFilter === 'night') {
                     startTime = setTime(anchorDayStart, morningEndStr, '17:30');
                     endTime = setTime(anchorDayStart, nightEndStr, '05:00');
-                    endTime.setDate(endTime.getDate() + 1); // Next day
+                    endTime.setDate(endTime.getDate() + 1); 
                 } else {
-                    // shiftFilter === 'all' (All Day)
-                    // Configured to cover the full business day: Morning Start -> Night End (Next Day)
                     startTime = setTime(anchorDayStart, morningStartStr, '06:00');
                     endTime = setTime(anchorDayStart, nightEndStr, '05:00');
-                    endTime.setDate(endTime.getDate() + 1); // Next day
+                    endTime.setDate(endTime.getDate() + 1); 
                 }
             } else {
                 startTime = anchorDayStart;
@@ -326,14 +318,19 @@ const ReportsScreen: React.FC = () => {
         return { start: startTime, end: endTime };
     }, [filter, shiftFilter, customStartDate, customEndDate, settings]);
 
-    // Fetch data directly from Firestore on Demand (Lazy Loading)
     useEffect(() => {
         const fetchData = async () => {
             if (!user) return;
+
+            const startTs = dateRange.start.getTime();
+            const endTs = dateRange.end.getTime();
+
+            if (loadedRange && startTs >= loadedRange.start && endTs <= loadedRange.end) {
+                return;
+            }
+
             setIsLoadingData(true);
             try {
-                // Best Practice: Direct Query to Firestore for specific range
-                // This bypasses the 100-item limit in AppContext and ensures accuracy.
                 const q = query(
                     collection(db, 'users', user.uid, 'receipts'),
                     where('date', '>=', dateRange.start),
@@ -343,18 +340,17 @@ const ReportsScreen: React.FC = () => {
 
                 const snapshot = await getDocs(q);
                 
-                // Transform Firestore data
                 const receipts = snapshot.docs.map(doc => {
                     const data = doc.data();
                     return {
                         ...data,
                         id: doc.id,
-                        // Ensure date is a JS Date object
                         date: data.date instanceof Timestamp ? data.date.toDate() : new Date(data.date)
                     } as Receipt;
                 });
 
                 setFetchedReceipts(receipts);
+                setLoadedRange({ start: startTs, end: endTs });
             } catch (error) {
                 console.error("Error fetching reports data:", error);
             } finally {
@@ -362,16 +358,19 @@ const ReportsScreen: React.FC = () => {
             }
         };
         fetchData();
-    }, [dateRange, user]);
+    }, [dateRange, user, loadedRange]);
 
-    // --- ANALYTICS LOGIC (Runs on the fetched subset) ---
+    // --- ANALYTICS LOGIC ---
     const { filteredReceipts, metrics } = useMemo(() => {
-        // Apply Payment Method Filter
-        const filtered = fetchedReceipts.filter(r => {
+        const dateFiltered = fetchedReceipts.filter(r => {
+            const rTime = new Date(r.date).getTime();
+            return rTime >= dateRange.start.getTime() && rTime <= dateRange.end.getTime();
+        });
+
+        const filtered = dateFiltered.filter(r => {
             return paymentMethodFilter === 'all' || r.paymentMethod === paymentMethodFilter;
         });
         
-        // Sort Data (Orders)
         const sorted = [...filtered].sort((a, b) => {
              if (orderSortConfig.key === 'date') {
                  const timeA = new Date(a.date).getTime();
@@ -384,98 +383,46 @@ const ReportsScreen: React.FC = () => {
              return 0;
         });
 
-        // Aggregate Metrics
         let totalSales = 0;
         let totalOrders = sorted.length;
         const paymentMethods: Record<string, number> = {};
         const itemsSold: Record<string, { count: number, revenue: number, category: string }> = {};
         const salesByCategory: Record<string, number> = {};
 
-        // --- GRAPH BUCKETING ---
-        // Decision: Hourly (Today/Yesterday) vs Daily (Week/Month)
-        // If range > 48 hours, switch to daily bucketing.
+        // OPTIMIZED GRAPH BUCKETING (O(N) instead of O(M*N))
         const durationHours = (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60);
         const isDailyMode = durationHours > 48;
         
-        let graphData: GraphDataPoint[] = [];
+        const buckets = new Map<string, { date: Date, value: number }>();
+        const [shiftH, shiftM] = (settings.shiftMorningStart || '06:00').split(':').map(Number);
 
+        // Pre-fill buckets for continuity
         if (isDailyMode) {
-            // --- DAILY BUCKETING ---
-            // Aggregate based on "Business Day" (Shift Start)
-            const [shiftH, shiftM] = (settings.shiftMorningStart || '06:00').split(':').map(Number);
-            const dailyMap = new Map<string, { date: Date, value: number }>();
-
-            // 1. Initialize buckets for continuity (Last 7 or 30 days)
             let pointer = new Date(dateRange.start);
-            // Normalize pointer to start of day to avoid skipping
-            pointer.setHours(0,0,0,0); 
-            
+            pointer.setHours(0,0,0,0);
             while(pointer <= dateRange.end) {
                 const key = pointer.toISOString().split('T')[0];
-                dailyMap.set(key, { date: new Date(pointer), value: 0 });
+                buckets.set(key, { date: new Date(pointer), value: 0 });
                 pointer.setDate(pointer.getDate() + 1);
             }
-
-            // 2. Aggregate Sales
-            sorted.forEach(r => {
-                const rDate = new Date(r.date);
-                // Adjust to Business Date: Subtract Shift Start Time
-                // e.g. If shift starts at 6AM, a 4AM receipt belongs to previous day.
-                rDate.setHours(rDate.getHours() - shiftH);
-                rDate.setMinutes(rDate.getMinutes() - shiftM);
-                
-                const key = rDate.toISOString().split('T')[0];
-                if (dailyMap.has(key)) {
-                    dailyMap.get(key)!.value += r.total;
-                }
-            });
-
-            graphData = Array.from(dailyMap.values()).map(d => ({
-                label: d.date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }),
-                value: d.value,
-                fullDate: d.date,
-                type: 'daily'
-            }));
-
         } else {
-            // --- HOURLY BUCKETING ---
-            // Construct graph buckets based on dateRange.start -> dateRange.end
-            let bucketPointer = new Date(dateRange.start);
-            let iterations = 0;
-            const maxIterations = 48;
+            let pointer = new Date(dateRange.start);
+            const cutoffTime = filter === 'today' ? new Date() : new Date(8640000000000000);
             
-            const now = new Date();
-            const cutoffTime = filter === 'today' ? now : new Date(8640000000000000); 
-
-            while (bucketPointer < dateRange.end && iterations < maxIterations) {
-                iterations++;
-                const bucketStart = new Date(bucketPointer);
-                const bucketEnd = new Date(bucketPointer);
-                bucketEnd.setHours(bucketEnd.getHours() + 1);
-                
-                if (bucketStart <= cutoffTime) {
-                    const label = bucketStart.getHours().toString().padStart(2, '0') + ":00";
-                    const bucketSales = sorted.reduce((sum, r) => {
-                        const rDate = new Date(r.date);
-                        if (rDate >= bucketStart && rDate < bucketEnd) {
-                            return sum + r.total;
-                        }
-                        return sum;
-                    }, 0);
-
-                    graphData.push({
-                        label,
-                        value: bucketSales,
-                        fullDate: bucketStart,
-                        type: 'hourly'
-                    });
+            // Limit to max 48 hours for hourly view to prevent infinite loops
+            let safeCounter = 0;
+            while(pointer < dateRange.end && safeCounter < 48) {
+                if (pointer <= cutoffTime) {
+                    const key = pointer.toISOString();
+                    buckets.set(key, { date: new Date(pointer), value: 0 });
                 }
-                bucketPointer = bucketEnd;
+                pointer.setHours(pointer.getHours() + 1);
+                safeCounter++;
             }
         }
-        // --- END GRAPH ---
 
         sorted.forEach(r => {
+            // 1. Metrics Aggregation
             totalSales += r.total;
             paymentMethods[r.paymentMethod] = (paymentMethods[r.paymentMethod] || 0) + r.total;
             
@@ -487,7 +434,37 @@ const ReportsScreen: React.FC = () => {
                 const cat = item.category || 'Uncategorized';
                 salesByCategory[cat] = (salesByCategory[cat] || 0) + (item.price * item.quantity);
             });
+
+            // 2. Efficient Graph Bucketing
+            const rDate = new Date(r.date);
+            let bucketKey = '';
+            
+            if (isDailyMode) {
+                // Adjust for shift
+                rDate.setHours(rDate.getHours() - shiftH);
+                rDate.setMinutes(rDate.getMinutes() - shiftM);
+                bucketKey = rDate.toISOString().split('T')[0];
+            } else {
+                // Hourly bucket
+                rDate.setMinutes(0, 0, 0);
+                bucketKey = rDate.toISOString();
+            }
+
+            // If bucket exists (initialized above), add to it. 
+            // Note: receipts outside initialized range (rare) are ignored for graph but kept for totals.
+            if (buckets.has(bucketKey)) {
+                buckets.get(bucketKey)!.value += r.total;
+            }
         });
+
+        const graphData: GraphDataPoint[] = Array.from(buckets.values()).map(b => ({
+            label: isDailyMode 
+                ? b.date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+                : b.date.getHours().toString().padStart(2, '0') + ":00",
+            value: b.value,
+            fullDate: b.date,
+            type: isDailyMode ? 'daily' : 'hourly'
+        }));
 
         const allItems = Object.entries(itemsSold)
             .map(([name, data]) => ({ name, ...data }));
@@ -501,14 +478,12 @@ const ReportsScreen: React.FC = () => {
                 paymentMethods,
                 topItems: allItems.sort((a,b) => b.revenue - a.revenue).slice(0, 5),
                 allItems,
-                salesByHour: {}, // Deprecated
                 graphData,
                 salesByCategory
             }
         };
     }, [fetchedReceipts, paymentMethodFilter, orderSortConfig, dateRange, filter, settings]);
 
-    // Derived state for Sorted Items List
     const sortedItems = useMemo(() => {
         const items = [...metrics.allItems];
         return items.sort((a, b) => {
@@ -562,68 +537,69 @@ const ReportsScreen: React.FC = () => {
         return <span className="text-primary ml-1">{itemSortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
     };
 
-    const handleExport = async () => {
-        const timestamp = new Date().toLocaleString();
-        let csv = '';
-        let fileName = '';
+    const handleClearFilters = () => {
+        setFilter('today');
+        setShiftFilter('all');
+        setPaymentMethodFilter('all');
+    };
 
-        if (activeTab === 'items') {
-            // Export Item Summary
-            csv = `ITEM SALES REPORT\nGenerated,${timestamp}\nPeriod,${filter}\nPayment Filter,${paymentMethodFilter}\n\n`;
-            csv += "Item Name,Category,Quantity Sold,Total Revenue\n";
-            sortedItems.forEach(item => {
-                csv += `"${item.name.replace(/"/g, '""')}","${item.category.replace(/"/g, '""')}",${item.count},${item.revenue.toFixed(2)}\n`;
-            });
-            fileName = `items_report_${Date.now()}.csv`;
-        } else {
-            // Export Transaction List (Default for Overview & Orders)
-            csv = `SALES TRANSACTION REPORT\nGenerated,${timestamp}\nPeriod,${filter}\nPayment Filter,${paymentMethodFilter}\n\n`;
-            csv += "Receipt ID,Date,Time,Payment Method,Total,Items\n";
-            
-            filteredReceipts.forEach(r => {
-                // Create a simple summary string for items: "Burger x2; Fries x1"
-                const itemSummary = r.items.map(i => `${i.name.replace(/"/g, '""')} x${i.quantity}`).join('; ');
-                const date = new Date(r.date);
-                csv += `${r.id},${date.toLocaleDateString()},${date.toLocaleTimeString()},${r.paymentMethod},${r.total.toFixed(2)},"${itemSummary}"\n`;
-            });
-            fileName = `sales_report_${Date.now()}.csv`;
+    const handleExport = async () => {
+        if (filteredReceipts.length === 0) {
+            alert("No data to export.");
+            return;
         }
+
+        const headers = ['Receipt ID', 'Date', 'Time', 'Total', 'Payment Method', 'Items'];
+        const csvRows = [headers.join(',')];
+
+        filteredReceipts.forEach(r => {
+            const dateObj = new Date(r.date);
+            const dateStr = dateObj.toLocaleDateString();
+            const timeStr = dateObj.toLocaleTimeString();
+            const itemsStr = r.items.map(i => `${i.quantity}x ${i.name}`).join('; ');
+            
+            const row = [
+                `"${r.id}"`,
+                `"${dateStr}"`,
+                `"${timeStr}"`,
+                `"${r.total.toFixed(2)}"`,
+                `"${r.paymentMethod}"`,
+                `"${itemsStr.replace(/"/g, '""')}"`
+            ];
+            csvRows.push(row.join(','));
+        });
+
+        const csvString = csvRows.join('\n');
+        const fileName = `sales_report_${new Date().toISOString().slice(0, 10)}.csv`;
 
         try {
             if (Capacitor.isNativePlatform()) {
-                const res = await Filesystem.writeFile({ 
-                    path: fileName, 
-                    data: csv, 
-                    directory: Directory.Documents, 
-                    encoding: Encoding.UTF8 
+                const result = await Filesystem.writeFile({
+                    path: fileName,
+                    data: csvString,
+                    directory: Directory.Documents,
+                    encoding: Encoding.UTF8
                 });
-                await Share.share({ 
-                    url: res.uri, 
-                    title: 'Export Report', 
-                    dialogTitle: 'Share Report' 
+                await Share.share({
+                    url: result.uri,
+                    title: 'Export Sales Report',
+                    dialogTitle: 'Export Sales Report'
                 });
             } else {
-                // Web Fallback
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
+                const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
                 const url = URL.createObjectURL(blob);
-                link.setAttribute('href', url);
-                link.setAttribute('download', fileName);
+                link.setAttribute("href", url);
+                link.setAttribute("download", fileName);
                 link.style.visibility = 'hidden';
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
             }
-        } catch (e) {
-            console.error(e);
-            alert("Export failed");
+        } catch (error: any) {
+            console.error("Export failed:", error);
+            alert(`Export failed: ${error.message}`);
         }
-    };
-
-    const handleClearFilters = () => {
-        setFilter('today');
-        setShiftFilter('all');
-        setPaymentMethodFilter('all');
     };
 
     const isFilterActive = filter !== 'today' || shiftFilter !== 'all' || paymentMethodFilter !== 'all';
@@ -651,7 +627,6 @@ const ReportsScreen: React.FC = () => {
         </div>
     );
 
-    // Pagination Logic: Slice data for current page
     const paginatedItems = useMemo(() => {
         const start = (currentPage - 1) * ITEMS_PER_PAGE;
         return sortedItems.slice(start, start + ITEMS_PER_PAGE);
@@ -685,11 +660,9 @@ const ReportsScreen: React.FC = () => {
                     )}
                 </div>
 
-                {/* Filters Bar */}
                 {!isLocked && (
                     <div className="px-4 pb-3 flex flex-wrap gap-2 items-center justify-between overflow-x-auto no-scrollbar">
                         <div className="flex items-center gap-2">
-                            {/* Date Filter */}
                             <div className="flex bg-surface-muted p-1 rounded-lg">
                                 {(['today', 'yesterday', 'week', 'month', 'custom'] as const).map(f => (
                                     <button
@@ -702,7 +675,6 @@ const ReportsScreen: React.FC = () => {
                                 ))}
                             </div>
                             
-                            {/* Shift Filter (Only visible for single days) */}
                             {(filter === 'today' || filter === 'yesterday') && (
                                 <div className="flex bg-surface-muted p-1 rounded-lg">
                                     {(['all', 'morning', 'night'] as const).map(s => (
@@ -761,7 +733,6 @@ const ReportsScreen: React.FC = () => {
                 </div>
             ) : (
                 <div className="flex-1 flex flex-col overflow-hidden relative">
-                    {/* Navigation Tabs */}
                     <div className="px-4 border-b border-border bg-surface flex-shrink-0">
                         <nav className="flex gap-6">
                             {[
@@ -783,7 +754,6 @@ const ReportsScreen: React.FC = () => {
                     <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-surface-muted/30">
                         {activeTab === 'overview' && (
                             <div className="max-w-6xl mx-auto space-y-6 animate-fadeIn">
-                                {/* Scorecards */}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <StatCard 
                                         title="Total Sales" 
@@ -806,10 +776,8 @@ const ReportsScreen: React.FC = () => {
                                 </div>
 
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    {/* Sales Activity Chart (Hourly or Daily) */}
                                     <SalesActivityChart data={metrics.graphData} />
 
-                                    {/* Payment Methods Breakdown */}
                                     <div className="bg-surface p-6 rounded-2xl shadow-sm border border-border">
                                         <h3 className="text-lg font-bold text-text-primary mb-4">Payment Methods</h3>
                                         <div className="space-y-4">

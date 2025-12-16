@@ -16,7 +16,7 @@ interface CategoryTabsProps {
   onToggleEditMode: () => void;
 }
 
-const CategoryTabs: React.FC<CategoryTabsProps> = ({
+const CategoryTabs: React.FC<CategoryTabsProps> = React.memo(({
   grids, activeGridId, setActiveGridId, onAddNew, onManage,
   isSearchActive, searchResultsCount, searchQuery,
   isEditing, onToggleEditMode
@@ -115,6 +115,6 @@ const CategoryTabs: React.FC<CategoryTabsProps> = ({
       )}
     </nav>
   );
-};
+});
 
 export default CategoryTabs;

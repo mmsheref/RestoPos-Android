@@ -15,7 +15,7 @@ interface OrderSummaryPanelProps {
  * Displays the readonly list of items in the current transaction.
  * Responsive: Shows as a sidebar on Desktop, and a collapsible accordion on Mobile.
  */
-const OrderSummaryPanel: React.FC<OrderSummaryPanelProps> = ({ orderItems, settings, subtotal, tax, total }) => {
+const OrderSummaryPanel: React.FC<OrderSummaryPanelProps> = React.memo(({ orderItems, settings, subtotal, tax, total }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     
     // --- Desktop View (Side Panel) ---
@@ -101,6 +101,6 @@ const OrderSummaryPanel: React.FC<OrderSummaryPanelProps> = ({ orderItems, setti
             {MobileView}
         </>
     );
-};
+});
 
 export default OrderSummaryPanel;
