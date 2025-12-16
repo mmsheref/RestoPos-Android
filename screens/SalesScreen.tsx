@@ -65,9 +65,10 @@ const SalesScreen: React.FC = () => {
   const isActive = location.pathname === '/sales';
 
   // --- 1. DEVICE & LAYOUT DETECTION ---
-  // If Tablet/Desktop: 5 cols * 4 rows = 20
-  // If Mobile: 3 cols * 5 rows = 15
-  const getGridSize = () => window.innerWidth < 768 ? 15 : 20;
+  // Standardized to 20 items per page for both Mobile and Desktop.
+  // Mobile users will scroll to see all 20 items (3 cols x ~7 rows).
+  // Desktop users fit 20 items exactly (5 cols x 4 rows).
+  const getGridSize = () => 20;
   const [gridSize, setGridSize] = useState(getGridSize());
 
   useEffect(() => {

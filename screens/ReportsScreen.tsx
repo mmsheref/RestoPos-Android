@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { LockIcon, MenuIcon, DollarSignIcon, ChartIcon, CheckIcon, DownloadIcon, CloseIcon, ArrowLeftIcon } from '../constants';
@@ -661,63 +662,78 @@ const ReportsScreen: React.FC = () => {
                 </div>
 
                 {!isLocked && (
-                    <div className="px-4 pb-3 flex flex-wrap gap-2 items-center justify-between overflow-x-auto no-scrollbar">
-                        <div className="flex items-center gap-2">
-                            <div className="flex bg-surface-muted p-1 rounded-lg">
-                                {(['today', 'yesterday', 'week', 'month', 'custom'] as const).map(f => (
-                                    <button
-                                        key={f}
-                                        onClick={() => setFilter(f)}
-                                        className={`px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-all ${filter === f ? 'bg-surface text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
-                                    >
-                                        {f}
-                                    </button>
-                                ))}
-                            </div>
+                    <div className="px-4 pb-3">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                             
-                            {(filter === 'today' || filter === 'yesterday') && (
-                                <div className="flex bg-surface-muted p-1 rounded-lg">
-                                    {(['all', 'morning', 'night'] as const).map(s => (
+                            {/* Left Group: Date & Shift */}
+                            <div className="flex flex-wrap gap-2 items-center">
+                                {/* Date Filter */}
+                                <div className="flex bg-surface-muted p-1 rounded-lg overflow-x-auto no-scrollbar max-w-full">
+                                    {(['today', 'yesterday', 'week', 'month', 'custom'] as const).map(f => (
                                         <button
-                                            key={s}
-                                            onClick={() => setShiftFilter(s)}
-                                            className={`px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-all ${shiftFilter === s ? 'bg-surface text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+                                            key={f}
+                                            onClick={() => setFilter(f)}
+                                            className={`px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-all whitespace-nowrap ${filter === f ? 'bg-surface text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
                                         >
-                                            {s === 'all' ? 'All Day' : s}
+                                            {f}
                                         </button>
                                     ))}
                                 </div>
-                            )}
-                            
-                            {isFilterActive && (
-                                <button 
-                                    onClick={handleClearFilters}
-                                    className="p-2 text-text-muted hover:text-red-500 bg-surface-muted hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:hover:border-red-800"
-                                    title="Clear Filters"
-                                >
-                                    <CloseIcon className="h-4 w-4" />
-                                </button>
-                            )}
-                        </div>
+                                
+                                {/* Shift Filter */}
+                                {(filter === 'today' || filter === 'yesterday') && (
+                                    <div className="flex bg-surface-muted p-1 rounded-lg overflow-x-auto no-scrollbar max-w-full animate-fadeIn">
+                                        {(['all', 'morning', 'night'] as const).map(s => (
+                                            <button
+                                                key={s}
+                                                onClick={() => setShiftFilter(s)}
+                                                className={`px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-all whitespace-nowrap ${shiftFilter === s ? 'bg-surface text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+                                            >
+                                                {s === 'all' ? 'All Day' : s}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
 
-                        <div className="flex items-center gap-2">
-                            {filter === 'custom' && (
-                                <div className="flex items-center gap-1 bg-surface-muted px-2 py-1 rounded-lg border border-border text-xs">
-                                    <input type="datetime-local" value={customStartDate} onChange={e=>setCustomStartDate(e.target.value)} className="bg-transparent border-none p-0 focus:ring-0 text-text-primary" />
-                                    <span className="text-text-muted">-</span>
-                                    <input type="datetime-local" value={customEndDate} onChange={e=>setCustomEndDate(e.target.value)} className="bg-transparent border-none p-0 focus:ring-0 text-text-primary" />
+                            {/* Right Group: Custom Range, Payment, Clear */}
+                            <div className="flex flex-wrap items-center gap-2 justify-between md:justify-end">
+                                {filter === 'custom' && (
+                                    <div className="flex items-center gap-1 bg-surface-muted px-2 py-1.5 rounded-lg border border-border text-xs">
+                                        <input type="datetime-local" value={customStartDate} onChange={e=>setCustomStartDate(e.target.value)} className="bg-transparent border-none p-0 focus:ring-0 text-text-primary w-28" />
+                                        <span className="text-text-muted">-</span>
+                                        <input type="datetime-local" value={customEndDate} onChange={e=>setCustomEndDate(e.target.value)} className="bg-transparent border-none p-0 focus:ring-0 text-text-primary w-28" />
+                                    </div>
+                                )}
+                                
+                                <div className="flex items-center gap-2 ml-auto md:ml-0">
+                                    <div className="relative">
+                                        <select
+                                            value={paymentMethodFilter}
+                                            onChange={(e) => setPaymentMethodFilter(e.target.value)}
+                                            className="appearance-none bg-surface-muted border border-border text-text-primary text-xs font-medium rounded-lg pl-3 pr-8 py-2 focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+                                        >
+                                            <option value="all">All Methods</option>
+                                            {paymentTypes.filter(p => p.enabled).map(pt => (
+                                                <option key={pt.id} value={pt.name}>{pt.name}</option>
+                                            ))}
+                                        </select>
+                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-text-secondary">
+                                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                                        </div>
+                                    </div>
+
+                                    {isFilterActive && (
+                                        <button 
+                                            onClick={handleClearFilters}
+                                            className="p-2 text-text-muted hover:text-red-500 bg-surface-muted hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:hover:border-red-800"
+                                            title="Clear Filters"
+                                        >
+                                            <CloseIcon className="h-4 w-4" />
+                                        </button>
+                                    )}
                                 </div>
-                            )}
-                            <select
-                                value={paymentMethodFilter}
-                                onChange={(e) => setPaymentMethodFilter(e.target.value)}
-                                className="bg-surface-muted border border-border text-text-primary text-xs font-medium rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-primary focus:border-primary outline-none"
-                            >
-                                <option value="all">All Methods</option>
-                                {paymentTypes.filter(p => p.enabled).map(pt => (
-                                    <option key={pt.id} value={pt.name}>{pt.name}</option>
-                                ))}
-                            </select>
+                            </div>
                         </div>
                     </div>
                 )}
