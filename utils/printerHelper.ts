@@ -88,6 +88,23 @@ const disconnectFromPrinter = (): Promise<void> => {
 };
 
 /**
+ * Checks if Bluetooth is enabled on the device.
+ */
+const checkBluetoothEnabled = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (!window.bluetoothSerial) {
+        // If plugin is missing (web), assume enabled/simulated
+        resolve();
+        return;
+    }
+    window.bluetoothSerial.isEnabled(
+      () => resolve(),
+      () => reject(new Error("Bluetooth is disabled. Please enable it in Settings."))
+    );
+  });
+};
+
+/**
  * Creates a smart row with Left and Right alignment.
  * Automatically truncates the Left text if it overlaps with the Right text.
  * Puts at least 1 space between them.
@@ -157,11 +174,17 @@ const sendToPrinter = async (data: string, printer: Printer): Promise<{ success:
     }
 
     try {
+        // 1. Check Permissions
         const hasPermission = await requestAppPermissions();
         if (!hasPermission) return { success: false, message: "Bluetooth permissions denied." };
 
+        // 2. Check Enabled Status (Prevent Crash)
+        await checkBluetoothEnabled();
+
+        // 3. Connect
         await connectToPrinter(printer.address);
 
+        // 4. Write
         await new Promise<void>((resolve, reject) => {
             window.bluetoothSerial.write(data, 
                 () => resolve(), 
