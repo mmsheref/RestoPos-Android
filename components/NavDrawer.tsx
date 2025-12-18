@@ -7,9 +7,10 @@ import { NAV_LINKS, SignOutIcon, SyncIcon, OfflineIcon, CheckIcon, UserIcon, Pow
 import ConfirmModal from './modals/ConfirmModal';
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 const NavDrawer: React.FC = () => {
-  const { isDrawerOpen, closeDrawer, user, signOut, settings } = useAppContext();
+  const { isDrawerOpen, closeDrawer, user, signOut, settings, currentOrder } = useAppContext();
   const { pendingSyncCount, isOnline } = useStatusContext();
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
@@ -18,11 +19,21 @@ const NavDrawer: React.FC = () => {
   const location = useLocation();
 
   // State Ref for Back Button Listener Closure
-  const stateRef = useRef({ isDrawerOpen, isExitModalOpen, pathname: location.pathname });
+  const stateRef = useRef({ 
+      isDrawerOpen, 
+      isExitModalOpen, 
+      pathname: location.pathname,
+      hasCartItems: currentOrder.length > 0 
+  });
 
   useEffect(() => {
-      stateRef.current = { isDrawerOpen, isExitModalOpen, pathname: location.pathname };
-  }, [isDrawerOpen, isExitModalOpen, location.pathname]);
+      stateRef.current = { 
+          isDrawerOpen, 
+          isExitModalOpen, 
+          pathname: location.pathname,
+          hasCartItems: currentOrder.length > 0
+      };
+  }, [isDrawerOpen, isExitModalOpen, location.pathname, currentOrder.length]);
 
   // Hardware Back Button Handler
   useEffect(() => {
@@ -30,19 +41,44 @@ const NavDrawer: React.FC = () => {
 
       const setupListener = async () => {
           await App.addListener('backButton', ({ canGoBack }) => {
-              const { isDrawerOpen, isExitModalOpen, pathname } = stateRef.current;
+              const { isDrawerOpen, isExitModalOpen, pathname, hasCartItems } = stateRef.current;
 
+              // Priority 1: Close Drawer
               if (isDrawerOpen) {
                   closeDrawer();
-              } else if (isExitModalOpen) {
-                  // If exit modal is already open, back button closes it
+                  return;
+              } 
+              
+              // Priority 2: Close Exit Modal
+              if (isExitModalOpen) {
                   setIsExitModalOpen(false);
-              } else if (pathname !== '/sales') {
-                  // Navigate back if not on home screen
+                  return;
+              } 
+
+              // Priority 3: Check for "Open Modals" in the DOM
+              // This is a safety catch for modals that don't have their own back-button logic
+              const openModals = document.querySelectorAll('.fixed.inset-0.z-50');
+              if (openModals.length > 0) {
+                  // Simulate an escape key or click backdrop of the topmost modal
+                  const closeBtn = openModals[openModals.length - 1].querySelector('button[aria-label="Close"], button:contains("Cancel"), button:contains("Close")');
+                  if (closeBtn instanceof HTMLElement) {
+                      closeBtn.click();
+                  }
+                  return;
+              }
+
+              // Priority 4: Standard Navigation
+              if (pathname !== '/sales') {
                   navigate(-1);
               } else {
-                  // On Home Screen (Sales), show Exit Confirmation
-                  setIsExitModalOpen(true);
+                  // On Home Screen (Sales)
+                  if (hasCartItems) {
+                      // If there are items in cart, maybe don't exit immediately? 
+                      // For now, standard behavior is show exit prompt
+                      setIsExitModalOpen(true);
+                  } else {
+                      setIsExitModalOpen(true);
+                  }
               }
           });
       };
@@ -54,7 +90,8 @@ const NavDrawer: React.FC = () => {
       };
   }, [closeDrawer, navigate]);
 
-  const handleSignOutClick = () => {
+  const handleSignOutClick = async () => {
+    await Haptics.impact({ style: ImpactStyle.Light });
     closeDrawer();
     setIsSignOutModalOpen(true);
   };
@@ -64,7 +101,8 @@ const NavDrawer: React.FC = () => {
     setIsSignOutModalOpen(false);
   };
 
-  const handleExitClick = () => {
+  const handleExitClick = async () => {
+    await Haptics.impact({ style: ImpactStyle.Medium });
     closeDrawer();
     setIsExitModalOpen(true);
   };
@@ -73,15 +111,18 @@ const NavDrawer: React.FC = () => {
     if (Capacitor.isNativePlatform()) {
         await App.exitApp();
     } else {
-        // Web fallback
         window.close();
     }
     setIsExitModalOpen(false);
   };
 
+  const handleNavClick = async () => {
+      await Haptics.impact({ style: ImpactStyle.Light });
+      closeDrawer();
+  };
+
   return (
     <>
-      {/* Backdrop: Always rendered, toggle opacity/pointer-events for performance */}
       <div
         onClick={closeDrawer}
         className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] transition-opacity duration-300 ease-out ${
@@ -91,12 +132,12 @@ const NavDrawer: React.FC = () => {
       />
 
       <aside
-        className={`fixed top-0 left-0 bottom-0 w-[85vw] max-w-[320px] bg-neutral-900 text-white z-[70] flex flex-col shadow-2xl transform transition-transform duration-300 ease-out will-change-transform border-r border-neutral-800 pt-safe-top ${
+        className={`fixed top-0 left-0 bottom-0 w-[85vw] max-w-[320px] bg-neutral-900 text-white z-[70] flex flex-col shadow-2xl transform transition-transform duration-300 ease-out will-change-transform border-r border-neutral-800 ${
           isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
-        style={{ backfaceVisibility: 'hidden' }} // Fix for flickering text during transition
+        style={{ backfaceVisibility: 'hidden' }}
       >
-        <div className="p-6 border-b border-neutral-800 bg-neutral-900">
+        <div className="p-6 border-b border-neutral-800 bg-neutral-900 pt-safe-top">
           <h2 className="text-xl font-bold text-white truncate tracking-tight">
             {settings.storeName || 'POS Menu'}
           </h2>
@@ -109,7 +150,7 @@ const NavDrawer: React.FC = () => {
               <li key={path}>
                 <NavLink
                   to={path}
-                  onClick={closeDrawer}
+                  onClick={handleNavClick}
                   className={({ isActive }) =>
                     `flex items-center px-4 py-3 text-sm font-medium rounded-full transition-all duration-200 group ${
                       isActive
@@ -118,7 +159,7 @@ const NavDrawer: React.FC = () => {
                     }`
                   }
                 >
-                  <Icon className={`h-5 w-5 mr-3 transition-colors ${ ({isActive}: {isActive:boolean}) => isActive ? 'text-primary-content' : 'text-neutral-500 group-hover:text-white' }`} />
+                  <Icon className="h-5 w-5 mr-3" />
                   <span>{label}</span>
                 </NavLink>
               </li>
@@ -126,7 +167,6 @@ const NavDrawer: React.FC = () => {
           </ul>
         </nav>
         
-        {/* Sync Status Indicator */}
         <div className="px-4 py-2 mt-auto">
             <div className={`flex items-center gap-3 text-xs font-medium px-4 py-3 rounded-xl border ${
                 !isOnline 
@@ -184,7 +224,6 @@ const NavDrawer: React.FC = () => {
         </div>
       </aside>
 
-      {/* Sign Out Confirmation */}
       <ConfirmModal
         isOpen={isSignOutModalOpen}
         onClose={() => setIsSignOutModalOpen(false)}
@@ -196,7 +235,6 @@ const NavDrawer: React.FC = () => {
         <p>Are you sure you want to sign out of your session?</p>
       </ConfirmModal>
 
-      {/* Exit Confirmation */}
       <ConfirmModal
         isOpen={isExitModalOpen}
         onClose={() => setIsExitModalOpen(false)}

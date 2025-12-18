@@ -2,6 +2,7 @@
 import React from 'react';
 import { Item } from '../../types';
 import { TrashIcon, PencilIcon } from '../../constants';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 interface ItemTileProps {
     item: Item;
@@ -21,8 +22,6 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
     
     const hasRealImage = item.imageUrl && !item.imageUrl.includes('via.placeholder.com');
 
-    // On tablet/fixed grid, we let the grid layout determine height (h-full of cell),
-    // effectively removing 'aspect-square' constraint so it fits perfectly.
     const aspectRatioClass = isFixedGrid 
         ? 'aspect-square md:aspect-auto md:h-full' 
         : 'aspect-square';
@@ -33,7 +32,6 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
             <div 
                 className={`relative w-full rounded-xl overflow-hidden border-2 border-dashed border-primary/60 bg-primary/5 animate-pulse ${aspectRatioClass}`}
             >
-                {/* Background Image (Dimmed) */}
                 {hasRealImage && (
                     <img 
                         src={item.imageUrl} 
@@ -42,10 +40,12 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
                     />
                 )}
                 
-                {/* Center: Tap to Swap/Edit */}
                 <button
                     type="button"
-                    onClick={() => onAssignItem(index)}
+                    onClick={async () => {
+                        await Haptics.impact({ style: ImpactStyle.Light });
+                        onAssignItem(index);
+                    }}
                     className="absolute inset-0 flex flex-col items-center justify-center z-10 w-full h-full touch-manipulation"
                 >
                     <div className="bg-primary/10 p-2 rounded-full mb-1">
@@ -54,11 +54,11 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
                     <span className="text-[10px] uppercase font-bold text-primary bg-surface/90 px-2 py-0.5 rounded-full shadow-sm">Change</span>
                 </button>
 
-                {/* Top Right: Delete Button */}
                 <button 
                     type="button"
-                    onClick={(e) => {
+                    onClick={async (e) => {
                         e.stopPropagation();
+                        await Haptics.notification({ type: ImpactStyle.Heavy });
                         if(onRemoveFromGrid) onRemoveFromGrid(index);
                     }}
                     className="absolute top-1 right-1 z-20 bg-red-500 text-white rounded-full p-1.5 shadow-md hover:bg-red-600 active:scale-90 transition-transform touch-manipulation"
@@ -66,7 +66,6 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
                     <TrashIcon className="h-4 w-4" />
                 </button>
 
-                {/* Bottom Label */}
                 <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-black/50 backdrop-blur-sm z-0 pointer-events-none">
                     <h3 className="font-semibold text-white text-xs text-center truncate">
                         {item.name}
@@ -76,13 +75,12 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
         );
     }
 
-    // --- NORMAL MODE RENDER (SPEED OPTIMIZED) ---
-    
-    const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // --- NORMAL MODE RENDER ---
+    const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
+        await Haptics.impact({ style: ImpactStyle.Light });
         onAddItemToOrder(item);
     };
 
-    // Price Badge Component
     const PriceBadge = () => (
         <div className="absolute top-1 right-1 md:top-2 md:right-2 bg-black/60 text-white backdrop-blur-sm px-1.5 py-0.5 md:px-2 md:py-1 rounded-md text-[10px] md:text-xs font-bold shadow-lg z-10 tabular-nums tracking-tight border border-white/20 pointer-events-none">
             ₹{item.price.toFixed(0)}
@@ -106,16 +104,13 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
                         decoding="async"
                     />
                     
-                    {/* Active State Overlay */}
                     <div className="absolute inset-0 bg-black opacity-0 group-active:opacity-20 z-30 transition-none"></div>
 
                     <PriceBadge />
                     
-                    {/* Gradient Overlay */}
                     <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-10"></div>
                     
                     <div className="absolute bottom-0 left-0 right-0 p-2 z-20">
-                        {/* Mobile: text-xs, line-clamp-2. Tablet: slightly larger. */}
                         <h3 className="font-bold text-white text-xs md:text-sm leading-tight text-center line-clamp-2 drop-shadow-sm">
                             {item.name}
                         </h3>
@@ -131,13 +126,11 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
                 className={`relative w-full rounded-xl cursor-pointer shadow-sm border border-border bg-surface group touch-manipulation select-none hover:border-primary/50 ${aspectRatioClass}`}
                 aria-label={`Add ${item.name} to order`}
             >
-                {/* Active Overlay */}
                 <div className="absolute inset-0 bg-primary opacity-0 group-active:opacity-10 z-10 rounded-xl transition-none"></div>
 
                 <PriceBadge />
                 <div className="w-full h-full flex flex-col justify-center items-center p-2 md:p-3 text-center pointer-events-none relative z-0">
                      <div className="w-6 h-1 md:w-8 bg-primary/20 rounded-full mb-2 md:mb-3"></div>
-                    {/* Mobile: text-xs. Tablet: text-base. */}
                     <h3 className="font-bold text-text-primary text-xs md:text-base leading-snug line-clamp-3">
                         {item.name}
                     </h3>
