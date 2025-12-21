@@ -79,6 +79,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return cached ? { ...DEFAULT_SETTINGS, ...JSON.parse(cached) } : DEFAULT_SETTINGS;
   });
   
+  // Notification Management Effect
+  useEffect(() => {
+      if (settings.notificationsEnabled && settings.notifyDailySummary && settings.dailySummaryTime) {
+          scheduleDailySummary(settings.dailySummaryTime);
+      } else {
+          cancelDailySummary();
+      }
+  }, [settings.notificationsEnabled, settings.notifyDailySummary, settings.dailySummaryTime]);
+
   const [items, setItemsState] = useState<Item[]>(() => {
       const cached = localStorage.getItem(ITEMS_CACHE_KEY);
       return cached ? JSON.parse(cached) : [];
