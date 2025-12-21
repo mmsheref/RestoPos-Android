@@ -65,9 +65,6 @@ const SalesScreen: React.FC = () => {
   const isActive = location.pathname === '/sales';
 
   // --- 1. DEVICE & LAYOUT DETECTION ---
-  // Standardized to 20 items per page for both Mobile and Desktop.
-  // Mobile users will scroll to see all 20 items (3 cols x ~7 rows).
-  // Desktop users fit 20 items exactly (5 cols x 4 rows).
   const getGridSize = () => 20;
   const [gridSize, setGridSize] = useState(getGridSize());
 
@@ -173,18 +170,14 @@ const SalesScreen: React.FC = () => {
   // --- ITEM CLICK HANDLER ---
   const handleItemClick = useCallback((item: Item) => {
       if (item.price === 0) {
-          // Open Modal for variable price
           setVariablePriceItem(item);
       } else {
-          // Normal add
           addToOrder(item);
       }
   }, [addToOrder]);
 
   const handleVariablePriceConfirm = (price: number) => {
       if (variablePriceItem) {
-          // Create a temporary item copy with the new price
-          // We DO NOT change the global item definition, only for this cart add
           const tempItem = { ...variablePriceItem, price: price };
           addToOrder(tempItem);
           setVariablePriceItem(null);
@@ -323,9 +316,7 @@ const SalesScreen: React.FC = () => {
       const gridToUpdate = customGrids.find(g => g.id === assigningSlot.gridId);
       if (gridToUpdate) {
           const sourceIds = Array.isArray(gridToUpdate.itemIds) ? gridToUpdate.itemIds : [];
-          // Ensure array is large enough for current view
           const newItemIds = [...sourceIds];
-          // Pad if necessary
           while (newItemIds.length < gridSize) newItemIds.push(null);
           
           newItemIds[assigningSlot.slotIndex] = item.id;
@@ -375,17 +366,6 @@ const SalesScreen: React.FC = () => {
       } else {
           loadAction();
       }
-  };
-
-  const handleDeleteTicket = (ticketId: string) => {
-      setConfirmModalState({
-          isOpen: true,
-          title: 'Delete Ticket?',
-          message: 'Are you sure you want to permanently delete this ticket? This cannot be undone.',
-          onConfirm: () => removeTicket(ticketId),
-          confirmText: 'Delete',
-          confirmButtonClass: 'bg-red-600 hover:bg-red-700'
-      });
   };
 
   const performPrint = async (ticketItems: OrderItem[], ticketName: string) => {
@@ -446,20 +426,6 @@ const SalesScreen: React.FC = () => {
 
   return (
     <div className="flex h-full w-full bg-background font-sans relative overflow-hidden">
-      
-      {/* 
-        LAYOUT STRATEGY:
-        Mobile: 
-          - Grid Area is flexible middle (Layer 0).
-          - Tabs are fixed bottom (Layer 1).
-          - Floating Cart is positioned absolute at the bottom of the LEFT SECTION to float over tabs/grid.
-          - Ticket is separate Overlay (Layer 3).
-        Tablet/Desktop:
-          - Grid is Left Column.
-          - Ticket is Right Column.
-      */}
-
-      {/* --- LEFT SECTION (Grid + Tabs) --- */}
       <div className="flex-1 flex flex-col min-w-0 h-full relative">
         <SalesHeader 
             openDrawer={openDrawer} 
@@ -468,7 +434,6 @@ const SalesScreen: React.FC = () => {
             storeName={settings.storeName}
         />
         
-        {/* Grid Container (Takes remaining space) */}
         <div className="flex-1 relative overflow-hidden">
             <div 
               ref={scrollContainerRef} 
@@ -489,7 +454,6 @@ const SalesScreen: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                // Tablet Fix: Use h-full to allow grid to fill the screen space exactly without scroll when in fixed grid mode.
                 <div className={`pb-24 md:pb-0 ${!isViewingAll ? 'md:h-full' : 'md:pb-4'}`}>
                     <ItemGrid
                     itemsForDisplay={paginatedItems}
@@ -505,7 +469,6 @@ const SalesScreen: React.FC = () => {
             </div>
         </div>
 
-        {/* Floating Mobile Cart Button (Moved outside overflow container to float strictly above Tabs) */}
         {currentOrder.length > 0 && (
             <div className="md:hidden absolute bottom-[50px] left-0 right-0 p-4 z-50 pointer-events-none">
                 <button 
@@ -526,7 +489,6 @@ const SalesScreen: React.FC = () => {
             </div>
         )}
 
-        {/* Category Tabs - Fixed at bottom of the Left Section */}
         <div className="bg-surface border-t border-border z-40 flex-shrink-0 relative shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
              <CategoryTabs
                 grids={customGrids}
@@ -543,8 +505,6 @@ const SalesScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* --- TICKET SECTION --- */}
-      {/* Mobile: Full Screen Overlay. Desktop: Static Right Column */}
       <div 
         className={`
             fixed inset-0 z-[60] bg-background flex flex-col
@@ -584,14 +544,18 @@ const SalesScreen: React.FC = () => {
         />
       </div>
 
-      {/* Modals */}
       <SaveTicketModal isOpen={isSaveModalOpen} onClose={() => { setIsSaveModalOpen(false); setPendingPrintAction(false); }} onSave={handleSaveTicketComplete} editingTicket={editingTicket} />
-      <OpenTicketsModal isOpen={isOpenTicketsModalOpen} tickets={savedTickets} onClose={() => setIsOpenTicketsModalOpen(false)} onLoadTicket={handleLoadTicket} onDeleteTicket={handleDeleteTicket} />
+      <OpenTicketsModal 
+        isOpen={isOpenTicketsModalOpen} 
+        tickets={savedTickets} 
+        onClose={() => setIsOpenTicketsModalOpen(false)} 
+        onLoadTicket={handleLoadTicket} 
+        onDeleteTicket={(id) => removeTicket(id)} 
+      />
       <SelectItemModal isOpen={isSelectItemModalOpen} onClose={() => setIsSelectItemModalOpen(false)} onSelect={handleSelectItem} allItems={items} />
       <ManageGridsModal isOpen={isManageGridsModalOpen} onClose={() => setIsManageGridsModalOpen(false)} initialGrids={customGrids} onSave={handleSaveGrids} />
       <AddGridModal isOpen={isAddGridModalOpen} onClose={() => setIsAddGridModalOpen(false)} onSave={handleSaveNewGrid} />
       
-      {/* Variable Price Modal */}
       <PriceInputModal 
         isOpen={!!variablePriceItem}
         onClose={() => setVariablePriceItem(null)}
