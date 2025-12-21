@@ -27,7 +27,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({ isOpen, onClose, onConfirm,
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[150]" onClick={handleClose}>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[200]" onClick={handleClose}>
       <div className="bg-surface rounded-3xl p-8 shadow-2xl w-full max-w-md animate-fadeIn border border-white/10" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-black text-text-primary tracking-tight">{title}</h2>

@@ -5,20 +5,9 @@ import { Item } from '../types';
  * Parses a single CSV line, handling quoted fields correctly.
  */
 const parseCSVLine = (text: string): string[] => {
-    // Regex to match CSV fields: quoted strings OR non-comma sequences
-    const re_valid = /^\s*(?:'([^']*)'|"([^"]*)"|([^,'"]*))\s*(?:,|$)/;
-    const re_value = /(?!\s*$)\s*(?:'([^']*)'|"([^"]*)"|([^,'"]*))\s*(?:,|$)/g;
-    
     // Simple split if no quotes are present (optimization)
     if (text.indexOf('"') === -1) return text.split(',');
 
-    const values = [];
-    let match;
-    // Reset lastIndex because regex is global
-    re_value.lastIndex = 0;
-    
-    // We simply use a standard CSV regex logic or a character walker for robustness
-    // A character walker is often safer for edge cases in JS without heavy libraries
     const result: string[] = [];
     let current = '';
     let inQuote = false;
@@ -26,7 +15,13 @@ const parseCSVLine = (text: string): string[] => {
     for (let i = 0; i < text.length; i++) {
         const char = text[i];
         if (char === '"') {
-            inQuote = !inQuote;
+            // Check for escaped quotes (double quotes)
+            if (inQuote && text[i + 1] === '"') {
+                current += '"';
+                i++; // Skip next quote
+            } else {
+                inQuote = !inQuote;
+            }
         } else if (char === ',' && !inQuote) {
             result.push(current);
             current = '';
@@ -36,8 +31,8 @@ const parseCSVLine = (text: string): string[] => {
     }
     result.push(current);
 
-    // Clean up quotes
-    return result.map(v => v.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+    // Clean up results
+    return result.map(v => v.trim());
 };
 
 export const parseCsvToItems = (csvContent: string): { items: Item[] } => {
@@ -47,7 +42,6 @@ export const parseCsvToItems = (csvContent: string): { items: Item[] } => {
     }
 
     const headerLine = lines.shift()!.trim();
-    // Use the robust parser for headers too
     const headers = parseCSVLine(headerLine);
     
     const handleIndex = headers.indexOf('Handle');
@@ -55,6 +49,7 @@ export const parseCsvToItems = (csvContent: string): { items: Item[] } => {
     const priceIndex = headers.indexOf('Price [AYSHAS]');
     const trackStockIndex = headers.indexOf('Track stock');
     const inStockIndex = headers.indexOf('In stock [AYSHAS]');
+    const imageIndex = headers.indexOf('Image Src'); // New column support
 
     if ([handleIndex, nameIndex, priceIndex].some(i => i === -1)) {
         throw new Error('CSV file is missing required columns: Handle, Name, Price [AYSHAS]');
@@ -66,8 +61,7 @@ export const parseCsvToItems = (csvContent: string): { items: Item[] } => {
         if (!line.trim()) continue;
         const values = parseCSVLine(line);
         
-        // Ensure line has enough columns relative to what we need
-        if (values.length < headers.length) continue;
+        if (values.length < 3) continue;
 
         const priceStr = values[priceIndex];
         const price = (priceStr && priceStr.toLowerCase() !== 'variable' && !isNaN(parseFloat(priceStr))) ? parseFloat(priceStr) : 0;
@@ -81,12 +75,21 @@ export const parseCsvToItems = (csvContent: string): { items: Item[] } => {
             stock = parseInt(stockStr);
         }
 
+        // Retrieve Image Base64 if available
+        let imageUrl = '';
+        if (imageIndex !== -1 && values[imageIndex]) {
+            imageUrl = values[imageIndex];
+        } else {
+            imageUrl = `https://via.placeholder.com/150?text=${encodeURIComponent(values[nameIndex] || 'Item')}`;
+        }
+
         const item: Item = {
             id: values[handleIndex] || `I${Date.now()}_${Math.random().toString(36).substr(2,9)}`,
             name: values[nameIndex] || 'Unnamed Item',
             price: price,
             stock: stock,
-            imageUrl: `https://via.placeholder.com/150?text=${encodeURIComponent(values[nameIndex] || 'Item')}`
+            imageUrl: imageUrl,
+            category: '' // Category detection can be added if needed
         };
 
         if (item.name) {
@@ -98,30 +101,33 @@ export const parseCsvToItems = (csvContent: string): { items: Item[] } => {
 }
 
 export const exportItemsToCsv = (items: Item[]): string => {
+    // Added 'Image Src' to the end of the headers
     const headers = [
-        'Handle','SKU','Name','Description','Sold by weight','Option 1 name','Option 1 value','Option 2 name','Option 2 value','Option 3 name','Option 3 value','Cost','Barcode','SKU of included item','Quantity of included item','Track stock','Available for sale [AYSHAS]','Price [AYSHAS]','In stock [AYSHAS]','Low stock [AYSHAS]'
+        'Handle','SKU','Name','Description','Sold by weight','Option 1 name','Option 1 value','Option 2 name','Option 2 value','Option 3 name','Option 3 value','Cost','Barcode','SKU of included item','Quantity of included item','Track stock','Available for sale [AYSHAS]','Price [AYSHAS]','In stock [AYSHAS]','Low stock [AYSHAS]', 'Image Src'
     ];
     
-    const rows = items.map(item => {
-        // Function to safely create CSV field (handles commas/quotes by quoting)
-        const csvField = (val: string) => {
-            if (val === null || val === undefined) return '';
-            const str = String(val);
-            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-                return `"${str.replace(/"/g, '""')}"`;
-            }
-            return str;
-        };
+    // Function to safely create CSV field (handles commas/quotes by quoting)
+    const csvField = (val: any) => {
+        if (val === null || val === undefined) return '';
+        const str = String(val);
+        // Quoting is mandatory for Base64 as it often contains '+' or '=' which some CSV readers might misinterpret
+        if (str.includes(',') || str.includes('"') || str.includes('\n') || str.startsWith('data:image')) {
+            return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+    };
 
+    const rows = items.map(item => {
         const row = new Array(headers.length).fill('');
         row[headers.indexOf('Handle')] = item.id;
         row[headers.indexOf('SKU')] = item.id; 
         row[headers.indexOf('Name')] = csvField(item.name);
         row[headers.indexOf('Sold by weight')] = 'N';
-        row[headers.indexOf('Track stock')] = 'N'; 
+        row[headers.indexOf('Track stock')] = 'Y'; 
         row[headers.indexOf('Available for sale [AYSHAS]')] = 'Y';
         row[headers.indexOf('Price [AYSHAS]')] = item.price.toFixed(2);
-        row[headers.indexOf('In stock [AYSHAS]')] = ''; 
+        row[headers.indexOf('In stock [AYSHAS]')] = item.stock; 
+        row[headers.indexOf('Image Src')] = csvField(item.imageUrl); // Save Base64 Data
         return row.join(',');
     });
 

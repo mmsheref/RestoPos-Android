@@ -32,7 +32,7 @@ const Layout: React.FC = () => {
   const { pathname } = location;
 
   const [activeScreens, setActiveScreens] = useState<Record<string, number>>({ '/sales': Date.now() });
-  const touchStartRef = useRef<{x: number, y: number} | null>(null);
+  const touchStartRef = useRef<{x: number, y: number, time: number} | null>(null);
 
   useEffect(() => {
       setActiveScreens(prev => ({ ...prev, [pathname]: Date.now() }));
@@ -64,21 +64,25 @@ const Layout: React.FC = () => {
   const showDefaultHeader = !['/sales', '/receipts', '/settings', '/items', '/reports', '/about'].includes(pathname); 
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length !== 1) return;
-    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    if (e.touches.length !== 1 || isDrawerOpen) return;
+    touchStartRef.current = { 
+        x: e.touches[0].clientX, 
+        y: e.touches[0].clientY,
+        time: Date.now()
+    };
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStartRef.current || isDrawerOpen) return;
+    if (!touchStartRef.current) return;
     
     const deltaX = e.touches[0].clientX - touchStartRef.current.x;
     const deltaY = Math.abs(e.touches[0].clientY - touchStartRef.current.y);
 
-    // NATIVE FEEL: Only trigger if swipe starts at very left edge (< 40px)
-    // and moves horizontally significantly more than vertically.
-    if (touchStartRef.current.x < 40 && deltaX > 30 && deltaX > (deltaY * 1.5)) {
+    // Only trigger if swipe starts near left edge (< 50px)
+    // and horizontal movement is dominant
+    if (touchStartRef.current.x < 50 && deltaX > 40 && deltaX > deltaY * 1.8) {
         openDrawer();
-        touchStartRef.current = null;
+        touchStartRef.current = null; // Reset to prevent multiple triggers
     }
   };
 

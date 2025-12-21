@@ -293,9 +293,13 @@ const SalesScreen: React.FC = () => {
 
   const handleAddNewGrid = useCallback(() => setIsAddGridModalOpen(true), []);
   const handleSaveNewGrid = useCallback((name: string) => {
-      addCustomGrid({ id: generateId(), name, itemIds: new Array(gridSize).fill(null) });
+      const newGridId = generateId();
+      addCustomGrid({ id: newGridId, name, itemIds: new Array(gridSize).fill(null) });
       setIsAddGridModalOpen(false);
-  }, [addCustomGrid, gridSize]);
+      // Auto-switch to newly created grid and enter edit mode for better UX
+      setActiveGridId(newGridId);
+      setIsGridEditing(true);
+  }, [addCustomGrid, gridSize, setActiveGridId]);
 
   const handleSaveGrids = useCallback((newGrids: CustomGrid[]) => {
       setCustomGrids(newGrids);

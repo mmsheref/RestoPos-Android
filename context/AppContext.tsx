@@ -10,11 +10,9 @@ import { Share } from '@capacitor/share';
 import { exportItemsToCsv } from '../utils/csvHelper';
 import { requestAppPermissions } from '../utils/permissions';
 import { requestNotificationPermission, scheduleDailySummary, cancelDailySummary, sendLowStockAlert } from '../utils/notificationHelper';
-import { db, signOutUser, clearAllData, firebaseConfig, auth } from '../firebase';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, query, orderBy, limit, startAfter, getDocs, getDoc, QueryDocumentSnapshot, increment } from 'firebase/firestore';
+import { db, signOutUser, firebaseConfig, auth } from '../firebase';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, query, orderBy, limit, getDocs, getDoc, increment } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import FirebaseError from '../components/modals/FirebaseError';
-import { APP_VERSION } from '../constants';
 import { idb } from '../utils/indexedDB'; 
 import { useStatusContext } from './StatusContext';
 
@@ -47,7 +45,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const { setPendingSyncCount } = useStatusContext();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [initializationError, setInitializationError] = useState<any>(null);
   const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem(ONBOARDING_COMPLETED_KEY));
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [headerTitle, setHeaderTitle] = useState('');
@@ -79,7 +76,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return cached ? { ...DEFAULT_SETTINGS, ...JSON.parse(cached) } : DEFAULT_SETTINGS;
   });
   
-  // Notification Management Effect
   useEffect(() => {
       if (settings.notificationsEnabled && settings.notifyDailySummary && settings.dailySummaryTime) {
           scheduleDailySummary(settings.dailySummaryTime);
@@ -318,7 +314,46 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       },
       activeGridId, setActiveGridId,
       currentOrder, addToOrder, removeFromOrder, deleteLineItem, updateOrderItemQuantity, clearOrder, loadOrder,
-      exportData: () => {}, restoreData: (d: any) => {}, exportItemsCsv: () => {}, replaceItems: (is: Item[]) => {},
+      exportData: () => {}, restoreData: (d: any) => {}, 
+      exportItemsCsv: async () => {
+          const csvString = exportItemsToCsv(items);
+          const fileName = `inventory_export_${new Date().toISOString().slice(0, 10)}.csv`;
+
+          try {
+              if (Capacitor.isNativePlatform()) {
+                  const result = await Filesystem.writeFile({
+                      path: fileName,
+                      data: csvString,
+                      directory: Directory.Documents,
+                      encoding: Encoding.UTF8
+                  });
+                  await Share.share({
+                      url: result.uri,
+                      title: 'Export Inventory',
+                      dialogTitle: 'Export Inventory CSV'
+                  });
+              } else {
+                  const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+                  const link = document.createElement("a");
+                  const url = URL.createObjectURL(blob);
+                  link.setAttribute("href", url);
+                  link.setAttribute("download", fileName);
+                  link.style.visibility = 'hidden';
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+              }
+          } catch (error: any) {
+              console.error("Inventory export failed:", error);
+              alert(`Export failed: ${error.message}`);
+          }
+      }, 
+      replaceItems: (is: Item[]) => {
+          setItemsState(is);
+          const batch = writeBatch(db);
+          is.forEach(i => batch.set(doc(db, 'users', user!.uid, 'items', i.id), i));
+          batch.commit();
+      },
       isReportsUnlocked, setReportsUnlocked
   }), [user, isDrawerOpen, headerTitle, theme, showOnboarding, isLoading, settings, items, customGrids, receipts, printers, paymentTypes, savedTickets, tables, activeGridId, currentOrder, isReportsUnlocked, addReceipt]);
 
