@@ -12,7 +12,7 @@ import {
     PrintIcon, 
     LockIcon, 
     DatabaseIcon, 
-    MailIcon, 
+    BellIcon, 
     SettingsIcon 
 } from '../constants';
 import SettingsNav from '../components/settings/SettingsNav';
@@ -34,7 +34,7 @@ const SettingsScreen: React.FC = () => {
         printers: { label: 'Printers', Icon: PrintIcon },
         security: { label: 'Security & Reports', Icon: LockIcon },
         data: { label: 'Data Management', Icon: DatabaseIcon },
-        notifications: { label: 'Notifications', Icon: MailIcon },
+        notifications: { label: 'Notifications', Icon: BellIcon },
         preferences: { label: 'App Preferences', Icon: SettingsIcon }
     };
 

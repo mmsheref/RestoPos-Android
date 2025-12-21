@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { AppSettings } from '../../../types';
-import { MailIcon } from '../../../constants';
+import { BellIcon } from '../../../constants';
 import { requestNotificationPermission } from '../../../utils/notificationHelper';
 
 interface NotificationsCardProps {
@@ -29,7 +29,7 @@ const NotificationsCard: React.FC<NotificationsCardProps> = ({ settings, updateS
     <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
       <div className="flex items-center gap-3 mb-6">
         <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-full text-blue-600">
-            <MailIcon className="h-6 w-6" />
+            <BellIcon className="h-6 w-6" />
         </div>
         <div>
             <h2 className="text-xl font-bold text-text-primary">Notifications</h2>

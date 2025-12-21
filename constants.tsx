@@ -74,8 +74,6 @@ export const ThreeDotsIcon: React.FC<{ className?: string }> = ({ className }) =
     </svg>
 );
 
-// --- START: Added Icons ---
-
 export const AnimatedCheckIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
         <circle className="stroke-current text-green-100 dark:text-green-900" cx="26" cy="26" r="25" fill="none" strokeWidth="4"/>
@@ -128,6 +126,13 @@ export const LockIcon: React.FC<{ className?: string }> = ({ className }) => (
       <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
     </svg>
+);
+
+export const BellIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+  </svg>
 );
 
 export const CreditCardIcon = SalesIcon;
@@ -331,11 +336,6 @@ export const PaymentMethodIcon: React.FC<{ iconName?: PaymentTypeIcon, className
     }
 };
 
-// --- END: Added Icons ---
-
-
-// --- START: Added Constants ---
-
 /** The single source of truth for the application version. */
 export const APP_VERSION = "2.5.0";
 
@@ -347,5 +347,3 @@ export const NAV_LINKS = [
   { path: '/settings', label: 'Settings', Icon: SettingsIcon },
   { path: '/about', label: 'About', Icon: InfoIcon },
 ];
-
-// --- END: Added Constants ---

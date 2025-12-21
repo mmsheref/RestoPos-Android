@@ -4,7 +4,7 @@ import { SettingsCategory } from '../../screens/SettingsScreen';
 import { 
     StoreIcon, DollarSignIcon, UserIcon, TableIcon, 
     PaintBrushIcon, PrintIcon, LockIcon, DatabaseIcon, 
-    MailIcon, SettingsIcon 
+    BellIcon, SettingsIcon 
 } from '../../constants';
 
 interface SettingsNavProps {
@@ -32,7 +32,7 @@ const groups = [
         title: 'System',
         items: [
             { id: 'printers', label: 'Hardware Printers', Icon: PrintIcon },
-            { id: 'notifications', label: 'Alerts & Notifications', Icon: MailIcon },
+            { id: 'notifications', label: 'Alerts & Notifications', Icon: BellIcon },
             { id: 'appearance', label: 'Look & Feel', Icon: PaintBrushIcon },
             { id: 'data', label: 'Backup & Recovery', Icon: DatabaseIcon },
             { id: 'preferences', label: 'App Settings', Icon: SettingsIcon },
