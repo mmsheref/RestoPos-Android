@@ -8,46 +8,39 @@ interface AppearanceCardProps {
 }
 
 const AppearanceCard: React.FC<AppearanceCardProps> = ({ theme, setTheme }) => {
+  const options: { id: Theme, label: string, desc: string }[] = [
+    { id: 'light', label: 'Light', desc: 'Classic bright look' },
+    { id: 'dark', label: 'Dark', desc: 'Easy on the eyes' },
+    { id: 'system', label: 'System', desc: 'Matches device' }
+  ];
+
   return (
-    <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
-      <h2 className="text-xl font-semibold mb-4 text-text-primary">Appearance</h2>
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-text-secondary">Theme</label>
-        <div className="flex rounded-md shadow-sm">
+    <div className="p-6 md:p-8">
+      <div className="mb-8">
+        <h3 className="text-lg font-bold text-text-primary">Display Theme</h3>
+        <p className="text-xs text-text-muted mt-1">Choose how the interface looks on this device.</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3">
+        {options.map((opt) => (
           <button
-            type="button"
-            onClick={() => setTheme('light')}
-            className={`flex-1 inline-flex justify-center items-center px-4 py-2 rounded-l-md border border-border text-sm font-medium transition-colors ${
-              theme === 'light'
-                ? 'bg-primary text-primary-content z-10 border-primary'
-                : 'bg-surface text-text-primary hover:bg-surface-muted'
+            key={opt.id}
+            onClick={() => setTheme(opt.id)}
+            className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-200 ${
+              theme === opt.id 
+                ? 'border-primary bg-primary/5 ring-1 ring-primary' 
+                : 'border-border hover:border-text-muted/30 bg-surface-muted/50'
             }`}
           >
-            Light
+            <div className="flex flex-col items-start">
+              <span className={`font-bold ${theme === opt.id ? 'text-primary' : 'text-text-primary'}`}>{opt.label}</span>
+              <span className="text-xs text-text-muted">{opt.desc}</span>
+            </div>
+            <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center ${theme === opt.id ? 'border-primary bg-primary' : 'border-border'}`}>
+              {theme === opt.id && <div className="h-2 w-2 rounded-full bg-white"></div>}
+            </div>
           </button>
-          <button
-            type="button"
-            onClick={() => setTheme('system')}
-            className={`flex-1 -ml-px inline-flex justify-center items-center px-4 py-2 border border-border text-sm font-medium transition-colors ${
-              theme === 'system'
-                ? 'bg-primary text-primary-content z-10 border-primary'
-                : 'bg-surface text-text-primary hover:bg-surface-muted'
-            }`}
-          >
-            System
-          </button>
-          <button
-            type="button"
-            onClick={() => setTheme('dark')}
-            className={`flex-1 -ml-px inline-flex justify-center items-center px-4 py-2 rounded-r-md border border-border text-sm font-medium transition-colors ${
-              theme === 'dark'
-                ? 'bg-primary text-primary-content z-10 border-primary'
-                : 'bg-surface text-text-primary hover:bg-surface-muted'
-            }`}
-          >
-            Dark
-          </button>
-        </div>
+        ))}
       </div>
     </div>
   );

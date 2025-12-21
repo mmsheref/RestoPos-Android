@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { OrderItem, SavedTicket } from '../../types';
 import { ThreeDotsIcon, TrashIcon, ArrowLeftIcon } from '../../constants';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 // --- Helper Component: Swipeable Item Row ---
 interface SwipeableOrderItemProps {
@@ -65,12 +66,27 @@ const SwipeableOrderItem = React.memo<SwipeableOrderItemProps>(({
         if (isOpen) setOffset(0);
     };
 
+    const handleDelete = async (id: string) => {
+        await Haptics.impact({ style: ImpactStyle.Heavy });
+        onDelete(id);
+    };
+
+    const handleIncrement = async (id: string, qty: number) => {
+        await Haptics.impact({ style: ImpactStyle.Light });
+        onIncrement(id, qty);
+    };
+
+    const handleDecrement = async (id: string) => {
+        await Haptics.impact({ style: ImpactStyle.Light });
+        onDecrement(id);
+    };
+
     return (
         <li className="relative border-b border-black/5 dark:border-white/10 overflow-hidden select-none transform translate-z-0 last:border-0">
             {/* Background Action Layer (Delete) */}
             <div className="absolute inset-0 flex justify-end bg-red-600">
                 <button
-                    onClick={() => onDelete(item.lineItemId)}
+                    onClick={() => handleDelete(item.lineItemId)}
                     className="w-[80px] h-full flex flex-col items-center justify-center text-white active:bg-red-700 transition-colors"
                 >
                     <TrashIcon className="h-6 w-6 mb-1" />
@@ -101,7 +117,7 @@ const SwipeableOrderItem = React.memo<SwipeableOrderItemProps>(({
                     {/* Quantity Controls */}
                     <div className="flex items-center gap-1 bg-surface-muted/50 rounded-lg p-0.5" onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
                         <button 
-                            onClick={() => onDecrement(item.lineItemId)} 
+                            onClick={() => handleDecrement(item.lineItemId)} 
                             className="h-7 w-7 flex items-center justify-center text-text-secondary hover:bg-white dark:hover:bg-black/20 rounded shadow-sm transition-all focus:outline-none" 
                             aria-label="Decrease quantity"
                         >
@@ -129,7 +145,7 @@ const SwipeableOrderItem = React.memo<SwipeableOrderItemProps>(({
                         )}
                         
                         <button 
-                            onClick={() => onIncrement(item.lineItemId, item.quantity + 1)} 
+                            onClick={() => handleIncrement(item.lineItemId, item.quantity + 1)} 
                             className="h-7 w-7 flex items-center justify-center text-text-secondary hover:bg-white dark:hover:bg-black/20 rounded shadow-sm transition-all focus:outline-none" 
                             aria-label="Increase quantity"
                         >
@@ -234,6 +250,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
     switch (action) {
       case 'clear':
         if (currentOrder.length === 0 && !editingTicket) return;
+        await Haptics.impact({ style: ImpactStyle.Medium });
         setIsClearConfirmVisible(true);
         break;
       
@@ -242,6 +259,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
            alert("Ticket is empty. Nothing to print.");
            return;
         }
+        await Haptics.impact({ style: ImpactStyle.Light });
         onPrintRequest();
         break;
 
@@ -250,6 +268,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
            alert("No ticket to edit.");
            return;
         }
+        await Haptics.impact({ style: ImpactStyle.Light });
         onSaveTicket();
         break;
       default:
@@ -257,16 +276,32 @@ const Ticket: React.FC<TicketProps> = (props) => {
     }
   };
   
-  const handleConfirmClear = () => {
+  const handleConfirmClear = async () => {
+    await Haptics.impact({ style: ImpactStyle.Heavy });
     onClearTicket();
     setIsClearConfirmVisible(false);
+  };
+
+  const handleCancelClear = async () => {
+    await Haptics.impact({ style: ImpactStyle.Light });
+    setIsClearConfirmVisible(false);
+  };
+
+  const handleCharge = async () => {
+    await Haptics.impact({ style: ImpactStyle.Medium });
+    onCharge();
+  };
+
+  const handleSaveOrder = async () => {
+    await Haptics.impact({ style: ImpactStyle.Medium });
+    handlePrimarySaveAction();
   };
 
   const renderActionButtons = () => {
     if (currentOrder.length > 0) {
       return (
         <button 
-          onClick={handlePrimarySaveAction}
+          onClick={handleSaveOrder}
           className="flex-1 bg-surface border-2 border-primary text-primary font-bold py-3.5 rounded-xl transition-all text-base shadow-sm hover:bg-primary/5 active:scale-[0.98] active:bg-primary/10"
         >
           {editingTicket ? 'Update Order' : 'Save Order'}
@@ -277,7 +312,10 @@ const Ticket: React.FC<TicketProps> = (props) => {
       return (
         // Text is allowed to wrap to new lines. Flex layout ensures siblings stretch to same height.
         <button 
-          onClick={onOpenTickets}
+          onClick={async () => {
+              await Haptics.impact({ style: ImpactStyle.Light });
+              onOpenTickets();
+          }}
           className="flex-1 bg-amber-500 text-white font-bold py-3 rounded-xl transition-all text-sm shadow-md hover:bg-amber-600 active:scale-[0.98] px-2 leading-tight break-words flex flex-col justify-center items-center"
         >
           <span>Open Tickets</span>
@@ -309,7 +347,10 @@ const Ticket: React.FC<TicketProps> = (props) => {
             <div className="flex items-center gap-3 overflow-hidden">
                 {onClose && (
                     <button 
-                    onClick={onClose} 
+                    onClick={async () => {
+                        await Haptics.impact({ style: ImpactStyle.Light });
+                        onClose();
+                    }} 
                     className="md:hidden p-2 -ml-2 text-text-secondary active:text-text-primary rounded-full hover:bg-surface-muted transition-colors"
                     >
                         <ArrowLeftIcon className="h-6 w-6" />
@@ -413,7 +454,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
             <h3 className="text-xl font-bold text-text-primary mb-2">Clear Current Order?</h3>
             <p className="text-sm text-text-secondary mb-8 max-w-[200px] text-center">All items will be removed. This cannot be undone.</p>
             <div className="flex gap-3 w-full max-w-xs">
-                <button onClick={() => setIsClearConfirmVisible(false)} className="flex-1 py-3 bg-surface border border-border text-text-primary rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 font-semibold transition-colors">
+                <button onClick={handleCancelClear} className="flex-1 py-3 bg-surface border border-border text-text-primary rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 font-semibold transition-colors">
                     Cancel
                 </button>
                 <button onClick={handleConfirmClear} className="flex-1 py-3 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 shadow-md transition-colors">
@@ -429,7 +470,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
             <div className={`flex items-stretch gap-3 ${isClearConfirmVisible ? 'opacity-0 pointer-events-none' : ''}`}>
                 {renderActionButtons()}
                 <button 
-                    onClick={onCharge} 
+                    onClick={handleCharge} 
                     disabled={currentOrder.length === 0} 
                     className="flex-[1.5] bg-emerald-600 text-white font-bold py-3.5 rounded-xl transition-all text-lg shadow-md hover:bg-emerald-700 active:scale-[0.98] active:shadow-sm disabled:bg-gray-300 disabled:dark:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none flex justify-center items-center"
                 >

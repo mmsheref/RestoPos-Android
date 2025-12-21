@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { CloseIcon, CheckIcon } from '../../constants';
 import { Item } from '../../types';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 interface PriceInputModalProps {
   isOpen: boolean;
@@ -19,23 +20,36 @@ const PriceInputModal: React.FC<PriceInputModalProps> = ({ isOpen, onClose, onCo
     }
   }, [isOpen]);
 
-  const handlePress = (key: string) => {
+  const handlePress = async (key: string) => {
+    await Haptics.impact({ style: ImpactStyle.Light });
     if (key === '.' && value.includes('.')) return;
     // Limit decimal places to 2
     if (value.includes('.') && value.split('.')[1].length >= 2) return;
     setValue(prev => prev + key);
   };
 
-  const handleBackspace = () => {
+  const handleBackspace = async () => {
+    await Haptics.impact({ style: ImpactStyle.Light });
     setValue(prev => prev.slice(0, -1));
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     const num = parseFloat(value);
     if (!isNaN(num) && num > 0) {
+      await Haptics.impact({ style: ImpactStyle.Medium });
       onConfirm(num);
       onClose();
     }
+  };
+
+  const handleQuickAmount = async (amt: number) => {
+    await Haptics.impact({ style: ImpactStyle.Medium });
+    setValue(amt.toString());
+  };
+
+  const handleClose = async () => {
+    await Haptics.impact({ style: ImpactStyle.Light });
+    onClose();
   };
 
   if (!isOpen || !item) return null;
@@ -44,7 +58,7 @@ const PriceInputModal: React.FC<PriceInputModalProps> = ({ isOpen, onClose, onCo
   const isValid = !!value && parseFloat(value) > 0;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-[100]" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-[100]" onClick={handleClose}>
       <div className="bg-surface w-full md:w-[400px] md:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
         
         {/* Header */}
@@ -53,7 +67,7 @@ const PriceInputModal: React.FC<PriceInputModalProps> = ({ isOpen, onClose, onCo
             <p className="text-xs text-text-secondary uppercase tracking-wider font-bold">Enter Price For</p>
             <h2 className="text-xl font-bold text-text-primary truncate max-w-[250px]">{item.name}</h2>
           </div>
-          <button onClick={onClose} className="p-2 text-text-muted hover:text-text-primary bg-surface-muted rounded-full transition-colors">
+          <button onClick={handleClose} className="p-2 text-text-muted hover:text-text-primary bg-surface-muted rounded-full transition-colors">
             <CloseIcon className="h-6 w-6" />
           </button>
         </div>
@@ -86,7 +100,7 @@ const PriceInputModal: React.FC<PriceInputModalProps> = ({ isOpen, onClose, onCo
                 {quickAmounts.map(amt => (
                     <button 
                         key={amt} 
-                        onClick={() => setValue(amt.toString())}
+                        onClick={() => handleQuickAmount(amt)}
                         className="py-2 bg-surface-muted border border-border rounded-lg text-sm font-semibold text-text-secondary hover:bg-primary/10 hover:text-primary hover:border-primary transition-colors active:bg-primary/20"
                     >
                         ₹{amt}
