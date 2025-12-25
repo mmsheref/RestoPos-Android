@@ -128,15 +128,17 @@ const formatCurrency = (amount: number) => amount.toFixed(2);
 
 /**
  * Consolidates multiple lines of the same item into a single line with summed quantity.
+ * This now uses a composite key to correctly handle variable-priced items.
  */
 const consolidateItems = (items: OrderItem[]): OrderItem[] => {
     const consolidated = new Map<string, OrderItem>();
     items.forEach(item => {
-        const existing = consolidated.get(item.id);
+        const key = `${item.id}-${item.price}`; // Use composite key for accuracy
+        const existing = consolidated.get(key);
         if (existing) {
-            consolidated.set(item.id, { ...existing, quantity: existing.quantity + item.quantity });
+            consolidated.set(key, { ...existing, quantity: existing.quantity + item.quantity });
         } else {
-            consolidated.set(item.id, { ...item }); 
+            consolidated.set(key, { ...item }); 
         }
     });
     return Array.from(consolidated.values());

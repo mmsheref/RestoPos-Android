@@ -14,7 +14,6 @@ import { db, signOutUser, auth } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, query, orderBy, limit, getDocs, getDoc, increment } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { idb } from '../utils/indexedDB'; 
-import { useStatusContext } from './StatusContext';
 
 const DEFAULT_SETTINGS: AppSettings = { 
     taxEnabled: true, 
@@ -46,7 +45,6 @@ const safeStorage = {
 };
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { setPendingSyncCount } = useStatusContext();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(() => !safeStorage.getItem(ONBOARDING_COMPLETED_KEY));
@@ -159,7 +157,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             
             const unsubReceipts = onSnapshot(query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(50)), (snap) => {
                 setReceiptsState(snap.docs.map(d => ({ ...d.data(), date: (d.data().date as Timestamp).toDate() } as Receipt)));
-                setPendingSyncCount(snap.docs.filter(d => d.metadata.hasPendingWrites).length);
             });
             setIsLoading(false);
             return () => unsubReceipts();
@@ -169,10 +166,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     });
     return () => unsubAuth();
-  }, [setPendingSyncCount]);
+  }, []);
 
   const addReceipt = useCallback(async (receipt: Receipt) => {
-    // 1. DATA STRIPPING (BEST PRACTICE): Never store Base64 images in receipts.
+    if (!user) return;
     const persistenceFriendlyReceipt = {
         ...receipt,
         items: receipt.items.map(item => {
@@ -180,19 +177,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             return { ...rest, imageUrl: '' };
         })
     };
-
-    // 2. LAG PREVENTION: Limit in-memory history to 100 items. Full history is in IndexedDB/Cloud.
     setReceiptsState(prev => [receipt, ...prev].slice(0, 100));
     idb.saveReceipt(persistenceFriendlyReceipt); 
     const batch = writeBatch(db);
-    batch.set(doc(db, 'users', user!.uid, 'receipts', receipt.id), persistenceFriendlyReceipt);
+    batch.set(doc(db, 'users', user.uid, 'receipts', receipt.id), persistenceFriendlyReceipt);
 
     const updatedItems = [...items];
     receipt.items.forEach(orderItem => {
         const idx = updatedItems.findIndex(i => i.id === orderItem.id);
         if (idx > -1) {
             updatedItems[idx].stock = Math.max(0, updatedItems[idx].stock - orderItem.quantity);
-            batch.update(doc(db, 'users', user!.uid, 'items', orderItem.id), { stock: increment(-orderItem.quantity) });
+            batch.update(doc(db, 'users', user.uid, 'items', orderItem.id), { stock: increment(-orderItem.quantity) });
             if (settings.notifyLowStock && updatedItems[idx].stock <= (settings.lowStockThreshold || 0)) {
                 sendLowStockAlert(updatedItems[idx].name, updatedItems[idx].stock);
             }
@@ -201,141 +196,224 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setItemsState(updatedItems);
     try { await batch.commit(); } catch (e) { console.warn("Background sync deferred"); }
   }, [user, items, settings]);
+  
+  const saveTicket = useCallback(async (t: SavedTicket) => {
+      if (!user) return;
+      setSavedTicketsState(v => [...v.filter(x => x.id !== t.id), t]);
+      await setDoc(doc(db, 'users', user.uid, 'saved_tickets', t.id), t);
+  }, [user]);
+
+  const removeTicket = useCallback(async (id: string) => {
+      if (!user) return;
+      setSavedTicketsState(v => v.filter(x => x.id !== id));
+      await deleteDoc(doc(db, 'users', user.uid, 'saved_tickets', id));
+  }, [user]);
+
+  const mergeTickets = useCallback(async (ticketIds: string[], newName: string) => {
+      if (!user) return;
+      const ticketsToMerge = savedTickets.filter(t => ticketIds.includes(t.id));
+      if (ticketsToMerge.length < 2) return;
+
+      const allItems = ticketsToMerge.flatMap(t => t.items);
+      const newTicket: SavedTicket = {
+          id: `T${Date.now()}`,
+          name: newName,
+          items: allItems,
+          lastModified: Date.now()
+      };
+      
+      await saveTicket(newTicket);
+      const batch = writeBatch(db);
+      for (const id of ticketIds) {
+          batch.delete(doc(db, 'users', user.uid, 'saved_tickets', id));
+      }
+      await batch.commit();
+      
+      setSavedTicketsState(prev => [...prev.filter(t => !ticketIds.includes(t.id)), newTicket]);
+  }, [savedTickets, saveTicket, user]);
+  
+  const completeOnboarding = useCallback(async () => {
+      if (Capacitor.isNativePlatform()) {
+          const p = await requestAppPermissions();
+          await requestNotificationPermission();
+          if (!p) return false;
+      }
+      safeStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
+      setShowOnboarding(false);
+      return true;
+  }, []);
+  
+  const updateSettings = useCallback(async (s: Partial<AppSettings>) => {
+      if (!user) return;
+      const next = { ...settings, ...s };
+      setSettingsState(next);
+      safeStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(next));
+      await setDoc(doc(db, 'users', user.uid, 'config', 'settings'), next, { merge: true });
+  }, [user, settings]);
+  
+  const addPrinter = useCallback(async (p: Printer) => {
+      if (!user) return;
+      setPrintersState(v => [...v, p]);
+      await setDoc(doc(db, 'users', user.uid, 'printers', p.id), p);
+  }, [user]);
+  
+  const removePrinter = useCallback(async (id: string) => {
+      if (!user) return;
+      setPrintersState(v => v.filter(p => p.id !== id));
+      await deleteDoc(doc(db, 'users', user.uid, 'printers', id));
+  }, [user]);
+
+  const addPaymentType = useCallback(async (p: Omit<PaymentType, 'id' | 'enabled' | 'type'>) => {
+      if (!user) return;
+      const id = `pt_${Date.now()}`;
+      const pt = { ...p, id, enabled: true, type: 'other' } as PaymentType;
+      setPaymentTypesState(v => [...v, pt]);
+      await setDoc(doc(db, 'users', user.uid, 'payment_types', id), pt);
+  }, [user]);
+  
+  const updatePaymentType = useCallback(async (p: PaymentType) => {
+      if (!user) return;
+      setPaymentTypesState(v => v.map(i => i.id === p.id ? p : i));
+      await setDoc(doc(db, 'users', user.uid, 'payment_types', p.id), p);
+  }, [user]);
+  
+  const removePaymentType = useCallback(async (id: string) => {
+      if (!user) return;
+      setPaymentTypesState(v => v.filter(p => p.id !== id));
+      await deleteDoc(doc(db, 'users', user.uid, 'payment_types', id));
+  }, [user]);
+
+  const deleteReceipt = useCallback(async (id: string) => {
+      if (!user) return;
+      setReceiptsState(v => v.filter(r => r.id !== id));
+      await deleteDoc(doc(db, 'users', user.uid, 'receipts', id));
+  }, [user]);
+
+  const addItem = useCallback(async (i: Item) => {
+      if (!user) return;
+      setItemsState(v => [...v, i]);
+      await setDoc(doc(db, 'users', user.uid, 'items', i.id), i);
+  }, [user]);
+  
+  const updateItem = useCallback(async (i: Item) => {
+      if (!user) return;
+      setItemsState(v => v.map(x => x.id === i.id ? i : x));
+      await setDoc(doc(db, 'users', user.uid, 'items', i.id), i);
+  }, [user]);
+  
+  const deleteItem = useCallback(async (id: string) => {
+      if (!user) return;
+      setItemsState(v => v.filter(x => x.id !== id));
+      await deleteDoc(doc(db, 'users', user.uid, 'items', id));
+  }, [user]);
+
+  const addCustomGrid = useCallback(async (g: CustomGrid) => {
+      if (!user) return;
+      setCustomGridsState(v => [...v, g]);
+      await setDoc(doc(db, 'users', user.uid, 'custom_grids', g.id), g);
+  }, [user]);
+
+  const updateCustomGrid = useCallback(async (g: CustomGrid) => {
+      if (!user) return;
+      setCustomGridsState(v => v.map(x => x.id === g.id ? g : x));
+      await setDoc(doc(db, 'users', user.uid, 'custom_grids', g.id), g);
+  }, [user]);
+  
+  const deleteCustomGrid = useCallback(async (id: string) => {
+      if (!user) return;
+      setCustomGridsState(v => v.filter(x => x.id !== id));
+      await deleteDoc(doc(db, 'users', user.uid, 'custom_grids', id));
+  }, [user]);
+
+  const setCustomGrids = useCallback(async (gs: CustomGrid[]) => {
+      if (!user) return;
+      setCustomGridsState(gs);
+      const batch = writeBatch(db);
+      gs.forEach(g => batch.set(doc(db, 'users', user.uid, 'custom_grids', g.id), g));
+      await batch.commit();
+  }, [user]);
+
+  const addTable = useCallback(async (n: string) => {
+      if (!user) return;
+      const t = { id: `tbl_${Date.now()}`, name: n, order: tables.length };
+      setTablesState(v => [...v, t]);
+      await setDoc(doc(db, 'users', user.uid, 'tables', t.id), t);
+  }, [user, tables.length]);
+
+  const updateTable = useCallback(async (t: Table) => {
+      if (!user) return;
+      setTablesState(v => v.map(x => x.id === t.id ? t : x));
+      await setDoc(doc(db, 'users', user.uid, 'tables', t.id), t);
+  }, [user]);
+
+  const removeTable = useCallback(async (id: string) => {
+      if (!user) return;
+      setTablesState(v => v.filter(x => x.id !== id));
+      await deleteDoc(doc(db, 'users', user.uid, 'tables', id));
+  }, [user]);
+  
+  const setTables = useCallback(async (ts: Table[]) => {
+      if (!user) return;
+      setTablesState(ts);
+      const batch = writeBatch(db);
+      ts.forEach(t => batch.set(doc(db, 'users', user.uid, 'tables', t.id), t));
+      await batch.commit();
+  }, [user]);
+  
+  const exportItemsCsv = useCallback(async () => {
+      const csvString = exportItemsToCsv(items);
+      const fileName = `inventory_export_${new Date().toISOString().slice(0, 10)}.csv`;
+      try {
+          if (Capacitor.isNativePlatform()) {
+              const result = await Filesystem.writeFile({ path: fileName, data: csvString, directory: Directory.Documents, encoding: Encoding.UTF8 });
+              await Share.share({ url: result.uri, title: 'Export Inventory' });
+          } else {
+              const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+              const link = document.createElement("a");
+              link.setAttribute("href", URL.createObjectURL(blob));
+              link.setAttribute("download", fileName);
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+          }
+      } catch (error) { console.error("Export failed", error); }
+  }, [items]);
+
+  const replaceItems = useCallback((is: Item[]) => {
+      if (!user) return;
+      setItemsState(is);
+      const batch = writeBatch(db);
+      is.forEach(i => batch.set(doc(db, 'users', user.uid, 'items', i.id), i));
+      batch.commit();
+  }, [user]);
 
   const value = useMemo(() => ({
       user, signOut: signOutUser,
       isDrawerOpen, openDrawer, closeDrawer, toggleDrawer, 
       headerTitle, setHeaderTitle, theme, setTheme,
-      showOnboarding, completeOnboarding: async () => {
-          if (Capacitor.isNativePlatform()) {
-              const p = await requestAppPermissions();
-              await requestNotificationPermission();
-              if (!p) return false;
-          }
-          safeStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
-          setShowOnboarding(false);
-          return true;
-      },
-      isLoading, settings, updateSettings: async (s: Partial<AppSettings>) => {
-          const next = { ...settings, ...s };
-          setSettingsState(next);
-          safeStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(next));
-          await setDoc(doc(db, 'users', user!.uid, 'config', 'settings'), next, { merge: true });
-      },
-      printers, addPrinter: async (p: Printer) => {
-          setPrintersState(v => [...v, p]);
-          await setDoc(doc(db, 'users', user!.uid, 'printers', p.id), p);
-      },
-      removePrinter: async (id: string) => {
-          setPrintersState(v => v.filter(p => p.id !== id));
-          await deleteDoc(doc(db, 'users', user!.uid, 'printers', id));
-      },
-      paymentTypes, addPaymentType: async (p: any) => {
-          const id = `pt_${Date.now()}`;
-          const pt = { ...p, id, enabled: true, type: 'other' };
-          setPaymentTypesState(v => [...v, pt]);
-          await setDoc(doc(db, 'users', user!.uid, 'payment_types', id), pt);
-      },
-      updatePaymentType: async (p: PaymentType) => {
-          setPaymentTypesState(v => v.map(i => i.id === p.id ? p : i));
-          await setDoc(doc(db, 'users', user!.uid, 'payment_types', p.id), p);
-      },
-      removePaymentType: async (id: string) => {
-          setPaymentTypesState(v => v.filter(p => p.id !== id));
-          await deleteDoc(doc(db, 'users', user!.uid, 'payment_types', id));
-      },
-      receipts, addReceipt, loadMoreReceipts: async () => {}, hasMoreReceipts: false, 
-      deleteReceipt: async (id: string) => {
-          setReceiptsState(v => v.filter(r => r.id !== id));
-          await deleteDoc(doc(db, 'users', user!.uid, 'receipts', id));
-      },
-      items, addItem: async (i: Item) => {
-          setItemsState(v => [...v, i]);
-          await setDoc(doc(db, 'users', user!.uid, 'items', i.id), i);
-      },
-      updateItem: async (i: Item) => {
-          setItemsState(v => v.map(x => x.id === i.id ? i : x));
-          await setDoc(doc(db, 'users', user!.uid, 'items', i.id), i);
-      },
-      deleteItem: async (id: string) => {
-          setItemsState(v => v.filter(x => x.id !== id));
-          await deleteDoc(doc(db, 'users', user!.uid, 'items', id));
-      },
-      savedTickets, saveTicket: async (t: SavedTicket) => {
-          setSavedTicketsState(v => [...v.filter(x => x.id !== t.id), t]);
-          await setDoc(doc(db, 'users', user!.uid, 'saved_tickets', t.id), t);
-      },
-      removeTicket: async (id: string) => {
-          setSavedTicketsState(v => v.filter(x => x.id !== id));
-          await deleteDoc(doc(db, 'users', user!.uid, 'saved_tickets', id));
-      },
-      mergeTickets: async () => {},
-      customGrids, addCustomGrid: async (g: CustomGrid) => {
-          setCustomGridsState(v => [...v, g]);
-          await setDoc(doc(db, 'users', user!.uid, 'custom_grids', g.id), g);
-      },
-      updateCustomGrid: async (g: CustomGrid) => {
-          setCustomGridsState(v => v.map(x => x.id === g.id ? g : x));
-          await setDoc(doc(db, 'users', user!.uid, 'custom_grids', g.id), g);
-      },
-      deleteCustomGrid: async (id: string) => {
-          setCustomGridsState(v => v.filter(x => x.id !== id));
-          await deleteDoc(doc(db, 'users', user!.uid, 'custom_grids', id));
-      },
-      setCustomGrids: async (gs: CustomGrid[]) => {
-          setCustomGridsState(gs);
-          const batch = writeBatch(db);
-          gs.forEach(g => batch.set(doc(db, 'users', user!.uid, 'custom_grids', g.id), g));
-          await batch.commit();
-      },
-      tables, addTable: async (n: string) => {
-          const t = { id: `tbl_${Date.now()}`, name: n, order: tables.length };
-          setTablesState(v => [...v, t]);
-          await setDoc(doc(db, 'users', user!.uid, 'tables', t.id), t);
-      },
-      updateTable: async (t: Table) => {
-          setTablesState(v => v.map(x => x.id === t.id ? t : x));
-          await setDoc(doc(db, 'users', user!.uid, 'tables', t.id), t);
-      },
-      removeTable: async (id: string) => {
-          setTablesState(v => v.filter(x => x.id !== id));
-          await deleteDoc(doc(db, 'users', user!.uid, 'tables', id));
-      },
-      setTables: async (ts: Table[]) => {
-          setTablesState(ts);
-          const batch = writeBatch(db);
-          ts.forEach(t => batch.set(doc(db, 'users', user!.uid, 'tables', t.id), t));
-          await batch.commit();
-      },
+      showOnboarding, completeOnboarding, isLoading, 
+      settings, updateSettings,
+      printers, addPrinter, removePrinter,
+      paymentTypes, addPaymentType, updatePaymentType, removePaymentType,
+      receipts, addReceipt, loadMoreReceipts: async () => {}, hasMoreReceipts: false, deleteReceipt,
+      items, addItem, updateItem, deleteItem,
+      savedTickets, saveTicket, removeTicket, mergeTickets,
+      customGrids, addCustomGrid, updateCustomGrid, deleteCustomGrid, setCustomGrids,
+      tables, addTable, updateTable, removeTable, setTables,
       activeGridId, setActiveGridId,
       currentOrder, addToOrder, removeFromOrder, deleteLineItem, updateOrderItemQuantity, clearOrder, loadOrder,
       exportData: () => {}, restoreData: () => {}, 
-      exportItemsCsv: async () => {
-          const csvString = exportItemsToCsv(items);
-          const fileName = `inventory_export_${new Date().toISOString().slice(0, 10)}.csv`;
-          try {
-              if (Capacitor.isNativePlatform()) {
-                  const result = await Filesystem.writeFile({ path: fileName, data: csvString, directory: Directory.Documents, encoding: Encoding.UTF8 });
-                  await Share.share({ url: result.uri, title: 'Export Inventory' });
-              } else {
-                  const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-                  const link = document.createElement("a");
-                  link.setAttribute("href", URL.createObjectURL(blob));
-                  link.setAttribute("download", fileName);
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-              }
-          } catch (error) { console.error("Export failed", error); }
-      }, 
-      replaceItems: (is: Item[]) => {
-          setItemsState(is);
-          const batch = writeBatch(db);
-          is.forEach(i => batch.set(doc(db, 'users', user!.uid, 'items', i.id), i));
-          batch.commit();
-      },
+      exportItemsCsv, replaceItems,
       isReportsUnlocked, setReportsUnlocked
-  }), [user, isDrawerOpen, headerTitle, theme, showOnboarding, isLoading, settings, items, customGrids, receipts, printers, paymentTypes, savedTickets, tables, activeGridId, currentOrder, isReportsUnlocked, addReceipt, addToOrder, removeFromOrder, deleteLineItem, updateOrderItemQuantity, clearOrder, loadOrder]);
+  }), [
+      user, isDrawerOpen, headerTitle, theme, showOnboarding, isLoading, settings, items, customGrids, receipts, 
+      printers, paymentTypes, savedTickets, tables, activeGridId, currentOrder, isReportsUnlocked,
+      openDrawer, closeDrawer, toggleDrawer, setTheme, completeOnboarding, updateSettings, addPrinter, removePrinter,
+      addPaymentType, updatePaymentType, removePaymentType, addReceipt, deleteReceipt, addItem, updateItem, deleteItem,
+      saveTicket, removeTicket, mergeTickets, addCustomGrid, updateCustomGrid, deleteCustomGrid, setCustomGrids,
+      addTable, updateTable, removeTable, setTables, setActiveGridId, addToOrder, removeFromOrder, deleteLineItem,
+      updateOrderItemQuantity, clearOrder, loadOrder, exportItemsCsv, replaceItems
+  ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

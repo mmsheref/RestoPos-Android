@@ -16,6 +16,7 @@ import AboutScreen from '../screens/AboutScreen';
 const SCREEN_TIMEOUT = 10 * 60 * 1000; // 10 Minutes
 const SWIPE_THRESHOLD = 50; // Pixels to trigger open
 const EDGE_ZONE = 40; // Pixels from left edge to start detection
+const MAX_VERTICAL_SWIPE = 30; // Max vertical movement allowed during horizontal swipe
 
 const KeepAliveScreen = React.memo(({ isVisible, children }: { isVisible: boolean, children: React.ReactNode }) => {
     return (
@@ -34,27 +35,40 @@ const Layout: React.FC = () => {
   const { pathname } = location;
 
   // --- SWIPE GESTURE LOGIC ---
-  const touchStartX = useRef<number | null>(null);
+  const touchStart = useRef<{ x: number, y: number } | null>(null);
   
   const handleTouchStart = (e: React.TouchEvent) => {
     const x = e.touches[0].clientX;
-    // Only capture if swipe starts near the left edge
+    const y = e.touches[0].clientY;
     if (x <= EDGE_ZONE) {
-      touchStartX.current = x;
+      touchStart.current = { x, y };
     } else {
-      touchStartX.current = null;
+      touchStart.current = null;
+    }
+  };
+  
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStart.current) return;
+    
+    const y = e.touches[0].clientY;
+    const deltaY = Math.abs(y - touchStart.current.y);
+    
+    // If user is scrolling vertically, cancel the horizontal swipe gesture
+    if (deltaY > MAX_VERTICAL_SWIPE) {
+      touchStart.current = null;
     }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
+    if (!touchStart.current) return;
+    
     const x = e.changedTouches[0].clientX;
-    const deltaX = x - touchStartX.current;
+    const deltaX = x - touchStart.current.x;
 
     if (deltaX > SWIPE_THRESHOLD && !isDrawerOpen) {
       openDrawer();
     }
-    touchStartX.current = null;
+    touchStart.current = null;
   };
 
   // Track last used timestamp for each screen to free up memory
@@ -99,11 +113,12 @@ const Layout: React.FC = () => {
     <div 
       className="relative h-screen w-full overflow-hidden bg-background text-text-primary flex flex-col"
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
       {/* Invisible grab zone for better gesture feedback */}
       {!isDrawerOpen && (
-        <div className="fixed left-0 top-0 bottom-0 w-[10px] z-[55] pointer-events-none" />
+        <div className="fixed left-0 top-0 bottom-0 w-[10px] z-[55]" />
       )}
 
       {showDefaultHeader && <Header title={displayTitle} onMenuClick={openDrawer} />}

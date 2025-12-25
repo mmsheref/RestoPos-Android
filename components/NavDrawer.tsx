@@ -2,8 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { useStatusContext } from '../context/StatusContext';
-import { NAV_LINKS, SignOutIcon, SyncIcon, OfflineIcon, CheckIcon, UserIcon, PowerIcon } from '../constants';
+import { NAV_LINKS, SignOutIcon, UserIcon, PowerIcon } from '../constants';
 import ConfirmModal from './modals/ConfirmModal';
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
@@ -11,21 +10,11 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 const NavDrawer: React.FC = () => {
   const { isDrawerOpen, closeDrawer, user, signOut, settings, currentOrder } = useAppContext();
-  const { pendingSyncCount, isOnline, lastSyncTime } = useStatusContext();
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
   
   const navigate = useNavigate();
   const location = useLocation();
-
-  const formattedLastSync = useMemo(() => {
-    if (!lastSyncTime) return 'Never';
-    const now = new Date();
-    const diff = Math.floor((now.getTime() - lastSyncTime.getTime()) / 60000);
-    if (diff < 1) return 'Just now';
-    if (diff < 60) return `${diff}m ago`;
-    return lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }, [lastSyncTime, isDrawerOpen]); // Re-calculate when drawer opens
 
   const stateRef = useRef({ isDrawerOpen, isExitModalOpen, pathname: location.pathname });
 
@@ -74,38 +63,7 @@ const NavDrawer: React.FC = () => {
           </ul>
         </nav>
         
-        {/* ENHANCED SYNC STATUS AREA WITH DETAILED INFO */}
-        <div className="px-4 py-3 mt-auto">
-            <div className={`flex flex-col gap-2 p-4 rounded-2xl border transition-colors ${
-                !isOnline ? 'bg-neutral-800 border-neutral-700' : pendingSyncCount > 0 ? 'bg-amber-900/10 border-amber-900/20' : 'bg-emerald-900/10 border-emerald-900/20'
-            }`}>
-                <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Cloud Status</span>
-                    <span className={`h-1.5 w-1.5 rounded-full ${!isOnline ? 'bg-neutral-600' : pendingSyncCount > 0 ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  {!isOnline ? (
-                      <div className="bg-neutral-700 p-2 rounded-lg text-neutral-400"><OfflineIcon className="h-5 w-5" /></div>
-                  ) : pendingSyncCount > 0 ? (
-                      <div className="bg-amber-500/20 p-2 rounded-lg text-amber-500"><SyncIcon className="h-5 w-5 animate-spin" /></div>
-                  ) : (
-                      <div className="bg-emerald-500/20 p-2 rounded-lg text-emerald-500"><CheckIcon className="h-5 w-5" /></div>
-                  )}
-                  
-                  <div>
-                      <p className="text-sm font-bold">
-                          {!isOnline ? 'System Offline' : pendingSyncCount > 0 ? 'Syncing Data' : 'All Synced'}
-                      </p>
-                      <p className="text-[10px] text-neutral-500 font-medium">
-                          {pendingSyncCount > 0 ? `${pendingSyncCount} records pending...` : `Last update: ${formattedLastSync}`}
-                      </p>
-                  </div>
-                </div>
-            </div>
-        </div>
-        
-        <div className="p-4 border-t border-neutral-800 bg-neutral-900 pb-safe-bottom">
+        <div className="p-4 border-t border-neutral-800 bg-neutral-900 pb-safe-bottom mt-auto">
             <div className="flex items-center gap-3 mb-4 px-2">
                 <div className="h-9 w-9 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-400 border border-neutral-700">
                      <UserIcon className="h-5 w-5" />

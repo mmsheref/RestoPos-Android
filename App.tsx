@@ -1,8 +1,8 @@
 
+
 import React, { useEffect, useState, Component, ReactNode } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
-import { StatusProvider } from './context/StatusContext';
 import Layout from './components/Layout';
 import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
@@ -23,8 +23,9 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// FIX: Explicitly extending the named 'Component' import ensures 'this.props' and 'this.state' are correctly inherited and recognized by the TypeScript compiler
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// FIX: Correctly extend from the imported `Component` to ensure `this.props` and `this.state` are available.
+// Fix: Changed to extend React.Component directly to ensure correct type inference.
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
@@ -33,7 +34,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   static getDerivedStateFromError() { return { hasError: true }; }
 
   render() {
-    // FIX: accessing 'this.state' inherited from Component
     if (this.state.hasError) {
       return (
         <div className="flex h-screen w-full items-center justify-center bg-background p-6 text-center">
@@ -50,7 +50,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // FIX: 'props' is now correctly typed and available from the base Component class
     return this.props.children;
   }
 }
@@ -123,11 +122,9 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
         <HashRouter>
-          <StatusProvider>
-            <AppProvider>
-              <AppRoutes />
-            </AppProvider>
-          </StatusProvider>
+          <AppProvider>
+            <AppRoutes />
+          </AppProvider>
         </HashRouter>
     </ErrorBoundary>
   );

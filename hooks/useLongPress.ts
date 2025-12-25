@@ -1,4 +1,4 @@
-// FIX: Import React to use React.TouchEvent and React.MouseEvent types.
+
 import React, { useRef, useCallback, useEffect } from 'react';
 
 // A module-level variable to track the last touch event time.

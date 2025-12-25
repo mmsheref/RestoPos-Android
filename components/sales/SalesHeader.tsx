@@ -1,7 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { MenuIcon, SearchIcon, CloseIcon, SyncIcon, OfflineIcon, CheckIcon } from '../../constants';
-import { useStatusContext } from '../../context/StatusContext';
+import { MenuIcon, SearchIcon, CloseIcon } from '../../constants';
 
 interface SalesHeaderProps {
   openDrawer: () => void;
@@ -11,7 +10,6 @@ interface SalesHeaderProps {
 }
 
 const SalesHeader: React.FC<SalesHeaderProps> = ({ openDrawer, searchQuery, onSearchChange, storeName }) => {
-  const { isOnline, pendingSyncCount } = useStatusContext();
   const [isSearching, setIsSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -64,26 +62,6 @@ const SalesHeader: React.FC<SalesHeaderProps> = ({ openDrawer, searchQuery, onSe
             </div>
 
             <div className="flex items-center gap-2">
-                {/* Informative Sync Pill for Sales Screen */}
-                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-black uppercase tracking-wider ${
-                    !isOnline 
-                        ? 'bg-neutral-100 border-neutral-200 text-neutral-500' 
-                        : pendingSyncCount > 0 
-                            ? 'bg-amber-50 border-amber-200 text-amber-600' 
-                            : 'bg-emerald-50 border-emerald-200 text-emerald-600'
-                }`}>
-                    {!isOnline ? (
-                        <OfflineIcon className="h-3 w-3" />
-                    ) : pendingSyncCount > 0 ? (
-                        <SyncIcon className="h-3 w-3 animate-spin" />
-                    ) : (
-                        <CheckIcon className="h-3 w-3" />
-                    )}
-                    <span className="hidden xs:inline">
-                        {!isOnline ? 'Offline' : pendingSyncCount > 0 ? `${pendingSyncCount} Syncing` : 'Synced'}
-                    </span>
-                </div>
-
                 <button onClick={() => setIsSearching(true)} className="p-2 text-text-secondary hover:text-primary bg-surface-muted/50 hover:bg-primary/10 rounded-full transition-all">
                     <SearchIcon className="h-5 w-5" />
                 </button>

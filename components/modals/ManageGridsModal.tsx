@@ -58,10 +58,6 @@ const ManageGridsModal: React.FC<ManageGridsModalProps> = ({ isOpen, onClose, on
   const handleSaveEdit = () => {
     if (editingIndex === null || !editingText.trim()) return;
     
-    // IMPORTANT: Create a shallow copy of the object being modified. 
-    // Just spreading the array [...grids] is shallow, but modifying objects inside it 
-    // (grids[i].name = ...) mutates the reference. We must create a new object 
-    // so React and the AppContext detect the change properly.
     const newGrids = [...grids];
     newGrids[editingIndex] = { 
         ...newGrids[editingIndex], 

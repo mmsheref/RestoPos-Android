@@ -60,8 +60,9 @@ export const idb = {
 
             request.onsuccess = () => {
                 const results = request.result as Receipt[];
-                results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                resolve(results);
+                // Defensive copy before sorting
+                const sortedResults = [...results].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                resolve(sortedResults);
             };
 
             request.onerror = () => reject(request.error);
@@ -88,9 +89,9 @@ export const idb = {
 
               request.onsuccess = () => {
                   const results = request.result as Receipt[];
-                  // Sort newest first
-                  results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                  resolve(results);
+                  // Defensive copy before sorting
+                  const sortedResults = [...results].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                  resolve(sortedResults);
               };
               
               request.onerror = () => reject(request.error);
