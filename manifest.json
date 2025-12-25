@@ -1,0 +1,32 @@
+
+{
+  "short_name": "POS",
+  "name": "Restaurant Point of Sale",
+  "description": "Modern Restaurant POS with offline support.",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/192x192.png?text=POS",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://via.placeholder.com/512x512.png?text=POS",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#F3F4F6",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#059669",
+  "shortcuts": [
+    {
+      "name": "New Sale",
+      "short_name": "Sale",
+      "description": "Start a new sale",
+      "url": "/#/sales",
+      "icons": [{ "src": "https://via.placeholder.com/192x192.png?text=Sale", "sizes": "192x192" }]
+    }
+  ]
+}

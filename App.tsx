@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, Component, ReactNode } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { StatusProvider } from './context/StatusContext';
@@ -11,32 +11,69 @@ import { StoreIcon } from './constants';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
+/**
+ * FAIL-SAFE ERROR BOUNDARY
+ * If a component crashes due to corrupt data, this prevents the whole app from going white.
+ */
+interface ErrorBoundaryProps {
+  children?: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+// FIX: Explicitly extending the named 'Component' import ensures 'this.props' and 'this.state' are correctly inherited and recognized by the TypeScript compiler
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() { return { hasError: true }; }
+
+  render() {
+    // FIX: accessing 'this.state' inherited from Component
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-screen w-full items-center justify-center bg-background p-6 text-center">
+          <div className="max-w-md">
+            <h2 className="text-2xl font-bold text-text-primary mb-4">Something went wrong</h2>
+            <p className="text-text-secondary mb-8">The app encountered an unexpected error. Don't worry, your data is safe.</p>
+            <button 
+                onClick={() => window.location.reload()} 
+                className="w-full bg-primary text-primary-content font-bold py-4 rounded-xl shadow-lg"
+            >
+                Restart Application
+            </button>
+          </div>
+        </div>
+      );
+    }
+    // FIX: 'props' is now correctly typed and available from the base Component class
+    return this.props.children;
+  }
+}
+
 const AppRoutes: React.FC = () => {
     const { user, isLoading, showOnboarding, theme } = useAppContext();
 
-    // --- Status Bar Configuration ---
+    // --- Native Status Bar Sync ---
     useEffect(() => {
         if (Capacitor.isNativePlatform()) {
             const configStatusBar = async () => {
                 try {
-                    // On Android, disabling overlay ensures the webview sits BELOW the status bar,
-                    // preventing content from being hidden behind it.
                     if (Capacitor.getPlatform() === 'android') {
                         await StatusBar.setOverlaysWebView({ overlay: false });
                     }
-
-                    // Sync Status Bar style with App Theme
                     const style = theme === 'dark' ? Style.Dark : Style.Light;
                     await StatusBar.setStyle({ style });
-
-                    // Set Background Color for Android (Matches standard app background)
                     if (Capacitor.getPlatform() === 'android') {
-                        // Dark: neutral-800 (#262626) | Light: white (#FFFFFF)
                         const color = theme === 'dark' ? '#262626' : '#FFFFFF';
                         await StatusBar.setBackgroundColor({ color });
                     }
                 } catch (e) {
-                    console.warn('StatusBar config failed', e);
+                    // Fail silently for non-critical native features
                 }
             };
             configStatusBar();
@@ -74,8 +111,6 @@ const AppRoutes: React.FC = () => {
         );
     }
 
-    // With the new persistent layout, we render the Layout component for all authenticated routes.
-    // The Layout component itself will handle showing/hiding screens based on the path.
     return (
         <Routes>
            <Route path="/*" element={<Layout />} />
@@ -86,13 +121,15 @@ const AppRoutes: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <HashRouter>
-      <StatusProvider>
-        <AppProvider>
-          <AppRoutes />
-        </AppProvider>
-      </StatusProvider>
-    </HashRouter>
+    <ErrorBoundary>
+        <HashRouter>
+          <StatusProvider>
+            <AppProvider>
+              <AppRoutes />
+            </AppProvider>
+          </StatusProvider>
+        </HashRouter>
+    </ErrorBoundary>
   );
 };
 

@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useLocation, Navigate } from 'react-router-dom';
 import Header from './Header';
 import NavDrawer from './NavDrawer';
@@ -13,7 +13,9 @@ import SettingsScreen from '../screens/SettingsScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import AboutScreen from '../screens/AboutScreen';
 
-const SCREEN_TIMEOUT = 10 * 60 * 1000; 
+const SCREEN_TIMEOUT = 10 * 60 * 1000; // 10 Minutes
+const SWIPE_THRESHOLD = 50; // Pixels to trigger open
+const EDGE_ZONE = 40; // Pixels from left edge to start detection
 
 const KeepAliveScreen = React.memo(({ isVisible, children }: { isVisible: boolean, children: React.ReactNode }) => {
     return (
@@ -27,17 +29,42 @@ const KeepAliveScreen = React.memo(({ isVisible, children }: { isVisible: boolea
 });
 
 const Layout: React.FC = () => {
-  const { isDrawerOpen, openDrawer } = useAppContext();
+  const { isDrawerOpen, openDrawer, closeDrawer } = useAppContext();
   const location = useLocation();
   const { pathname } = location;
 
-  const [activeScreens, setActiveScreens] = useState<Record<string, number>>({ '/sales': Date.now() });
-  const touchStartRef = useRef<{x: number, y: number, time: number} | null>(null);
+  // --- SWIPE GESTURE LOGIC ---
+  const touchStartX = useRef<number | null>(null);
+  
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const x = e.touches[0].clientX;
+    // Only capture if swipe starts near the left edge
+    if (x <= EDGE_ZONE) {
+      touchStartX.current = x;
+    } else {
+      touchStartX.current = null;
+    }
+  };
 
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const x = e.changedTouches[0].clientX;
+    const deltaX = x - touchStartX.current;
+
+    if (deltaX > SWIPE_THRESHOLD && !isDrawerOpen) {
+      openDrawer();
+    }
+    touchStartX.current = null;
+  };
+
+  // Track last used timestamp for each screen to free up memory
+  const [activeScreens, setActiveScreens] = useState<Record<string, number>>({ '/sales': Date.now() });
+  
   useEffect(() => {
       setActiveScreens(prev => ({ ...prev, [pathname]: Date.now() }));
   }, [pathname]);
 
+  // Aggressive memory cleanup for Android WebViews
   useEffect(() => {
       const interval = setInterval(() => {
           const now = Date.now();
@@ -45,6 +72,7 @@ const Layout: React.FC = () => {
               const next = { ...prev };
               let changed = false;
               Object.keys(next).forEach(path => {
+                  // Never unmount Sales; unmount others if inactive
                   if (path !== '/sales' && path !== pathname && now - next[path] > SCREEN_TIMEOUT) {
                       delete next[path];
                       changed = true;
@@ -63,44 +91,24 @@ const Layout: React.FC = () => {
   
   const showDefaultHeader = !['/sales', '/receipts', '/settings', '/items', '/reports', '/about'].includes(pathname); 
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length !== 1 || isDrawerOpen) return;
-    touchStartRef.current = { 
-        x: e.touches[0].clientX, 
-        y: e.touches[0].clientY,
-        time: Date.now()
-    };
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStartRef.current) return;
-    
-    const deltaX = e.touches[0].clientX - touchStartRef.current.x;
-    const deltaY = Math.abs(e.touches[0].clientY - touchStartRef.current.y);
-
-    // Only trigger if swipe starts near left edge (< 50px)
-    // and horizontal movement is dominant
-    if (touchStartRef.current.x < 50 && deltaX > 40 && deltaX > deltaY * 1.8) {
-        openDrawer();
-        touchStartRef.current = null; // Reset to prevent multiple triggers
-    }
-  };
-
-  const handleTouchEnd = () => { touchStartRef.current = null; };
-
   if (!['/sales', '/receipts', '/items', '/settings', '/reports', '/about'].some(p => pathname.startsWith(p))) {
       return <Navigate to="/sales" replace />;
   }
 
   return (
     <div 
-        className="relative h-screen w-full overflow-hidden bg-background text-text-primary flex flex-col"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+      className="relative h-screen w-full overflow-hidden bg-background text-text-primary flex flex-col"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
+      {/* Invisible grab zone for better gesture feedback */}
+      {!isDrawerOpen && (
+        <div className="fixed left-0 top-0 bottom-0 w-[10px] z-[55] pointer-events-none" />
+      )}
+
       {showDefaultHeader && <Header title={displayTitle} onMenuClick={openDrawer} />}
       <NavDrawer />
+      
       <main className="flex-1 relative overflow-hidden">
         <KeepAliveScreen isVisible={pathname === '/sales'}><SalesScreen /></KeepAliveScreen>
         {activeScreens['/receipts'] && <KeepAliveScreen isVisible={pathname === '/receipts'}><ReceiptsScreen /></KeepAliveScreen>}

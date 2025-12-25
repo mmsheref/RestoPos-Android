@@ -49,7 +49,7 @@ export const parseCsvToItems = (csvContent: string): { items: Item[] } => {
     const priceIndex = headers.indexOf('Price [AYSHAS]');
     const trackStockIndex = headers.indexOf('Track stock');
     const inStockIndex = headers.indexOf('In stock [AYSHAS]');
-    const imageIndex = headers.indexOf('Image Src'); // New column support
+    const imageIndex = headers.indexOf('Image Src'); 
 
     if ([handleIndex, nameIndex, priceIndex].some(i => i === -1)) {
         throw new Error('CSV file is missing required columns: Handle, Name, Price [AYSHAS]');
@@ -75,7 +75,7 @@ export const parseCsvToItems = (csvContent: string): { items: Item[] } => {
             stock = parseInt(stockStr);
         }
 
-        // Retrieve Image Base64 if available
+        // Retrieve Image Base64 if available in the imported file
         let imageUrl = '';
         if (imageIndex !== -1 && values[imageIndex]) {
             imageUrl = values[imageIndex];
@@ -89,7 +89,7 @@ export const parseCsvToItems = (csvContent: string): { items: Item[] } => {
             price: price,
             stock: stock,
             imageUrl: imageUrl,
-            category: '' // Category detection can be added if needed
+            category: '' 
         };
 
         if (item.name) {
@@ -101,17 +101,16 @@ export const parseCsvToItems = (csvContent: string): { items: Item[] } => {
 }
 
 export const exportItemsToCsv = (items: Item[]): string => {
-    // Added 'Image Src' to the end of the headers
+    // Removed 'Image Src' from the headers
     const headers = [
-        'Handle','SKU','Name','Description','Sold by weight','Option 1 name','Option 1 value','Option 2 name','Option 2 value','Option 3 name','Option 3 value','Cost','Barcode','SKU of included item','Quantity of included item','Track stock','Available for sale [AYSHAS]','Price [AYSHAS]','In stock [AYSHAS]','Low stock [AYSHAS]', 'Image Src'
+        'Handle','SKU','Name','Description','Sold by weight','Option 1 name','Option 1 value','Option 2 name','Option 2 value','Option 3 name','Option 3 value','Cost','Barcode','SKU of included item','Quantity of included item','Track stock','Available for sale [AYSHAS]','Price [AYSHAS]','In stock [AYSHAS]','Low stock [AYSHAS]'
     ];
     
     // Function to safely create CSV field (handles commas/quotes by quoting)
     const csvField = (val: any) => {
         if (val === null || val === undefined) return '';
         const str = String(val);
-        // Quoting is mandatory for Base64 as it often contains '+' or '=' which some CSV readers might misinterpret
-        if (str.includes(',') || str.includes('"') || str.includes('\n') || str.startsWith('data:image')) {
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
             return `"${str.replace(/"/g, '""')}"`;
         }
         return str;
@@ -127,7 +126,6 @@ export const exportItemsToCsv = (items: Item[]): string => {
         row[headers.indexOf('Available for sale [AYSHAS]')] = 'Y';
         row[headers.indexOf('Price [AYSHAS]')] = item.price.toFixed(2);
         row[headers.indexOf('In stock [AYSHAS]')] = item.stock; 
-        row[headers.indexOf('Image Src')] = csvField(item.imageUrl); // Save Base64 Data
         return row.join(',');
     });
 

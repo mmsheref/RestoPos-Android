@@ -10,7 +10,7 @@ import { Share } from '@capacitor/share';
 import { exportItemsToCsv } from '../utils/csvHelper';
 import { requestAppPermissions } from '../utils/permissions';
 import { requestNotificationPermission, scheduleDailySummary, cancelDailySummary, sendLowStockAlert } from '../utils/notificationHelper';
-import { db, signOutUser, firebaseConfig, auth } from '../firebase';
+import { db, signOutUser, auth } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, query, orderBy, limit, getDocs, getDoc, increment } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { idb } from '../utils/indexedDB'; 
@@ -35,25 +35,29 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const ITEMS_CACHE_KEY = 'pos_items_cache';
 const SETTINGS_CACHE_KEY = 'pos_settings_cache';
-const GRIDS_CACHE_KEY = 'pos_grids_cache'; 
 const ONBOARDING_COMPLETED_KEY = 'pos_onboarding_completed_v1';
 const ACTIVE_GRID_KEY = 'pos_active_grid_id';
+
+// Defensive localStorage utility to prevent crashes in private tabs or restricted sandboxes
+const safeStorage = {
+    getItem: (key: string) => { try { return localStorage.getItem(key); } catch(e) { return null; } },
+    setItem: (key: string, val: string) => { try { localStorage.setItem(key, val); } catch(e) {} }
+};
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { setPendingSyncCount } = useStatusContext();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem(ONBOARDING_COMPLETED_KEY));
+  const [showOnboarding, setShowOnboarding] = useState(() => !safeStorage.getItem(ONBOARDING_COMPLETED_KEY));
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [headerTitle, setHeaderTitle] = useState('');
   const [isReportsUnlocked, setReportsUnlocked] = useState(false);
-  const [theme, setThemeState] = useState<Theme>(() => (localStorage.getItem('theme') as Theme) || 'system');
+  const [theme, setThemeState] = useState<Theme>(() => (safeStorage.getItem('theme') as Theme) || 'system');
 
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
-    localStorage.setItem('theme', newTheme);
+    safeStorage.setItem('theme', newTheme);
   }, []);
 
   useEffect(() => {
@@ -71,43 +75,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => setIsDrawerOpen(prev => !prev), []);
 
-  const [settings, setSettingsState] = useState<AppSettings>(() => {
-      const cached = localStorage.getItem(SETTINGS_CACHE_KEY);
-      return cached ? { ...DEFAULT_SETTINGS, ...JSON.parse(cached) } : DEFAULT_SETTINGS;
-  });
-  
-  useEffect(() => {
-      if (settings.notificationsEnabled && settings.notifyDailySummary && settings.dailySummaryTime) {
-          scheduleDailySummary(settings.dailySummaryTime);
-      } else {
-          cancelDailySummary();
-      }
-  }, [settings.notificationsEnabled, settings.notifyDailySummary, settings.dailySummaryTime]);
-
-  const [items, setItemsState] = useState<Item[]>(() => {
-      const cached = localStorage.getItem(ITEMS_CACHE_KEY);
-      return cached ? JSON.parse(cached) : [];
-  });
-
-  const [customGrids, setCustomGridsState] = useState<CustomGrid[]>(() => {
-      const cached = localStorage.getItem(GRIDS_CACHE_KEY);
-      return cached ? JSON.parse(cached) : [];
-  });
-
+  const [settings, setSettingsState] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [items, setItemsState] = useState<Item[]>([]);
+  const [customGrids, setCustomGridsState] = useState<CustomGrid[]>([]);
   const [receipts, setReceiptsState] = useState<Receipt[]>([]);
   const [printers, setPrintersState] = useState<Printer[]>([]);
   const [paymentTypes, setPaymentTypesState] = useState<PaymentType[]>([]);
   const [savedTickets, setSavedTicketsState] = useState<SavedTicket[]>([]);
   const [tables, setTablesState] = useState<Table[]>([]);
-  const [activeGridId, setActiveGridIdState] = useState<string>(() => localStorage.getItem(ACTIVE_GRID_KEY) || 'All');
+  const [activeGridId, setActiveGridIdState] = useState<string>(() => safeStorage.getItem(ACTIVE_GRID_KEY) || 'All');
 
   const setActiveGridId = useCallback((id: string) => {
       setActiveGridIdState(id);
-      localStorage.setItem(ACTIVE_GRID_KEY, id);
+      safeStorage.setItem(ACTIVE_GRID_KEY, id);
   }, []);
 
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
 
+  // CART ACTIONS - Optimized to keep memory footprint low
   const addToOrder = useCallback((item: Item) => {
     setCurrentOrder(current => {
       const lastItem = current.length > 0 ? current[current.length - 1] : null;
@@ -116,7 +101,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         newOrder[newOrder.length - 1] = { ...lastItem, quantity: lastItem.quantity + 1 };
         return newOrder;
       }
-      return [...current, { ...item, quantity: 1, lineItemId: `L${Date.now()}-${Math.random()}` }];
+      return [...current, { ...item, imageUrl: '', quantity: 1, lineItemId: `L${Date.now()}-${Math.random()}` }];
     });
   }, []);
 
@@ -170,9 +155,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setTablesState(tblSnap.docs.map(d => d.data() as Table));
                 setSavedTicketsState(tktSnap.docs.map(d => d.data() as SavedTicket));
                 setCustomGridsState(grdSnap.docs.map(d => d.data() as CustomGrid));
-            } catch (e) { console.error(e); }
+            } catch (e) { console.error("Initial load sync deferred"); }
             
-            const unsubReceipts = onSnapshot(query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(100)), (snap) => {
+            const unsubReceipts = onSnapshot(query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(50)), (snap) => {
                 setReceiptsState(snap.docs.map(d => ({ ...d.data(), date: (d.data().date as Timestamp).toDate() } as Receipt)));
                 setPendingSyncCount(snap.docs.filter(d => d.metadata.hasPendingWrites).length);
             });
@@ -184,13 +169,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     });
     return () => unsubAuth();
-  }, []);
+  }, [setPendingSyncCount]);
 
   const addReceipt = useCallback(async (receipt: Receipt) => {
-    setReceiptsState(prev => [receipt, ...prev]);
-    idb.saveReceipt(receipt); 
+    // 1. DATA STRIPPING (BEST PRACTICE): Never store Base64 images in receipts.
+    const persistenceFriendlyReceipt = {
+        ...receipt,
+        items: receipt.items.map(item => {
+            const { imageUrl, ...rest } = item;
+            return { ...rest, imageUrl: '' };
+        })
+    };
+
+    // 2. LAG PREVENTION: Limit in-memory history to 100 items. Full history is in IndexedDB/Cloud.
+    setReceiptsState(prev => [receipt, ...prev].slice(0, 100));
+    idb.saveReceipt(persistenceFriendlyReceipt); 
     const batch = writeBatch(db);
-    batch.set(doc(db, 'users', user!.uid, 'receipts', receipt.id), receipt);
+    batch.set(doc(db, 'users', user!.uid, 'receipts', receipt.id), persistenceFriendlyReceipt);
 
     const updatedItems = [...items];
     receipt.items.forEach(orderItem => {
@@ -204,7 +199,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     });
     setItemsState(updatedItems);
-    try { await batch.commit(); } catch (e) { console.error("Sync failed", e); }
+    try { await batch.commit(); } catch (e) { console.warn("Background sync deferred"); }
   }, [user, items, settings]);
 
   const value = useMemo(() => ({
@@ -217,14 +212,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               await requestNotificationPermission();
               if (!p) return false;
           }
-          localStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
+          safeStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
           setShowOnboarding(false);
           return true;
       },
       isLoading, settings, updateSettings: async (s: Partial<AppSettings>) => {
           const next = { ...settings, ...s };
           setSettingsState(next);
-          localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(next));
+          safeStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(next));
           await setDoc(doc(db, 'users', user!.uid, 'config', 'settings'), next, { merge: true });
       },
       printers, addPrinter: async (p: Printer) => {
@@ -274,7 +269,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setSavedTicketsState(v => v.filter(x => x.id !== id));
           await deleteDoc(doc(db, 'users', user!.uid, 'saved_tickets', id));
       },
-      mergeTickets: async (ids: string[], name: string) => {},
+      mergeTickets: async () => {},
       customGrids, addCustomGrid: async (g: CustomGrid) => {
           setCustomGridsState(v => [...v, g]);
           await setDoc(doc(db, 'users', user!.uid, 'custom_grids', g.id), g);
@@ -314,39 +309,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       },
       activeGridId, setActiveGridId,
       currentOrder, addToOrder, removeFromOrder, deleteLineItem, updateOrderItemQuantity, clearOrder, loadOrder,
-      exportData: () => {}, restoreData: (d: any) => {}, 
+      exportData: () => {}, restoreData: () => {}, 
       exportItemsCsv: async () => {
           const csvString = exportItemsToCsv(items);
           const fileName = `inventory_export_${new Date().toISOString().slice(0, 10)}.csv`;
-
           try {
               if (Capacitor.isNativePlatform()) {
-                  const result = await Filesystem.writeFile({
-                      path: fileName,
-                      data: csvString,
-                      directory: Directory.Documents,
-                      encoding: Encoding.UTF8
-                  });
-                  await Share.share({
-                      url: result.uri,
-                      title: 'Export Inventory',
-                      dialogTitle: 'Export Inventory CSV'
-                  });
+                  const result = await Filesystem.writeFile({ path: fileName, data: csvString, directory: Directory.Documents, encoding: Encoding.UTF8 });
+                  await Share.share({ url: result.uri, title: 'Export Inventory' });
               } else {
                   const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
                   const link = document.createElement("a");
-                  const url = URL.createObjectURL(blob);
-                  link.setAttribute("href", url);
+                  link.setAttribute("href", URL.createObjectURL(blob));
                   link.setAttribute("download", fileName);
-                  link.style.visibility = 'hidden';
                   document.body.appendChild(link);
                   link.click();
                   document.body.removeChild(link);
               }
-          } catch (error: any) {
-              console.error("Inventory export failed:", error);
-              alert(`Export failed: ${error.message}`);
-          }
+          } catch (error) { console.error("Export failed", error); }
       }, 
       replaceItems: (is: Item[]) => {
           setItemsState(is);
@@ -355,7 +335,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           batch.commit();
       },
       isReportsUnlocked, setReportsUnlocked
-  }), [user, isDrawerOpen, headerTitle, theme, showOnboarding, isLoading, settings, items, customGrids, receipts, printers, paymentTypes, savedTickets, tables, activeGridId, currentOrder, isReportsUnlocked, addReceipt]);
+  }), [user, isDrawerOpen, headerTitle, theme, showOnboarding, isLoading, settings, items, customGrids, receipts, printers, paymentTypes, savedTickets, tables, activeGridId, currentOrder, isReportsUnlocked, addReceipt, addToOrder, removeFromOrder, deleteLineItem, updateOrderItemQuantity, clearOrder, loadOrder]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
