@@ -1,7 +1,6 @@
 
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { useLocation, Navigate, Routes, Route } from 'react-router-dom';
-import Header from './Header';
 import NavDrawer from './NavDrawer';
 import { useAppContext } from '../context/AppContext';
 import { NAV_LINKS } from '../constants';
@@ -13,47 +12,9 @@ import SettingsScreen from '../screens/SettingsScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import AboutScreen from '../screens/AboutScreen';
 
-const SCREEN_TIMEOUT = 10 * 60 * 1000; // 10 Minutes
-
-const KeepAliveScreen = React.memo(({ isVisible, children }: { isVisible: boolean, children: React.ReactNode }) => {
-    return (
-        <div 
-            className={`flex flex-col h-full w-full absolute inset-0 bg-background transition-opacity duration-200 ${isVisible ? 'opacity-100 z-10' : 'opacity-0 z-[-1] pointer-events-none'}`}
-            style={{ visibility: isVisible ? 'visible' : 'hidden' }}
-        >
-            {children}
-        </div>
-    );
-});
-
 const Layout: React.FC = () => {
-  const { isDrawerOpen, headerTitle, setHeaderTitle } = useAppContext();
-  const location = useLocation();
-  const { pathname } = location;
-
-  const [activeScreens, setActiveScreens] = useState<Record<string, number>>({ '/sales': Date.now() });
-  
-  useEffect(() => {
-      setActiveScreens(prev => ({ ...prev, [pathname]: Date.now() }));
-  }, [pathname]);
-
-  useEffect(() => {
-      const interval = setInterval(() => {
-          const now = Date.now();
-          setActiveScreens(prev => {
-              const next = { ...prev };
-              let changed = false;
-              Object.keys(next).forEach(path => {
-                  if (path !== '/sales' && path !== pathname && now - next[path] > SCREEN_TIMEOUT) {
-                      delete next[path];
-                      changed = true;
-                  }
-              });
-              return changed ? next : prev;
-          });
-      }, 60 * 1000);
-      return () => clearInterval(interval);
-  }, [pathname]);
+  const { isDrawerOpen, setHeaderTitle } = useAppContext();
+  const { pathname } = useLocation();
 
   useEffect(() => {
       const currentLink = NAV_LINKS.find(link => link.path === pathname);

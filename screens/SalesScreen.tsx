@@ -439,7 +439,7 @@ const SalesScreen: React.FC = () => {
   const isViewingAll = activeGridId === 'All' || debouncedSearchQuery.trim().length > 0;
 
   return (
-    <div className="flex h-full w-full bg-background font-sans relative overflow-hidden">
+    <div className="flex h-full w-full bg-background font-sans relative">
       <div className="flex-1 flex flex-col min-w-0 h-full relative">
         <SalesHeader 
             openDrawer={openDrawer} 

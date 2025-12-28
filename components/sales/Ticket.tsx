@@ -483,4 +483,4 @@ const Ticket: React.FC<TicketProps> = (props) => {
   );
 };
 
-export default Ticket;
+export default React.memo(Ticket);
