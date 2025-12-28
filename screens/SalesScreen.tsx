@@ -448,7 +448,7 @@ const SalesScreen: React.FC = () => {
             storeName={settings.storeName}
         />
         
-        <div className="flex-1 relative overflow-hidden">
+        <div className="flex-1 relative">
             <div 
               ref={scrollContainerRef} 
               className="absolute inset-0 overflow-y-auto overflow-x-hidden p-2 md:p-4 scroll-smooth"

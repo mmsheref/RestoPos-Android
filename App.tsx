@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useState, ReactNode } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
@@ -22,9 +23,12 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// FIX: The `ErrorBoundary` component correctly extends `React.Component`, which provides the `props` property. The unused `Component` import was removed to avoid potential type resolution conflicts.
+// FIX: The ErrorBoundary class component was refactored to use a constructor for state initialization. This classic approach ensures compatibility with all build toolchains and resolves the type inference issue where the 'props' property was not being recognized on the component instance.
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false };
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError() { return { hasError: true }; }
 
