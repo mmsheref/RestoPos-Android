@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { useLocation, Navigate } from 'react-router-dom';
+import { useLocation, Navigate, Routes, Route } from 'react-router-dom';
 import Header from './Header';
 import NavDrawer from './NavDrawer';
 import { useAppContext } from '../context/AppContext';
@@ -14,9 +14,6 @@ import ReportsScreen from '../screens/ReportsScreen';
 import AboutScreen from '../screens/AboutScreen';
 
 const SCREEN_TIMEOUT = 10 * 60 * 1000; // 10 Minutes
-const SWIPE_THRESHOLD = 50; // Pixels to trigger open
-const EDGE_ZONE = 40; // Pixels from left edge to start detection
-const MAX_VERTICAL_SWIPE = 30; // Max vertical movement allowed during horizontal swipe
 
 const KeepAliveScreen = React.memo(({ isVisible, children }: { isVisible: boolean, children: React.ReactNode }) => {
     return (
@@ -30,55 +27,16 @@ const KeepAliveScreen = React.memo(({ isVisible, children }: { isVisible: boolea
 });
 
 const Layout: React.FC = () => {
-  const { isDrawerOpen, openDrawer, closeDrawer } = useAppContext();
+  const { isDrawerOpen, headerTitle, setHeaderTitle } = useAppContext();
   const location = useLocation();
   const { pathname } = location;
 
-  // --- SWIPE GESTURE LOGIC ---
-  const touchStart = useRef<{ x: number, y: number } | null>(null);
-  
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const x = e.touches[0].clientX;
-    const y = e.touches[0].clientY;
-    if (x <= EDGE_ZONE) {
-      touchStart.current = { x, y };
-    } else {
-      touchStart.current = null;
-    }
-  };
-  
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStart.current) return;
-    
-    const y = e.touches[0].clientY;
-    const deltaY = Math.abs(y - touchStart.current.y);
-    
-    // If user is scrolling vertically, cancel the horizontal swipe gesture
-    if (deltaY > MAX_VERTICAL_SWIPE) {
-      touchStart.current = null;
-    }
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStart.current) return;
-    
-    const x = e.changedTouches[0].clientX;
-    const deltaX = x - touchStart.current.x;
-
-    if (deltaX > SWIPE_THRESHOLD && !isDrawerOpen) {
-      openDrawer();
-    }
-    touchStart.current = null;
-  };
-
-  // Track last used timestamp for each screen to free up memory
   const [activeScreens, setActiveScreens] = useState<Record<string, number>>({ '/sales': Date.now() });
   
   useEffect(() => {
       setActiveScreens(prev => ({ ...prev, [pathname]: Date.now() }));
   }, [pathname]);
 
-  // Aggressive memory cleanup for Android WebViews
   useEffect(() => {
       const interval = setInterval(() => {
           const now = Date.now();
@@ -86,7 +44,6 @@ const Layout: React.FC = () => {
               const next = { ...prev };
               let changed = false;
               Object.keys(next).forEach(path => {
-                  // Never unmount Sales; unmount others if inactive
                   if (path !== '/sales' && path !== pathname && now - next[path] > SCREEN_TIMEOUT) {
                       delete next[path];
                       changed = true;
@@ -94,43 +51,30 @@ const Layout: React.FC = () => {
               });
               return changed ? next : prev;
           });
-      }, 60000);
+      }, 60 * 1000);
       return () => clearInterval(interval);
   }, [pathname]);
 
-  const displayTitle = useMemo(() => {
-      const currentLink = NAV_LINKS.find(link => pathname.startsWith(link.path));
-      return currentLink ? currentLink.label : 'Restaurant POS';
-  }, [pathname]);
-  
-  const showDefaultHeader = !['/sales', '/receipts', '/settings', '/items', '/reports', '/about'].includes(pathname); 
-
-  if (!['/sales', '/receipts', '/items', '/settings', '/reports', '/about'].some(p => pathname.startsWith(p))) {
-      return <Navigate to="/sales" replace />;
-  }
+  useEffect(() => {
+      const currentLink = NAV_LINKS.find(link => link.path === pathname);
+      setHeaderTitle(currentLink?.label || 'Sales');
+  }, [pathname, setHeaderTitle]);
 
   return (
-    <div 
-      className="relative h-screen w-full overflow-hidden bg-background text-text-primary flex flex-col"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* Invisible grab zone for better gesture feedback */}
-      {!isDrawerOpen && (
-        <div className="fixed left-0 top-0 bottom-0 w-[10px] z-[55]" />
-      )}
-
-      {showDefaultHeader && <Header title={displayTitle} onMenuClick={openDrawer} />}
+    <div className="h-full flex relative overflow-hidden">
       <NavDrawer />
-      
-      <main className="flex-1 relative overflow-hidden">
-        <KeepAliveScreen isVisible={pathname === '/sales'}><SalesScreen /></KeepAliveScreen>
-        {activeScreens['/receipts'] && <KeepAliveScreen isVisible={pathname === '/receipts'}><ReceiptsScreen /></KeepAliveScreen>}
-        {activeScreens['/reports'] && <KeepAliveScreen isVisible={pathname === '/reports'}><ReportsScreen /></KeepAliveScreen>}
-        {activeScreens['/items'] && <KeepAliveScreen isVisible={pathname === '/items'}><ItemsScreen /></KeepAliveScreen>}
-        {activeScreens['/settings'] && <KeepAliveScreen isVisible={pathname === '/settings'}><SettingsScreen /></KeepAliveScreen>}
-        {activeScreens['/about'] && <KeepAliveScreen isVisible={pathname === '/about'}><AboutScreen /></KeepAliveScreen>}
+      <main className={`h-full flex-1 flex flex-col transition-transform duration-300 ease-in-out ${isDrawerOpen ? 'translate-x-[85vw] md:translate-x-[320px] lg:translate-x-[380px] rounded-l-2xl shadow-2xl' : ''}`}>
+        <div className="flex-1 overflow-hidden relative">
+            <Routes>
+                <Route path="/sales" element={<SalesScreen />} />
+                <Route path="/receipts" element={<ReceiptsScreen />} />
+                <Route path="/reports" element={<ReportsScreen />} />
+                <Route path="/items" element={<ItemsScreen />} />
+                <Route path="/settings" element={<SettingsScreen />} />
+                <Route path="/about" element={<AboutScreen />} />
+                <Route path="*" element={<Navigate to="/sales" replace />} />
+            </Routes>
+        </div>
       </main>
     </div>
   );

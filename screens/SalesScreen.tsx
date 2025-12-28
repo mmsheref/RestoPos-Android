@@ -389,14 +389,24 @@ const SalesScreen: React.FC = () => {
       }
   };
 
-  const handlePrintRequest = useCallback(() => {
+  const handlePrintRequest = useCallback(async () => {
       if (editingTicket) {
-          performPrint(currentOrder, editingTicket.name);
+          // Save any changes before printing
+          await saveTicket({ ...editingTicket, items: currentOrder });
+          
+          // Print the bill
+          await performPrint(currentOrder, editingTicket.name);
+          
+          // Clear the workspace for the next order, ready for a new sale
+          clearOrder();
+          setEditingTicket(null);
+          setIsTicketVisible(false);
       } else {
+          // For new tickets, prompt to save first, then print
           setPendingPrintAction(true);
           setIsSaveModalOpen(true);
       }
-  }, [editingTicket, currentOrder, settings, printers]);
+  }, [editingTicket, currentOrder, settings, printers, saveTicket, clearOrder]);
 
   const handleSaveTicketComplete = (name: string) => {
       const itemsToSave = [...currentOrder];
