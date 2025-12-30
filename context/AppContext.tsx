@@ -199,9 +199,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   const saveTicket = useCallback(async (t: SavedTicket) => {
       if (!user) return;
-      const ticketWithTimestamp = { ...t, lastModified: Date.now() };
-      setSavedTicketsState(v => [...v.filter(x => x.id !== ticketWithTimestamp.id), ticketWithTimestamp]);
-      await setDoc(doc(db, 'users', user.uid, 'saved_tickets', ticketWithTimestamp.id), ticketWithTimestamp);
+      setSavedTicketsState(v => [...v.filter(x => x.id !== t.id), t]);
+      await setDoc(doc(db, 'users', user.uid, 'saved_tickets', t.id), t);
   }, [user]);
 
   const removeTicket = useCallback(async (id: string) => {
@@ -223,18 +222,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           lastModified: Date.now()
       };
       
+      await saveTicket(newTicket);
       const batch = writeBatch(db);
-      // Add new ticket
-      batch.set(doc(db, 'users', user.uid, 'saved_tickets', newTicket.id), newTicket);
-      // Delete old tickets
       for (const id of ticketIds) {
           batch.delete(doc(db, 'users', user.uid, 'saved_tickets', id));
       }
       await batch.commit();
       
-      // Perform a single, atomic state update to prevent duplicates
       setSavedTicketsState(prev => [...prev.filter(t => !ticketIds.includes(t.id)), newTicket]);
-  }, [savedTickets, user]);
+  }, [savedTickets, saveTicket, user]);
   
   const completeOnboarding = useCallback(async () => {
       if (Capacitor.isNativePlatform()) {

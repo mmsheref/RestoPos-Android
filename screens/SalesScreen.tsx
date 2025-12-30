@@ -372,12 +372,17 @@ const SalesScreen: React.FC = () => {
       }
   };
 
-  const performPrint = async (ticketItems: OrderItem[], ticketName: string) => {
+  const performPrint = useCallback(async (ticketItems: OrderItem[], ticketName: string) => {
       const pSubtotal = ticketItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
       const pTax = settings.taxEnabled ? pSubtotal * (settings.taxRate / 100) : 0;
       const pTotal = pSubtotal + pTax;
       
       const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
+      if (!printer) {
+          alert("No printer configured. Please go to Settings to add a printer.");
+          return;
+      }
+
       const result = await printBill({
           items: ticketItems,
           total: pTotal, subtotal: pSubtotal, tax: pTax,
@@ -387,26 +392,35 @@ const SalesScreen: React.FC = () => {
       if (!result.success) {
           alert(`Print Failed: ${result.message}`);
       }
-  };
+  }, [settings, printers]);
 
   const handlePrintRequest = useCallback(async () => {
-      if (editingTicket) {
-          // Save any changes before printing
-          await saveTicket({ ...editingTicket, items: currentOrder });
-          
-          // Print the bill
-          await performPrint(currentOrder, editingTicket.name);
-          
-          // Clear the workspace for the next order, ready for a new sale
-          clearOrder();
-          setEditingTicket(null);
-          setIsTicketVisible(false);
-      } else {
-          // For new tickets, prompt to save first, then print
-          setPendingPrintAction(true);
-          setIsSaveModalOpen(true);
-      }
-  }, [editingTicket, currentOrder, settings, printers, saveTicket, clearOrder]);
+    if (currentOrder.length === 0) {
+        alert("Ticket is empty. Nothing to print.");
+        return;
+    }
+
+    // Workflow for a saved ticket (editingTicket exists)
+    if (editingTicket) {
+        // 1. Auto-save any changes made to the ticket
+        const updatedTicket = { ...editingTicket, items: [...currentOrder], lastModified: Date.now() };
+        await saveTicket(updatedTicket);
+
+        // 2. Print the bill for the updated ticket
+        await performPrint(updatedTicket.items, updatedTicket.name);
+
+        // 3. Clear the workspace for a new sale, ready for the next customer
+        clearOrder();
+        setEditingTicket(null);
+        if (window.innerWidth < 768) {
+            setIsTicketVisible(false); // Hide mobile ticket view
+        }
+    } else {
+        // Workflow for a new, unsaved ticket: prompt to save first
+        setPendingPrintAction(true);
+        setIsSaveModalOpen(true);
+    }
+  }, [editingTicket, currentOrder, saveTicket, clearOrder, performPrint]);
 
   const handleSaveTicketComplete = (name: string) => {
       const itemsToSave = [...currentOrder];
@@ -439,7 +453,7 @@ const SalesScreen: React.FC = () => {
   const isViewingAll = activeGridId === 'All' || debouncedSearchQuery.trim().length > 0;
 
   return (
-    <div className="flex h-full w-full bg-background font-sans relative">
+    <div className="flex h-full w-full bg-background font-sans relative overflow-hidden">
       <div className="flex-1 flex flex-col min-w-0 h-full relative">
         <SalesHeader 
             openDrawer={openDrawer} 
@@ -448,7 +462,7 @@ const SalesScreen: React.FC = () => {
             storeName={settings.storeName}
         />
         
-        <div className="flex-1 relative">
+        <div className="flex-1 relative overflow-hidden">
             <div 
               ref={scrollContainerRef} 
               className="absolute inset-0 overflow-y-auto overflow-x-hidden p-2 md:p-4 scroll-smooth"
