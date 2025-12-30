@@ -1,6 +1,5 @@
 
-
-import React, { useEffect, useState, ReactNode } from 'react';
+import React, { useEffect, useState, ReactNode, Component, ErrorInfo } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import Layout from './components/Layout';
@@ -23,14 +22,19 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// FIX: The ErrorBoundary class component was refactored to use a constructor for state initialization. This classic approach ensures compatibility with all build toolchains and resolves the type inference issue where the 'props' property was not being recognized on the component instance.
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
+// FIX: The ErrorBoundary class component was updated to use class property initializers and explicit type annotations for state and props. This resolves the TypeScript errors where 'state' and 'props' properties were not being correctly inherited or recognized by the compiler on the ErrorBoundary instance in some environments.
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = {
+    hasError: false
+  };
+
+  static getDerivedStateFromError(_: Error): ErrorBoundaryState {
+    return { hasError: true };
   }
 
-  static getDerivedStateFromError() { return { hasError: true }; }
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Uncaught error:", error, errorInfo);
+  }
 
   render() {
     if (this.state.hasError) {
