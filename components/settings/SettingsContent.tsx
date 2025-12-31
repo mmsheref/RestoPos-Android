@@ -15,7 +15,7 @@ import SecurityCard from './cards/SecurityCard';
 import DataManagementCard from './cards/DataManagementCard';
 import NotificationsCard from './cards/NotificationsCard';
 
-// Modals
+// Modals - FIXED: Using explicit relative paths to resolve TypeError
 import AddPrinterModal from '../modals/AddPrinterModal';
 import TableFormModal from '../modals/TableFormModal';
 import AddPaymentTypeModal from '../modals/AddPaymentTypeModal';
@@ -69,20 +69,28 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory }) => 
         setIsTableModalOpen(true);
     };
 
-    const handleSaveTable = (name: string) => {
-        if (editingTable) {
-            updateTable({ ...editingTable, name });
-        } else {
-            addTable(name);
+    const handleSaveTable = async (name: string) => {
+        try {
+            if (editingTable) {
+                await updateTable({ ...editingTable, name });
+            } else {
+                await addTable(name);
+            }
+            setIsTableModalOpen(false);
+            setEditingTable(null);
+        } catch (error: any) {
+            alert("Error saving table. Your Firebase quota may be finished.");
         }
-        setIsTableModalOpen(false);
-        setEditingTable(null);
     };
     
     // --- Payment Type Handlers ---
-    const handleSavePaymentType = (paymentType: Omit<PaymentType, 'id' | 'enabled' | 'type'>) => {
-        addPaymentType(paymentType);
-        setIsPaymentModalOpen(false);
+    const handleSavePaymentType = async (paymentType: Omit<PaymentType, 'id' | 'enabled' | 'type'>) => {
+        try {
+            await addPaymentType(paymentType);
+            setIsPaymentModalOpen(false);
+        } catch (error) {
+            alert("Error adding payment type.");
+        }
     };
 
     const wrapCard = (children: React.ReactNode) => (

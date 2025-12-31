@@ -35,6 +35,7 @@ const DEFAULT_SETTINGS: AppSettings = {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const SETTINGS_CACHE_KEY = 'pos_settings_cache';
+const PRINTERS_CACHE_KEY = 'pos_local_printers';
 const ONBOARDING_COMPLETED_KEY = 'pos_onboarding_completed_v1';
 const ACTIVE_GRID_KEY = 'pos_active_grid_id';
 
@@ -77,7 +78,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [items, setItemsState] = useState<Item[]>([]);
   const [customGrids, setCustomGridsState] = useState<CustomGrid[]>([]);
   const [receipts, setReceiptsState] = useState<Receipt[]>([]);
-  const [printers, setPrintersState] = useState<Printer[]>([]);
+  
+  // Load printers from local storage only
+  const [printers, setPrintersState] = useState<Printer[]>(() => {
+      const cached = safeStorage.getItem(PRINTERS_CACHE_KEY);
+      return cached ? JSON.parse(cached) : [];
+  });
+
   const [paymentTypes, setPaymentTypesState] = useState<PaymentType[]>([]);
   const [savedTickets, setSavedTicketsState] = useState<SavedTicket[]>([]);
   const [tables, setTablesState] = useState<Table[]>([]);
@@ -138,9 +145,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 const settingsSnap = await getDoc(doc(db, 'users', uid, 'config', 'settings'));
                 if (settingsSnap.exists()) setSettingsState({ ...DEFAULT_SETTINGS, ...settingsSnap.data() as AppSettings });
                 
-                const [itemsSnap, printersSnap, ptSnap, tblSnap, tktSnap, grdSnap] = await Promise.all([
+                // Note: PRINTERS removed from cloud sync query to save quota and support device-local hardware
+                const [itemsSnap, ptSnap, tblSnap, tktSnap, grdSnap] = await Promise.all([
                     getDocs(collection(db, 'users', uid, 'items')),
-                    getDocs(collection(db, 'users', uid, 'printers')),
                     getDocs(collection(db, 'users', uid, 'payment_types')),
                     getDocs(query(collection(db, 'users', uid, 'tables'), orderBy('order'))),
                     getDocs(collection(db, 'users', uid, 'saved_tickets')),
@@ -148,7 +155,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 ]);
 
                 setItemsState(itemsSnap.docs.map(d => d.data() as Item));
-                setPrintersState(printersSnap.docs.map(d => d.data() as Printer));
                 setPaymentTypesState(ptSnap.docs.map(d => d.data() as PaymentType));
                 setTablesState(tblSnap.docs.map(d => d.data() as Table));
                 setSavedTicketsState(tktSnap.docs.map(d => d.data() as SavedTicket));
@@ -251,17 +257,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       await setDoc(doc(db, 'users', user.uid, 'config', 'settings'), next, { merge: true });
   }, [user, settings]);
   
-  const addPrinter = useCallback(async (p: Printer) => {
-      if (!user) return;
-      setPrintersState(v => [...v, p]);
-      await setDoc(doc(db, 'users', user.uid, 'printers', p.id), p);
-  }, [user]);
+  // PRINTER ACTIONS - LOCAL ONLY
+  const addPrinter = useCallback((p: Printer) => {
+      setPrintersState(v => {
+          const next = [...v, p];
+          safeStorage.setItem(PRINTERS_CACHE_KEY, JSON.stringify(next));
+          return next;
+      });
+  }, []);
   
-  const removePrinter = useCallback(async (id: string) => {
-      if (!user) return;
-      setPrintersState(v => v.filter(p => p.id !== id));
-      await deleteDoc(doc(db, 'users', user.uid, 'printers', id));
-  }, [user]);
+  const removePrinter = useCallback((id: string) => {
+      setPrintersState(v => {
+          const next = v.filter(p => p.id !== id);
+          safeStorage.setItem(PRINTERS_CACHE_KEY, JSON.stringify(next));
+          return next;
+      });
+  }, []);
 
   const addPaymentType = useCallback(async (p: Omit<PaymentType, 'id' | 'enabled' | 'type'>) => {
       if (!user) return;

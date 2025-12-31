@@ -15,8 +15,8 @@ import AboutScreen from '../screens/AboutScreen';
 
 const SCREEN_TIMEOUT = 10 * 60 * 1000; // 10 Minutes
 const SWIPE_THRESHOLD = 50; // Pixels to trigger open
-const EDGE_ZONE = 60; // Pixels from left edge to start detection (increased for better sensitivity)
-const MAX_VERTICAL_SWIPE = 50; // Max vertical movement allowed during horizontal swipe
+const EDGE_ZONE = 40; // Pixels from left edge to start detection
+const MAX_VERTICAL_SWIPE = 40; // Max vertical movement allowed during horizontal swipe
 
 const KeepAliveScreen = React.memo(({ isVisible, children }: { isVisible: boolean, children: React.ReactNode }) => {
     return (
@@ -52,10 +52,12 @@ const Layout: React.FC = () => {
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!touchStart.current) return;
     
+    const x = e.touches[0].clientX;
     const y = e.touches[0].clientY;
     const deltaY = Math.abs(y - touchStart.current.y);
+    const deltaX = x - touchStart.current.x;
     
-    // If user is scrolling vertically, cancel the horizontal swipe gesture
+    // If user is scrolling vertically significantly, cancel the drawer gesture
     if (deltaY > MAX_VERTICAL_SWIPE) {
       touchStart.current = null;
     }
@@ -73,14 +75,13 @@ const Layout: React.FC = () => {
     touchStart.current = null;
   };
 
-  // Track last used timestamp for each screen to free up memory
+  // Screen management logic
   const [activeScreens, setActiveScreens] = useState<Record<string, number>>({ '/sales': Date.now() });
   
   useEffect(() => {
       setActiveScreens(prev => ({ ...prev, [pathname]: Date.now() }));
   }, [pathname]);
 
-  // Aggressive memory cleanup for Android WebViews
   useEffect(() => {
       const interval = setInterval(() => {
           const now = Date.now();
@@ -88,7 +89,6 @@ const Layout: React.FC = () => {
               const next = { ...prev };
               let changed = false;
               Object.keys(next).forEach(path => {
-                  // Never unmount Sales; unmount others if inactive
                   if (path !== '/sales' && path !== pathname && now - next[path] > SCREEN_TIMEOUT) {
                       delete next[path];
                       changed = true;
@@ -119,12 +119,13 @@ const Layout: React.FC = () => {
       onTouchEnd={handleTouchEnd}
     >
       {/* 
-        Dedicated invisible grab zone for swipes. 
-        High z-index ensures it captures touches even over scrollable areas.
+        DEDICATED SWIPE CATCHER
+        Invisible strip on the left edge that captures touch events before they reach 
+        scrollable containers. Essential for "swipe to open drawer" logic.
       */}
       {!isDrawerOpen && (
         <div 
-            className="fixed left-0 top-0 bottom-0 w-[25px] z-[100]" 
+            className="fixed left-0 top-0 bottom-0 w-6 z-[100] touch-none" 
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
