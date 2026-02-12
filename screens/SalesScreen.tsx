@@ -71,7 +71,6 @@ const SalesScreen: React.FC = () => {
   useEffect(() => {
       const handleResize = () => setGridSize(getGridSize());
       window.addEventListener('resize', handleResize);
-      // FIX: Corrected method name from removeResizeEventListener to removeEventListener
       return () => window.removeEventListener('resize', handleResize);
   }, []);
 
@@ -502,7 +501,7 @@ const SalesScreen: React.FC = () => {
             <div className="md:hidden absolute bottom-[50px] left-0 right-0 p-4 z-50 pointer-events-none">
                 <button 
                     onClick={() => setIsTicketVisible(true)}
-                    className="w-full bg-primary text-primary-content rounded-xl shadow-xl shadow-primary/30 flex items-center justify-between p-4 active:scale-[0.98] transition-transform pointer-events-auto"
+                    className="w-full bg-primary text-primary-content rounded-xl shadow-xl shadow-primary/30 flex items-center justify-between p-4 active:opacity-90 transition-opacity pointer-events-auto"
                 >
                     <div className="flex items-center gap-3">
                         <span className="bg-white/20 px-2.5 py-1 rounded-md text-sm font-bold backdrop-blur-sm">

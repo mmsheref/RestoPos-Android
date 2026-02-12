@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { PaymentType } from '../../../types';
-import { PaymentMethodIcon, ArrowLeftIcon, SplitIcon, UserIcon } from '../../../constants';
+import { PaymentMethodIcon, ArrowLeftIcon, SplitIcon, UserIcon, TrashIcon } from '../../../constants';
 
 interface PaymentWorkspaceProps {
     onBack: () => void;
@@ -27,7 +27,41 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
     onBack, total, otherPaymentTypes, cashPaymentType,
     inputRef, cashTendered, handleFocus, handleCashChange, handleProcessCashPayment, handleProcessOtherPayment,
     uniqueQuickCash, onProcessPayment, onSplitClick
-}) => (
+}) => {
+    // Helper for numpad
+    const appendNumber = (num: string) => {
+        const setVal = (val: string) => {
+            if (inputRef.current) {
+                const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+                nativeSetter?.call(inputRef.current, val);
+                inputRef.current.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        };
+
+        if (cashTendered === '0' && num !== '.') {
+            setVal(num);
+        } else if (num === '.' && cashTendered.includes('.')) {
+            return;
+        } else if (num === '.' && !cashTendered) {
+            setVal('0.');
+        } else {
+            // Check decimal limit (2 places)
+            const parts = cashTendered.split('.');
+            if (parts.length > 1 && parts[1].length >= 2) return;
+            setVal(cashTendered + num);
+        }
+    };
+
+    const backspace = () => {
+        if (inputRef.current) {
+            const newVal = cashTendered.slice(0, -1);
+            const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+            nativeSetter?.call(inputRef.current, newVal);
+            inputRef.current.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    };
+
+    return (
     <div className="flex-1 flex flex-col h-full bg-background relative">
       {/* Mobile Header */}
       <header className="flex-shrink-0 h-16 flex items-center justify-between px-4 bg-surface border-b border-border md:hidden">
@@ -38,7 +72,7 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
         <span className="font-bold text-lg">Checkout</span>
         <button 
             onClick={onSplitClick} 
-            className="flex items-center gap-1 bg-surface-muted text-text-primary px-3 py-1.5 rounded-lg border border-border hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-xs font-bold uppercase tracking-wide"
+            className="flex items-center gap-1 bg-surface-muted text-text-primary px-3 py-1.5 rounded-lg border border-border hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-xs font-bold uppercase tracking-wide active:opacity-70"
         >
             <SplitIcon className="h-4 w-4" /> Split
         </button>
@@ -47,13 +81,13 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
       {/* Desktop Header */}
       <header className="hidden md:flex flex-shrink-0 h-16 items-center justify-between px-6 border-b border-border bg-surface">
         <div className="flex items-center gap-4">
-            <button onClick={onBack} className="flex items-center gap-2 text-text-secondary hover:text-text-primary font-semibold px-3 py-1.5 rounded-lg hover:bg-surface-muted transition-colors">
+            <button onClick={onBack} className="flex items-center gap-2 text-text-secondary hover:text-text-primary font-semibold px-3 py-1.5 rounded-lg hover:bg-surface-muted transition-colors active:opacity-80">
             <ArrowLeftIcon className="h-5 w-5" />
             Back to Sales
             </button>
             <button 
                 onClick={onSplitClick} 
-                className="flex items-center gap-2 bg-white dark:bg-gray-800 text-text-primary px-4 py-2 rounded-lg border border-border hover:border-primary/50 hover:text-primary transition-all shadow-sm font-bold text-sm"
+                className="flex items-center gap-2 bg-white dark:bg-gray-800 text-text-primary px-4 py-2 rounded-lg border border-border hover:border-primary/50 hover:text-primary transition-all shadow-sm font-bold text-sm active:bg-surface-muted"
             >
                 <SplitIcon className="h-4 w-4" />
                 SPLIT PAYMENT
@@ -84,7 +118,7 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
                             <button 
                             key={pt.id} 
                             onClick={() => handleProcessOtherPayment(pt.name)} 
-                            className="bg-emerald-500 text-white font-bold rounded-xl shadow-md hover:bg-emerald-600 transition-all flex items-center justify-center gap-3 active:scale-95 py-4 w-full"
+                            className="bg-emerald-500 text-white font-bold rounded-xl shadow-md hover:bg-emerald-600 transition-all flex items-center justify-center gap-3 active:opacity-80 py-4 w-full"
                             >
                             <PaymentMethodIcon iconName={pt.icon} className="h-6 w-6 text-white/90"/>
                             <span>{pt.name}</span>
@@ -116,30 +150,62 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
                                     value={cashTendered} 
                                     onFocus={handleFocus} 
                                     onChange={handleCashChange} 
-                                    onKeyDown={(e) => e.key === 'Enter' && handleProcessCashPayment()} 
-                                    className="w-full pl-10 pr-4 py-4 text-3xl font-mono font-bold bg-surface-muted rounded-xl border-2 border-transparent focus:border-emerald-500 focus:bg-surface focus:ring-0 transition-all text-right" 
-                                    placeholder="0.00"
+                                    onKeyDown={(e) => e.key === 'Enter' && handleProcessCashPayment()}
+                                    className="w-full h-14 pl-10 pr-4 rounded-xl border border-border bg-background text-2xl font-bold font-mono focus:ring-2 focus:ring-primary focus:border-primary text-text-primary"
                                 />
                             </div>
-                            <button 
-                                onClick={handleProcessCashPayment} 
-                                className="px-8 py-4 bg-emerald-500 text-white font-bold text-lg rounded-xl shadow hover:bg-emerald-600 active:bg-emerald-700 transition-colors md:w-auto w-full flex-shrink-0"
+                            <button
+                                onClick={handleProcessCashPayment}
+                                className="bg-primary text-primary-content font-bold px-8 rounded-xl shadow-md hover:bg-primary-hover active:opacity-80 transition-opacity flex items-center justify-center min-h-[56px]"
                             >
-                                Pay Cash
+                                Exact Cash
                             </button>
                         </div>
-                        
-                        {/* Quick Cash Suggestions */}
-                        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar md:grid md:grid-cols-6">
-                            {uniqueQuickCash.map(amount => (
-                                <button 
-                                    key={amount} 
-                                    onClick={() => onProcessPayment(cashPaymentType.name, amount)} 
-                                    className="flex-shrink-0 md:flex-shrink py-3 px-4 md:px-0 bg-surface-muted text-text-secondary font-bold rounded-lg hover:bg-emerald-100 hover:text-emerald-700 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-300 border border-transparent hover:border-emerald-200 transition-colors"
+
+                        {/* Quick Cash Options */}
+                        {uniqueQuickCash.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mb-4">
+                                {uniqueQuickCash.map(amount => (
+                                    <button
+                                        key={amount}
+                                        onClick={() => onProcessPayment('Cash', amount)}
+                                        className="px-4 py-2 bg-surface-muted border border-border rounded-lg text-sm font-bold text-text-secondary hover:bg-primary/10 hover:text-primary hover:border-primary transition-colors active:bg-primary/20"
+                                    >
+                                        ₹{amount}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Numpad */}
+                        <div className="grid grid-cols-3 gap-3">
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                                <button
+                                    key={num}
+                                    onClick={() => appendNumber(num.toString())}
+                                    className="py-6 text-2xl font-bold bg-surface border border-border rounded-xl shadow-sm hover:bg-surface-muted active:bg-surface-muted/80 active:border-primary/50 transition-colors text-text-primary"
                                 >
-                                    ₹{amount}
+                                    {num}
                                 </button>
                             ))}
+                            <button
+                                onClick={() => appendNumber('.')}
+                                className="py-6 text-2xl font-bold bg-surface border border-border rounded-xl shadow-sm hover:bg-surface-muted active:bg-surface-muted/80 active:border-primary/50 transition-colors text-text-primary"
+                            >
+                                .
+                            </button>
+                            <button
+                                onClick={() => appendNumber('0')}
+                                className="py-6 text-2xl font-bold bg-surface border border-border rounded-xl shadow-sm hover:bg-surface-muted active:bg-surface-muted/80 active:border-primary/50 transition-colors text-text-primary"
+                            >
+                                0
+                            </button>
+                            <button
+                                onClick={backspace}
+                                className="py-6 text-xl font-bold bg-surface-muted border border-border rounded-xl shadow-sm hover:bg-gray-200 dark:hover:bg-gray-700 active:opacity-70 transition-opacity text-text-secondary flex items-center justify-center"
+                            >
+                                <TrashIcon className="h-6 w-6" />
+                            </button>
                         </div>
                     </div>
                 )}
@@ -147,6 +213,7 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
         </div>
       </div>
     </div>
-);
+    );
+};
 
 export default PaymentWorkspace;

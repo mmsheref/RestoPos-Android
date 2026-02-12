@@ -138,7 +138,7 @@ const SwipeableOrderItem = React.memo<SwipeableOrderItemProps>(({
                         ) : (
                             <button
                                 onClick={() => onQuantityClick(item)} 
-                                className="font-mono min-w-[28px] text-center text-base font-bold text-text-primary cursor-pointer active:scale-95 transition-transform py-0.5 mx-0.5"
+                                className="font-mono min-w-[28px] text-center text-base font-bold text-text-primary cursor-pointer active:opacity-70 transition-opacity py-0.5 mx-0.5"
                             >
                                 {item.quantity}
                             </button>
@@ -302,7 +302,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
       return (
         <button 
           onClick={handleSaveOrder}
-          className="flex-1 bg-surface border-2 border-primary text-primary font-bold py-3.5 rounded-xl transition-all text-base shadow-sm hover:bg-primary/5 active:scale-[0.98] active:bg-primary/10"
+          className="flex-1 bg-surface border-2 border-primary text-primary font-bold py-3.5 rounded-xl transition-colors text-base shadow-sm hover:bg-primary/5 active:bg-primary/10"
         >
           {editingTicket ? 'Update Order' : 'Save Order'}
         </button>
@@ -316,7 +316,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
               await Haptics.impact({ style: ImpactStyle.Light });
               onOpenTickets();
           }}
-          className="flex-1 bg-amber-500 text-white font-bold py-3 rounded-xl transition-all text-sm shadow-md hover:bg-amber-600 active:scale-[0.98] px-2 leading-tight break-words flex flex-col justify-center items-center"
+          className="flex-1 bg-amber-500 text-white font-bold py-3 rounded-xl transition-colors text-sm shadow-md hover:bg-amber-600 active:bg-amber-700 px-2 leading-tight break-words flex flex-col justify-center items-center"
         >
           <span>Open Tickets</span>
           <span className="text-xs">({savedTickets.length})</span>
@@ -472,7 +472,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
                 <button 
                     onClick={handleCharge} 
                     disabled={currentOrder.length === 0} 
-                    className="flex-[1.5] bg-emerald-600 text-white font-bold py-3.5 rounded-xl transition-all text-lg shadow-md hover:bg-emerald-700 active:scale-[0.98] active:shadow-sm disabled:bg-gray-300 disabled:dark:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none flex justify-center items-center"
+                    className="flex-[1.5] bg-emerald-600 text-white font-bold py-3.5 rounded-xl transition-all text-lg shadow-md hover:bg-emerald-700 hover:shadow-lg active:shadow-sm active:opacity-90 disabled:bg-gray-300 disabled:dark:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none flex justify-center items-center"
                 >
                 Charge
                 </button>

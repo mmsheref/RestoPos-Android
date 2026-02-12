@@ -139,7 +139,7 @@ const OpenTicketsModal: React.FC<OpenTicketsModalProps> = ({ isOpen, tickets, on
                         <div 
                             key={ticket.id} 
                             onClick={() => isSelectionMode ? toggleSelection(ticket.id) : handleLoad(ticket)}
-                            className={`group relative overflow-hidden rounded-2xl transition-all duration-300 border-2 active:scale-[0.98] ${
+                            className={`group relative overflow-hidden rounded-2xl transition-all duration-300 border-2 active:bg-surface-muted ${
                                 isSelectionMode 
                                     ? (isSelected ? 'bg-primary/10 border-primary shadow-xl shadow-primary/10' : 'bg-surface border-border hover:border-text-muted/30 opacity-60 grayscale-[0.5]')
                                     : (isDeleting ? 'bg-red-50 border-red-500 dark:bg-red-900/10 shadow-none' : 'bg-surface border-border hover:border-primary/40 hover:shadow-xl')

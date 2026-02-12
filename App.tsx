@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, ReactNode } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
@@ -24,8 +23,10 @@ interface ErrorBoundaryState {
 
 // FIX: Explicitly extending Component with typed props and state to resolve inheritance issues.
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Declare state as a class property to satisfy TypeScript
-  state: ErrorBoundaryState = { hasError: false };
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError(_: Error): ErrorBoundaryState { 
     return { hasError: true }; 
@@ -98,7 +99,7 @@ const AppRoutes: React.FC = () => {
                              <StoreIcon className="h-10 w-10 text-primary" />
                         </div>
                    </div>
-                   <h2 className="text-lg font-bold text-text-primary">Restaurant POS</h2>
+                   <h2 className="text-lg font-bold text-text-primary Restaurant POS">Restaurant POS</h2>
                    <p className="text-sm text-text-secondary mt-1">Loading your workspace...</p>
                </div>
             </div>

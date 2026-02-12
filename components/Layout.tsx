@@ -17,7 +17,6 @@ import AboutScreen from '../screens/AboutScreen';
 
 const SCREEN_TIMEOUT = 10 * 60 * 1000; // 10 Minutes
 const SWIPE_THRESHOLD = 50; // Pixels to trigger open
-const EDGE_ZONE = 40; // Pixels from left edge to start detection
 const MAX_VERTICAL_SWIPE = 40; // Max vertical movement allowed during horizontal swipe
 
 const KeepAliveScreen = React.memo(({ isVisible, children }: { isVisible: boolean, children: React.ReactNode }) => {
@@ -40,15 +39,11 @@ const Layout: React.FC = () => {
   const touchStart = useRef<{ x: number, y: number } | null>(null);
   
   const handleTouchStart = (e: React.TouchEvent) => {
+    // Only capture if we are tapping the specific edge detector, 
+    // so we don't need to check coordinate bounds here (implicit via element placement)
     const x = e.touches[0].clientX;
     const y = e.touches[0].clientY;
-    
-    // Check if swipe started near the left edge
-    if (x <= EDGE_ZONE) {
-      touchStart.current = { x, y };
-    } else {
-      touchStart.current = null;
-    }
+    touchStart.current = { x, y };
   };
   
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -57,7 +52,7 @@ const Layout: React.FC = () => {
     const x = e.touches[0].clientX;
     const y = e.touches[0].clientY;
     const deltaY = Math.abs(y - touchStart.current.y);
-    const deltaX = x - touchStart.current.x;
+    // Note: We don't check deltaX here, we check it on End for the trigger
     
     // If user is scrolling vertically significantly, cancel the drawer gesture
     if (deltaY > MAX_VERTICAL_SWIPE) {
@@ -114,18 +109,14 @@ const Layout: React.FC = () => {
   }
 
   return (
-    <div 
-      className="relative h-screen w-full overflow-hidden bg-background text-text-primary flex flex-col"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className="relative h-screen w-full overflow-hidden bg-background text-text-primary flex flex-col">
       <OfflineManager />
       
       {/* 
         DEDICATED SWIPE CATCHER
-        Invisible strip on the left edge that captures touch events before they reach 
-        scrollable containers. Essential for "swipe to open drawer" logic.
+        Invisible strip on the left edge that captures touch events.
+        Moved logic HERE so the main app doesn't process every touch event.
+        Pointer capture ensures 'move' and 'end' fire even if finger leaves this div.
       */}
       {!isDrawerOpen && (
         <div 

@@ -28,7 +28,8 @@ export const useLongPress = (
   const start = useCallback(
     (event: React.TouchEvent | React.MouseEvent) => {
       // Ignore emulated mouse events that follow a touch event.
-      if (Date.now() - lastTouchEndTime < 500 && 'buttons' in event) {
+      // Reduced threshold from 500ms to 60ms to prevent blocking rapid taps.
+      if (Date.now() - lastTouchEndTime < 60 && 'buttons' in event) {
         return;
       }
       
@@ -50,7 +51,8 @@ export const useLongPress = (
   const clear = useCallback(
     (event: React.TouchEvent | React.MouseEvent, shouldTriggerClick = true) => {
       // Ignore emulated mouse events.
-      if (Date.now() - lastTouchEndTime < 500 && 'buttons' in event) {
+      // Reduced threshold from 500ms to 60ms.
+      if (Date.now() - lastTouchEndTime < 60 && 'buttons' in event) {
         // We also prevent default to stop any other unwanted behaviors like link navigation.
         event.preventDefault();
         return;
@@ -77,7 +79,7 @@ export const useLongPress = (
     onMouseUp: (e: React.MouseEvent) => clear(e),
     onMouseLeave: (event: React.MouseEvent) => {
         // Also prevent clearing the timeout on a ghost mouseleave event.
-        if (Date.now() - lastTouchEndTime < 500) {
+        if (Date.now() - lastTouchEndTime < 60) {
             return;
         }
         timeout.current && clearTimeout(timeout.current);
