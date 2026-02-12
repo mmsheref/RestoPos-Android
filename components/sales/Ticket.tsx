@@ -27,13 +27,10 @@ const SwipeableOrderItem = React.memo<SwipeableOrderItemProps>(({
     const [isSwiping, setIsSwiping] = useState(false);
     const startX = useRef(0);
     const currentOffset = useRef(0);
-    const isOpen = offset < -60; // Threshold to consider "open"
+    const isOpen = offset < -60;
 
-    // Handlers for Touch
     const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
-        // Don't start swipe if editing quantity
         if (editingQuantityItemId === item.lineItemId) return;
-        
         setIsSwiping(true);
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
         startX.current = clientX;
@@ -44,21 +41,18 @@ const SwipeableOrderItem = React.memo<SwipeableOrderItemProps>(({
         if (!isSwiping) return;
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
         const diff = clientX - startX.current;
-        
         let newOffset = currentOffset.current + diff;
         if (newOffset > 0) newOffset = 0; 
         if (newOffset < -100) newOffset = -100; 
-
         setOffset(newOffset);
     };
 
     const handleTouchEnd = () => {
         setIsSwiping(false);
-        // Snap logic
         if (offset < -40) {
-            setOffset(-80); // Snap open (reveal width)
+            setOffset(-80); 
         } else {
-            setOffset(0); // Snap closed
+            setOffset(0); 
         }
     };
 
@@ -71,32 +65,17 @@ const SwipeableOrderItem = React.memo<SwipeableOrderItemProps>(({
         onDelete(id);
     };
 
-    const handleIncrement = async (id: string, qty: number) => {
-        await Haptics.impact({ style: ImpactStyle.Light });
-        onIncrement(id, qty);
-    };
-
-    const handleDecrement = async (id: string) => {
-        await Haptics.impact({ style: ImpactStyle.Light });
-        onDecrement(id);
-    };
-
     return (
-        <li className="relative border-b border-black/5 dark:border-white/10 overflow-hidden select-none transform translate-z-0 last:border-0">
-            {/* Background Action Layer (Delete) */}
-            <div className="absolute inset-0 flex justify-end bg-red-600">
-                <button
-                    onClick={() => handleDelete(item.lineItemId)}
-                    className="w-[80px] h-full flex flex-col items-center justify-center text-white active:bg-red-700 transition-colors"
-                >
+        <li className="relative border-b border-black/5 dark:border-white/5 overflow-hidden select-none transform translate-z-0 last:border-0">
+            <div className="absolute inset-0 flex justify-end bg-red-500/90 backdrop-blur-sm">
+                <button onClick={() => handleDelete(item.lineItemId)} className="w-[80px] h-full flex flex-col items-center justify-center text-white">
                     <TrashIcon className="h-6 w-6 mb-1" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider">Delete</span>
+                    <span className="text-[10px] font-bold uppercase">Delete</span>
                 </button>
             </div>
 
-            {/* Foreground Content Layer */}
             <div 
-                className="relative bg-surface flex items-center justify-between pl-4 pr-4 py-3 transition-transform duration-200 ease-out"
+                className="relative bg-surface/40 backdrop-blur-sm flex items-center justify-between pl-4 pr-4 py-3 transition-transform duration-200 ease-out hover:bg-surface/60"
                 style={{ transform: `translateX(${offset}px)` }}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
@@ -107,53 +86,29 @@ const SwipeableOrderItem = React.memo<SwipeableOrderItemProps>(({
                 onMouseLeave={handleTouchEnd}
                 onClick={handleContentClick}
             >
-                {/* Left Side: Item Name */}
                 <div className="flex-grow min-w-0 pr-3 pointer-events-none">
-                    <p className="font-medium text-text-primary text-sm whitespace-normal break-words leading-tight">{item.name}</p>
+                    <p className="font-medium text-text-primary text-sm leading-tight">{item.name}</p>
                 </div>
 
-                {/* Right Side: Controls and Price */}
                 <div className="flex items-center gap-3 flex-shrink-0">
-                    {/* Quantity Controls */}
-                    <div className="flex items-center gap-1 bg-surface-muted/50 rounded-lg p-0.5" onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
-                        <button 
-                            onClick={() => handleDecrement(item.lineItemId)} 
-                            className="h-7 w-7 flex items-center justify-center text-text-secondary hover:bg-white dark:hover:bg-black/20 rounded shadow-sm transition-all focus:outline-none" 
-                            aria-label="Decrease quantity"
-                        >
+                    <div className="flex items-center gap-1 bg-surface/50 rounded-lg p-0.5 border border-white/20 shadow-sm" onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+                        <button onClick={() => onDecrement(item.lineItemId)} className="h-7 w-7 flex items-center justify-center text-text-secondary hover:bg-white/50 rounded transition-all">
                             <span className="text-lg leading-none mb-0.5">-</span>
                         </button>
                         
                         {editingQuantityItemId === item.lineItemId ? (
                             <input 
-                                type="tel" 
-                                value={tempQuantity} 
-                                onChange={onQuantityChange} 
-                                onBlur={onQuantityCommit} 
-                                onKeyDown={onQuantityKeyDown} 
-                                className="font-mono w-10 text-center text-base font-bold text-text-primary bg-background border border-primary rounded ring-1 ring-primary/20 py-0.5 mx-0.5" 
-                                autoFocus 
-                                onFocus={(e) => e.target.select()} 
+                                type="tel" value={tempQuantity} onChange={onQuantityChange} onBlur={onQuantityCommit} onKeyDown={onQuantityKeyDown} 
+                                className="font-mono w-10 text-center text-base font-bold text-text-primary bg-transparent border-b-2 border-primary py-0.5 mx-0.5 focus:outline-none" autoFocus onFocus={(e) => e.target.select()} 
                             />
                         ) : (
-                            <button
-                                onClick={() => onQuantityClick(item)} 
-                                className="font-mono min-w-[28px] text-center text-base font-bold text-text-primary cursor-pointer active:opacity-70 transition-opacity py-0.5 mx-0.5"
-                            >
-                                {item.quantity}
-                            </button>
+                            <button onClick={() => onQuantityClick(item)} className="font-mono min-w-[28px] text-center text-base font-bold text-text-primary py-0.5 mx-0.5">{item.quantity}</button>
                         )}
                         
-                        <button 
-                            onClick={() => handleIncrement(item.lineItemId, item.quantity + 1)} 
-                            className="h-7 w-7 flex items-center justify-center text-text-secondary hover:bg-white dark:hover:bg-black/20 rounded shadow-sm transition-all focus:outline-none" 
-                            aria-label="Increase quantity"
-                        >
+                        <button onClick={() => onIncrement(item.lineItemId, item.quantity + 1)} className="h-7 w-7 flex items-center justify-center text-text-secondary hover:bg-white/50 rounded transition-all">
                              <span className="text-lg leading-none mb-0.5">+</span>
                         </button>
                     </div>
-
-                    {/* Total Price */}
                     <div className="w-[70px] text-right pointer-events-none">
                         <p className="font-bold text-text-primary text-base">₹{(item.price * item.quantity).toFixed(0)}</p>
                     </div>
@@ -167,7 +122,6 @@ const SwipeableOrderItem = React.memo<SwipeableOrderItemProps>(({
 interface TicketProps {
     className?: string;
     onClose?: () => void;
-    // Data
     currentOrder: OrderItem[];
     editingTicket: SavedTicket | null;
     savedTickets: SavedTicket[];
@@ -176,8 +130,6 @@ interface TicketProps {
     subtotal: number;
     tax: number;
     printers: any[];
-
-    // State & Handlers
     editingQuantityItemId: string | null;
     tempQuantity: string;
     setEditingQuantityItemId: (id: string | null) => void;
@@ -189,8 +141,6 @@ interface TicketProps {
     handleQuantityChangeCommit: () => void;
     handleQuantityInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     handleQuantityInputKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-
-    // Main Actions
     handlePrimarySaveAction: () => void;
     onCharge: () => void;
     onOpenTickets: () => void;
@@ -201,8 +151,7 @@ interface TicketProps {
 
 const Ticket: React.FC<TicketProps> = (props) => {
   const {
-    className, onClose,
-    currentOrder, editingTicket, savedTickets, settings, total, subtotal, tax, printers,
+    className, onClose, currentOrder, editingTicket, savedTickets, settings, total, subtotal, tax,
     editingQuantityItemId, tempQuantity, setEditingQuantityItemId, setTempQuantity, 
     removeFromOrder, deleteLineItem, updateOrderItemQuantity,
     handleQuantityClick, handleQuantityChangeCommit, handleQuantityInputChange, handleQuantityInputKeyDown,
@@ -214,123 +163,33 @@ const Ticket: React.FC<TicketProps> = (props) => {
   const ticketMenuRef = useRef<HTMLDivElement>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
   
-  // Also trigger when order length changes (item added)
   useEffect(() => {
      if (listContainerRef.current) {
          requestAnimationFrame(() => {
-             // Use 'auto' instead of 'smooth' for instant feedback and less jitter perception
              listContainerRef.current?.scrollTo({ top: listContainerRef.current.scrollHeight, behavior: 'auto' });
          });
      }
   }, [currentOrder.length]);
 
-
   useEffect(() => {
-    // Use 'click' instead of 'mousedown' for better reliability on touch devices/hybrid apps
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
         if (ticketMenuRef.current && !ticketMenuRef.current.contains(event.target as Node)) {
             setTicketMenuOpen(false);
         }
     };
-    
-    // Using click handles both mouse and touch tap emulation effectively in most React envs
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
   
   useEffect(() => {
-    if (isClearConfirmVisible) {
-        setTicketMenuOpen(false);
-    }
+    if (isClearConfirmVisible) setTicketMenuOpen(false);
   }, [isClearConfirmVisible]);
-
 
   const handleTicketAction = async (action: string) => {
     setTicketMenuOpen(false);
-    switch (action) {
-      case 'clear':
-        if (currentOrder.length === 0 && !editingTicket) return;
-        await Haptics.impact({ style: ImpactStyle.Medium });
-        setIsClearConfirmVisible(true);
-        break;
-      
-      case 'print':
-        if (currentOrder.length === 0) {
-           alert("Ticket is empty. Nothing to print.");
-           return;
-        }
-        await Haptics.impact({ style: ImpactStyle.Light });
-        onPrintRequest();
-        break;
-
-      case 'edit':
-        if (currentOrder.length === 0 && !editingTicket) {
-           alert("No ticket to edit.");
-           return;
-        }
-        await Haptics.impact({ style: ImpactStyle.Light });
-        onSaveTicket();
-        break;
-      default:
-        break;
-    }
-  };
-  
-  const handleConfirmClear = async () => {
-    await Haptics.impact({ style: ImpactStyle.Heavy });
-    onClearTicket();
-    setIsClearConfirmVisible(false);
-  };
-
-  const handleCancelClear = async () => {
-    await Haptics.impact({ style: ImpactStyle.Light });
-    setIsClearConfirmVisible(false);
-  };
-
-  const handleCharge = async () => {
-    await Haptics.impact({ style: ImpactStyle.Medium });
-    onCharge();
-  };
-
-  const handleSaveOrder = async () => {
-    await Haptics.impact({ style: ImpactStyle.Medium });
-    handlePrimarySaveAction();
-  };
-
-  const renderActionButtons = () => {
-    if (currentOrder.length > 0) {
-      return (
-        <button 
-          onClick={handleSaveOrder}
-          className="flex-1 bg-surface border-2 border-primary text-primary font-bold py-3.5 rounded-xl transition-colors text-base shadow-sm hover:bg-primary/5 active:bg-primary/10"
-        >
-          {editingTicket ? 'Update Order' : 'Save Order'}
-        </button>
-      );
-    }
-    if (savedTickets.length > 0) {
-      return (
-        // Text is allowed to wrap to new lines. Flex layout ensures siblings stretch to same height.
-        <button 
-          onClick={async () => {
-              await Haptics.impact({ style: ImpactStyle.Light });
-              onOpenTickets();
-          }}
-          className="flex-1 bg-amber-500 text-white font-bold py-3 rounded-xl transition-colors text-sm shadow-md hover:bg-amber-600 active:bg-amber-700 px-2 leading-tight break-words flex flex-col justify-center items-center"
-        >
-          <span>Open Tickets</span>
-          <span className="text-xs">({savedTickets.length})</span>
-        </button>
-      );
-    }
-    return (
-      <button 
-        disabled
-        className="flex-1 bg-surface-muted text-text-muted font-bold py-3.5 rounded-xl text-base cursor-not-allowed border border-transparent"
-      >
-        Save Order
-      </button>
-    );
+    if (action === 'clear') { if (currentOrder.length > 0 || editingTicket) setIsClearConfirmVisible(true); }
+    else if (action === 'print') { if (currentOrder.length > 0) onPrintRequest(); }
+    else if (action === 'edit') { if (currentOrder.length > 0 || editingTicket) onSaveTicket(); }
   };
   
   const ticketHeaderTitle = useMemo(() => {
@@ -339,48 +198,57 @@ const Ticket: React.FC<TicketProps> = (props) => {
     return 'New Order';
   }, [editingTicket, currentOrder.length]);
 
+  const renderActionButtons = () => {
+    if (currentOrder.length > 0) {
+      return (
+        <button 
+          onClick={() => { Haptics.impact({ style: ImpactStyle.Medium }); handlePrimarySaveAction(); }}
+          className="flex-1 bg-white/50 dark:bg-black/20 backdrop-blur-md border border-primary text-primary font-bold py-3.5 rounded-2xl transition-all hover:bg-primary/10"
+        >
+          {editingTicket ? 'Update' : 'Save'}
+        </button>
+      );
+    }
+    if (savedTickets.length > 0) {
+      return (
+        <button 
+          onClick={() => { Haptics.impact({ style: ImpactStyle.Light }); onOpenTickets(); }}
+          className="flex-1 bg-amber-500/90 backdrop-blur-md text-white font-bold py-3 rounded-2xl shadow-glass flex flex-col justify-center items-center hover:bg-amber-600 transition-all"
+        >
+          <span>Open Tickets</span>
+          <span className="text-xs opacity-90">({savedTickets.length})</span>
+        </button>
+      );
+    }
+    return <button disabled className="flex-1 bg-surface-muted/50 text-text-muted font-bold py-3.5 rounded-2xl cursor-not-allowed border border-border/50">Save</button>;
+  };
+
   return (
-    // Added pt-safe-top to outer container, remove fixed height from header, use inner container
-    <section className={`${className} bg-surface border-l border-border h-full flex flex-col pt-safe-top relative`}>
-      <header className="bg-surface shadow-sm w-full z-30 flex-shrink-0 border-b border-border">
-        <div className="h-14 flex items-center justify-between px-4">
+    // GLASS PANEL CONTAINER
+    <section className={`${className} glass-panel border-l-0 md:border-l border-white/20 h-full flex flex-col pt-safe-top relative transition-all duration-300`}>
+      <header className="w-full z-30 flex-shrink-0 border-b border-black/5 dark:border-white/5 bg-surface/30 backdrop-blur-md">
+        <div className="h-16 flex items-center justify-between px-5">
             <div className="flex items-center gap-3 overflow-hidden">
                 {onClose && (
-                    <button 
-                    onClick={async () => {
-                        await Haptics.impact({ style: ImpactStyle.Light });
-                        onClose();
-                    }} 
-                    className="md:hidden p-2 -ml-2 text-text-secondary active:text-text-primary rounded-full hover:bg-surface-muted transition-colors"
-                    >
+                    <button onClick={onClose} className="md:hidden p-2 -ml-2 text-text-secondary rounded-full hover:bg-white/20 transition-colors">
                         <ArrowLeftIcon className="h-6 w-6" />
                     </button>
                 )}
                 <div className="flex flex-col min-w-0">
-                    <h1 className="text-lg font-bold text-text-primary truncate leading-tight">{ticketHeaderTitle}</h1>
-                    {currentOrder.length > 0 && (
-                        <span className="text-xs text-text-secondary">{currentOrder.reduce((acc, i) => acc + i.quantity, 0)} items</span>
-                    )}
+                    <h1 className="text-lg font-black text-text-primary truncate leading-tight tracking-tight">{ticketHeaderTitle}</h1>
+                    {currentOrder.length > 0 && <span className="text-xs text-text-secondary font-medium">{currentOrder.reduce((acc, i) => acc + i.quantity, 0)} items</span>}
                 </div>
             </div>
             <div className="relative" ref={ticketMenuRef}>
-                <button 
-                onClick={(e) => { e.stopPropagation(); setTicketMenuOpen(prev => !prev); }} 
-                className="p-2 text-text-secondary hover:text-text-primary rounded-full hover:bg-surface-muted transition-colors active:bg-surface-muted" 
-                aria-label="Ticket options"
-                >
-                <ThreeDotsIcon className="h-6 w-6" />
+                <button onClick={(e) => { e.stopPropagation(); setTicketMenuOpen(prev => !prev); }} className="p-2 text-text-secondary hover:text-text-primary rounded-full hover:bg-white/20 transition-colors">
+                    <ThreeDotsIcon className="h-6 w-6" />
                 </button>
                 {isTicketMenuOpen && (
-                    <div
-                        className="absolute right-0 mt-2 w-56 bg-surface rounded-xl shadow-xl ring-1 ring-black ring-opacity-5 dark:ring-white/10 z-50 overflow-hidden"
-                    >
+                    <div className="absolute right-0 mt-2 w-56 glass-card rounded-xl shadow-glass z-50 overflow-hidden">
                         <div className="py-1">
-                            <button onClick={() => handleTicketAction('clear')} className="w-full text-left px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors">Clear Ticket</button>
-                            <button onClick={() => handleTicketAction('print')} className="w-full text-left px-4 py-3 text-sm font-medium text-text-primary hover:bg-surface-muted transition-colors">
-                            Print Bill (Preview)
-                            </button>
-                            <button onClick={() => handleTicketAction('edit')} className="w-full text-left px-4 py-3 text-sm font-medium text-text-primary hover:bg-surface-muted transition-colors">Edit Ticket Details</button>
+                            <button onClick={() => handleTicketAction('clear')} className="w-full text-left px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50/50 transition-colors">Clear Ticket</button>
+                            <button onClick={() => handleTicketAction('print')} className="w-full text-left px-4 py-3 text-sm font-medium text-text-primary hover:bg-white/20 transition-colors">Print Bill</button>
+                            <button onClick={() => handleTicketAction('edit')} className="w-full text-left px-4 py-3 text-sm font-medium text-text-primary hover:bg-white/20 transition-colors">Edit Details</button>
                         </div>
                     </div>
                 )}
@@ -388,25 +256,23 @@ const Ticket: React.FC<TicketProps> = (props) => {
         </div>
       </header>
       
-      {/* Scrollable Area: Items + Sticky Totals */}
+      {/* Scrollable Items */}
       <div 
         ref={listContainerRef} 
-        className="flex-1 overflow-y-auto flex flex-col relative min-h-0 bg-surface-muted/30"
-        style={{ 
-            WebkitOverflowScrolling: 'touch',
-            transform: 'translateZ(0)', // Fix for painting glitches on iOS/Mobile when toggling display
-        }}
+        className="flex-1 overflow-y-auto flex flex-col relative min-h-0 bg-transparent"
+        style={{ WebkitOverflowScrolling: 'touch', transform: 'translateZ(0)' }}
       >
           {currentOrder.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-text-muted opacity-60">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4 stroke-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" /></svg>
-              <p className="font-medium text-lg">Your cart is empty</p>
-              <p className="text-sm mt-1">Tap items to start an order</p>
+            <div className="flex flex-col items-center justify-center h-full text-text-muted/60">
+              <div className="w-20 h-20 border-4 border-dashed border-current rounded-full flex items-center justify-center mb-4 opacity-50">
+                  <span className="text-4xl">+</span>
+              </div>
+              <p className="font-bold text-lg">Empty Cart</p>
+              <p className="text-sm mt-1">Select items to begin</p>
             </div>
           ) : (
-            <>
-                <div className="bg-surface shadow-sm">
-                    <ul className="overflow-x-hidden">
+            <div className="pb-4">
+                <ul className="overflow-x-hidden">
                     {currentOrder.map(item => (
                         <SwipeableOrderItem
                             key={item.lineItemId}
@@ -422,59 +288,50 @@ const Ticket: React.FC<TicketProps> = (props) => {
                             onDelete={deleteLineItem}
                         />
                     ))}
-                    </ul>
-                </div>
-
-                {/* --- Sticky Totals Section --- */}
-                <div className="sticky bottom-0 bg-surface border-t border-border z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] mt-auto">
-                    <div className="px-5 py-3">
-                        <div className="border-b border-black/5 dark:border-white/10 mb-2"></div>
-                        {settings.taxEnabled && (
-                            <div className="space-y-1 text-xs text-text-secondary mb-2">
-                                <div className="flex justify-between"><span>Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
-                                <div className="flex justify-between"><span>GST ({settings.taxRate}%)</span><span>₹{tax.toFixed(2)}</span></div>
-                            </div>
-                        )}
-                        <div className="flex justify-between items-baseline pt-1">
-                            <span className="text-sm font-semibold text-text-secondary">Total Payable</span>
-                            <span className="text-2xl font-bold text-text-primary">₹{total.toFixed(2)}</span>
+                </ul>
+            </div>
+          )}
+          
+          {/* Sticky Totals within Scroll View */}
+          {currentOrder.length > 0 && (
+            <div className="sticky bottom-0 z-20 mt-auto">
+                <div className="glass-card mx-3 mb-3 p-4 rounded-2xl border border-white/40 shadow-sm">
+                    {settings.taxEnabled && (
+                        <div className="space-y-1 text-xs text-text-secondary mb-2 font-medium">
+                            <div className="flex justify-between"><span>Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
+                            <div className="flex justify-between"><span>Tax ({settings.taxRate}%)</span><span>₹{tax.toFixed(2)}</span></div>
                         </div>
+                    )}
+                    <div className="flex justify-between items-baseline pt-1 border-t border-black/5 dark:border-white/10">
+                        <span className="text-sm font-bold text-text-secondary uppercase tracking-wide">Total</span>
+                        <span className="text-3xl font-black text-text-primary tracking-tight">₹{total.toFixed(2)}</span>
                     </div>
                 </div>
-            </>
+            </div>
           )}
       </div>
 
-      {/* Absolute Overlay for Clear Confirmation to prevent layout glitch */}
       {isClearConfirmVisible && (
-        <div className="absolute inset-0 z-40 bg-surface flex flex-col items-center justify-center p-6 animate-fadeIn">
-            <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-full mb-4">
-                <TrashIcon className="h-8 w-8 text-red-600 dark:text-red-400" />
-            </div>
-            <h3 className="text-xl font-bold text-text-primary mb-2">Clear Current Order?</h3>
-            <p className="text-sm text-text-secondary mb-8 max-w-[200px] text-center">All items will be removed. This cannot be undone.</p>
-            <div className="flex gap-3 w-full max-w-xs">
-                <button onClick={handleCancelClear} className="flex-1 py-3 bg-surface border border-border text-text-primary rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 font-semibold transition-colors">
-                    Cancel
-                </button>
-                <button onClick={handleConfirmClear} className="flex-1 py-3 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 shadow-md transition-colors">
-                    Clear All
-                </button>
+        <div className="absolute inset-0 z-40 glass-panel flex flex-col items-center justify-center p-6 animate-fadeIn backdrop-blur-xl">
+            <h3 className="text-xl font-bold text-text-primary mb-2">Clear Order?</h3>
+            <div className="flex gap-3 w-full max-w-xs mt-6">
+                <button onClick={() => setIsClearConfirmVisible(false)} className="flex-1 py-3 bg-surface border border-border text-text-primary rounded-xl font-bold">Cancel</button>
+                <button onClick={() => { onClearTicket(); setIsClearConfirmVisible(false); }} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-xl shadow-lg">Clear</button>
             </div>
         </div>
       )}
       
-      {/* Fixed Bottom Area for Buttons */}
-      <div className="bg-surface border-t border-border z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+      {/* Footer Buttons */}
+      <div className="bg-surface/30 backdrop-blur-md border-t border-white/20 z-30 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         <div className="p-4 pt-3 pb-safe-bottom">
             <div className={`flex items-stretch gap-3 ${isClearConfirmVisible ? 'opacity-0 pointer-events-none' : ''}`}>
                 {renderActionButtons()}
                 <button 
-                    onClick={handleCharge} 
+                    onClick={() => { Haptics.impact({ style: ImpactStyle.Medium }); onCharge(); }} 
                     disabled={currentOrder.length === 0} 
-                    className="flex-[1.5] bg-emerald-600 text-white font-bold py-3.5 rounded-xl transition-all text-lg shadow-md hover:bg-emerald-700 hover:shadow-lg active:shadow-sm active:opacity-90 disabled:bg-gray-300 disabled:dark:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none flex justify-center items-center"
+                    className="flex-[1.5] bg-primary/90 text-primary-content font-black py-4 rounded-2xl text-lg shadow-glow hover:bg-primary transition-all active:scale-[0.98] disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed backdrop-blur-sm"
                 >
-                Charge
+                CHARGE
                 </button>
             </div>
         </div>

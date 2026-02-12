@@ -19,10 +19,11 @@ import AboutScreen from '../screens/AboutScreen';
 const SCREEN_TIMEOUT = 10 * 60 * 1000; // 10 Minutes
 
 // Optimized KeepAlive component
+// Update: Removed bg-background to allow mesh gradient to show
 const KeepAliveScreen = React.memo(({ isVisible, children }: { isVisible: boolean, children: React.ReactNode }) => {
     return (
         <div 
-            className={`flex flex-col h-full w-full absolute inset-0 bg-background transition-opacity duration-200 ${isVisible ? 'opacity-100 z-10' : 'opacity-0 z-[-1] pointer-events-none'}`}
+            className={`flex flex-col h-full w-full absolute inset-0 transition-opacity duration-300 ${isVisible ? 'opacity-100 z-10' : 'opacity-0 z-[-1] pointer-events-none'}`}
             style={{ visibility: isVisible ? 'visible' : 'hidden' }}
         >
             {children}
@@ -39,7 +40,7 @@ const Layout: React.FC = () => {
   const swipeHandlers = useEdgeSwipe({
       onSwipe: () => !isDrawerOpen && openDrawer(),
       threshold: 50,
-      edgeWidth: 32 // 32px hit zone from the left
+      edgeWidth: 32
   });
 
   // --- SCREEN MANAGEMENT ---
@@ -81,7 +82,8 @@ const Layout: React.FC = () => {
   }
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-background text-text-primary flex flex-col">
+    // Background is now handled by index.html body. Layout is transparent container.
+    <div className="relative h-screen w-full overflow-hidden text-text-primary flex flex-col">
       <OfflineManager />
       
       {/* SWIPE CATCHER LAYER */}
