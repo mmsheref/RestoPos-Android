@@ -7,6 +7,7 @@ import {
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { exportItemsToCsv } from '../utils/csvHelper';
 import { requestAppPermissions } from '../utils/permissions';
 import { requestNotificationPermission, scheduleDailySummary, cancelDailySummary, sendLowStockAlert } from '../utils/notificationHelper';
@@ -65,15 +66,61 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     safeStorage.setItem('theme', newTheme);
   }, []);
 
+  // Theme & Status Bar Sync Effect
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const applyTheme = () => {
-        let effectiveTheme = theme === 'system' ? (mediaQuery.matches ? 'dark' : 'light') : theme;
-        document.documentElement.classList.toggle('dark', effectiveTheme === 'dark');
+    
+    const applyTheme = async () => {
+        // Determine if we should be in dark mode
+        // If theme is 'system', we use the media query result.
+        // If theme is 'dark', force true.
+        // If theme is 'light', force false.
+        const isDark = theme === 'system' ? mediaQuery.matches : theme === 'dark';
+        
+        // 1. Apply DOM Class for CSS variables/Tailwind
+        document.documentElement.classList.toggle('dark', isDark);
+        
+        // 2. Apply Native Status Bar Styling (Mobile)
+        if (Capacitor.isNativePlatform()) {
+            try {
+                // On Android, we need to ensure overlays are off to see the color
+                if (Capacitor.getPlatform() === 'android') {
+                    await StatusBar.setOverlaysWebView({ overlay: false });
+                }
+
+                // Apply Style (Dark Style = Light Text, Light Style = Dark Text)
+                const style = isDark ? Style.Dark : Style.Light;
+                await StatusBar.setStyle({ style });
+
+                if (Capacitor.getPlatform() === 'android') {
+                    // Match the background colors defined in index.html/Tailwind config
+                    // Dark: #121212, Light: #FFFFFF (Header Surface)
+                    const color = isDark ? '#121212' : '#FFFFFF';
+                    
+                    // Add a small delay for background color to ensure it overrides any defaults 
+                    // set by setStyle or window background interactions
+                    setTimeout(async () => {
+                        await StatusBar.setBackgroundColor({ color });
+                    }, 50);
+                }
+            } catch (e) {
+                // Fail silently for non-implemented platforms
+            }
+        }
     };
+
     applyTheme();
-    mediaQuery.addEventListener('change', applyTheme);
-    return () => mediaQuery.removeEventListener('change', applyTheme);
+    
+    // Listen for system changes if the user is using 'System' mode
+    const listener = (e: MediaQueryListEvent) => {
+        if (theme === 'system') {
+            applyTheme();
+        }
+    };
+
+    // Use the modern event listener API
+    mediaQuery.addEventListener('change', listener);
+    return () => mediaQuery.removeEventListener('change', listener);
   }, [theme]);
 
   const openDrawer = useCallback(() => setIsDrawerOpen(true), []);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, ReactNode } from 'react';
+import React, { ReactNode } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import Layout from './components/Layout';
@@ -6,8 +6,6 @@ import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import { StoreIcon } from './constants';
-import { Capacitor } from '@capacitor/core';
-import { StatusBar, Style } from '@capacitor/status-bar';
 
 /**
  * FAIL-SAFE ERROR BOUNDARY
@@ -21,7 +19,7 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// FIX: Explicitly extending Component with typed props and state to resolve inheritance issues.
+// FIX: Explicitly extending React.Component with typed props and state to resolve inheritance issues.
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
@@ -58,32 +56,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 }
 
 const AppRoutes: React.FC = () => {
-    const { user, isLoading, showOnboarding, theme } = useAppContext();
-
-    // --- Native Status Bar Sync ---
-    useEffect(() => {
-        if (Capacitor.isNativePlatform()) {
-            const configStatusBar = async () => {
-                try {
-                    if (Capacitor.getPlatform() === 'android') {
-                        await StatusBar.setOverlaysWebView({ overlay: false });
-                    }
-                    const style = theme === 'dark' ? Style.Dark : Style.Light;
-                    await StatusBar.setStyle({ style });
-                    if (Capacitor.getPlatform() === 'android') {
-                        // FIX: Match exact background colors for seamless look
-                        // Dark: #121212 (App Background), Light: #FFFFFF (Surface/Header) or #F3F4F6 (App BG)
-                        // We use the surface color for light mode to blend with headers, and app bg for dark.
-                        const color = theme === 'dark' ? '#121212' : '#FFFFFF';
-                        await StatusBar.setBackgroundColor({ color });
-                    }
-                } catch (e) {
-                    // Fail silently for non-critical native features
-                }
-            };
-            configStatusBar();
-        }
-    }, [theme]);
+    const { user, isLoading, showOnboarding } = useAppContext();
 
     if (showOnboarding) {
         return <OnboardingScreen />;
