@@ -8,7 +8,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import PinVerifyModal from '../components/modals/PinVerifyModal';
 
 const ReceiptsScreen: React.FC = () => {
-  const { receipts, openDrawer, settings, printers, loadMoreReceipts, hasMoreReceipts, paymentTypes, deleteReceipt } = useAppContext();
+  const { receipts, openDrawer, settings, printers, loadMoreReceipts, hasMoreReceipts, paymentTypes, deleteReceipt, openAddPrinterModal } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   
@@ -94,7 +94,7 @@ const ReceiptsScreen: React.FC = () => {
     const handlePrintReceipt = async () => {
         if (!selectedReceipt || isPrinting) return;
         if (printers.length === 0) {
-            alert("No printer configured. Please go to Settings to add a printer.");
+            openAddPrinterModal();
             return;
         }
         setIsPrinting(true);

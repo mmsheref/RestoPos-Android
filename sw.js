@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'pos-core-v7';
+const CACHE_NAME = 'pos-core-v8';
 
 /**
  * PAKKA OFFLINE STRATEGY
@@ -8,16 +8,57 @@ const CACHE_NAME = 'pos-core-v7';
  * 3. Data APIs (Firebase) are EXCLUDED to prevent storage bloat and lag.
  */
 
-const PRE_CACHE = [
+// List of critical assets that MUST be available for the app to render correctly offline.
+const CRITICAL_ASSETS = [
   './',
-  'index.html'
+  'index.html',
+  'manifest.json',
+  // UI Framework
+  'https://cdn.tailwindcss.com',
+  // Core Libraries (from importmap)
+  'https://aistudiocdn.com/react@^19.2.1',
+  'https://aistudiocdn.com/react-dom@^19.2.1/',
+  'https://aistudiocdn.com/firebase@^12.6.0/',
+  'https://aistudiocdn.com/vite@^7.2.7',
+  'https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1',
+  // Capacitor Core & Plugins
+  'https://aistudiocdn.com/@capacitor/core@^7.4.4',
+  'https://aistudiocdn.com/@capacitor/filesystem@^7.1.5',
+  'https://aistudiocdn.com/@capacitor/share@^7.0.2',
+  'https://aistudiocdn.com/@capacitor/app@^7.0.0',
+  'https://aistudiocdn.com/react-router-dom@^7.10.1',
+  'https://aistudiocdn.com/@capacitor/local-notifications@^7.0.0',
+  'https://esm.sh/@capacitor/status-bar@^8.0.0',
+  'https://esm.sh/@capacitor/haptics@^8.0.0'
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRE_CACHE))
-  );
+  // Force this service worker to become the active one immediately
   self.skipWaiting();
+
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(async (cache) => {
+      console.log('[SW] Pre-caching critical assets...');
+      
+      // Attempt to cache all critical assets. 
+      // We fetch them individually to avoid one failure breaking the entire install.
+      const promises = CRITICAL_ASSETS.map(async (url) => {
+        try {
+          const req = new Request(url, { mode: 'cors' });
+          const res = await fetch(req);
+          if (res.ok) {
+            await cache.put(req, res);
+          } else {
+            console.warn(`[SW] Failed to cache ${url}: ${res.status}`);
+          }
+        } catch (e) {
+          console.warn(`[SW] Fetch failed during install for ${url}`, e);
+        }
+      });
+
+      await Promise.all(promises);
+    })
+  );
 });
 
 self.addEventListener('activate', (event) => {
@@ -37,12 +78,12 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // CRITICAL: Never cache Firebase/Firestore API calls. 
-  // Caching these causes synchronization lag and memory leaks.
   if (url.hostname.includes('googleapis.com') || url.hostname.includes('firebase')) {
     return;
   }
 
-  // Strategy: Cache-First for stable CDNs
+  // Strategy: Cache-First for critical CDNs
+  // This ensures that if we have the Tailwind/React file, we use it instantly.
   const isCDN = 
     url.hostname.includes('aistudiocdn.com') || 
     url.hostname.includes('tailwindcss.com') || 
@@ -51,8 +92,14 @@ self.addEventListener('fetch', (event) => {
   if (isCDN) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
-        return cached || fetch(event.request).then((response) => {
-          if (!response || response.status !== 200) return response;
+        if (cached) return cached;
+        
+        // If not in cache, fetch, return, and cache it for next time
+        return fetch(event.request).then((response) => {
+          // Check if valid response
+          if (!response || response.status !== 200 || response.type !== 'basic' && response.type !== 'cors') {
+            return response;
+          }
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);
@@ -64,11 +111,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Strategy: Network-First for local app logic
+  // Strategy: Network-First for local app logic (HTML, JS bundles)
+  // This allows updates to be seen when online, but falls back to cache instantly offline.
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        if (response && response.status === 200) {
+        // Update cache with new version
+        if (response && response.status === 200 && response.type === 'basic') {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);
@@ -79,7 +128,7 @@ self.addEventListener('fetch', (event) => {
       .catch(() => {
           return caches.match(event.request).then(cached => {
               if (cached) return cached;
-              // If it's a navigation request and we are offline, show the cached app Shell
+              // Fallback for navigation
               if (event.request.mode === 'navigate') {
                   return caches.match('index.html');
               }

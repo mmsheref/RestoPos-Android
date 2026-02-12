@@ -22,7 +22,7 @@ interface ChargeScreenProps {
 }
 
 const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, subtotal, onBack, onProcessPayment, onNewSale, paymentResult }) => {
-  const { settings, printers, paymentTypes } = useAppContext();
+  const { settings, printers, paymentTypes, openAddPrinterModal } = useAppContext();
   const [cashTendered, setCashTendered] = useState(total.toFixed(2));
   const [isPrinting, setIsPrinting] = useState(false);
   
@@ -95,6 +95,12 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
 
   const handlePrintReceipt = async () => {
     if (!paymentResult || isPrinting) return;
+    
+    if (printers.length === 0) {
+        openAddPrinterModal();
+        return;
+    }
+    
     setIsPrinting(true);
     const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
     const result = await printReceipt({ items: orderItems, total, subtotal, tax, receiptId: paymentResult.receiptId, paymentMethod: paymentResult.method, settings, printer, date: paymentResult.date });

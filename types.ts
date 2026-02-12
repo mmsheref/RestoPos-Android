@@ -217,6 +217,11 @@ export interface AppContextType {
   showOnboarding: boolean;
   completeOnboarding: () => Promise<boolean>;
   isLoading: boolean;
+  
+  // --- Hardware UI ---
+  isAddPrinterModalOpen: boolean;
+  openAddPrinterModal: () => void;
+  closeAddPrinterModal: () => void;
 
   // --- Configuration ---
   settings: AppSettings;

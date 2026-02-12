@@ -16,7 +16,6 @@ import DataManagementCard from './cards/DataManagementCard';
 import NotificationsCard from './cards/NotificationsCard';
 
 // Modals - FIXED: Using explicit relative paths to resolve TypeError
-import AddPrinterModal from '../modals/AddPrinterModal';
 import TableFormModal from '../modals/TableFormModal';
 import AddPaymentTypeModal from '../modals/AddPaymentTypeModal';
 
@@ -32,12 +31,11 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory }) => 
         settings, updateSettings, theme, setTheme, user, signOut, 
         paymentTypes, updatePaymentType, removePaymentType, addPaymentType,
         tables, setTables, addTable, updateTable, removeTable,
-        printers, addPrinter, removePrinter,
+        printers, addPrinter, removePrinter, openAddPrinterModal,
         exportData 
     } = useAppContext();
 
     // State for modals and actions
-    const [isAddPrinterModalOpen, setIsAddPrinterModalOpen] = useState(false);
     const [testingPrinterId, setTestingPrinterId] = useState<string | null>(null);
     const [isTableModalOpen, setIsTableModalOpen] = useState(false);
     const [editingTable, setEditingTable] = useState<Table | null>(null);
@@ -51,11 +49,6 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory }) => 
             alert(`Test Print Failed: ${result.message}`);
         }
         setTestingPrinterId(null);
-    };
-
-    const handleSavePrinter = (printer: Printer) => {
-        addPrinter(printer);
-        setIsAddPrinterModalOpen(false);
     };
 
     // --- Table Handlers ---
@@ -134,7 +127,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory }) => 
                         return wrapCard(
                             <PrintersCard 
                                 printers={printers} 
-                                onAdd={() => setIsAddPrinterModalOpen(true)} 
+                                onAdd={openAddPrinterModal} 
                                 onTest={handleTestPrinter} 
                                 onRemove={(p) => removePrinter(p.id)} 
                                 testingPrinterId={testingPrinterId} 
@@ -166,12 +159,6 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory }) => 
                         return null;
                 }
             })()}
-
-            <AddPrinterModal 
-                isOpen={isAddPrinterModalOpen}
-                onClose={() => setIsAddPrinterModalOpen(false)}
-                onSave={handleSavePrinter}
-            />
             
             <TableFormModal
                 isOpen={isTableModalOpen}

@@ -5,6 +5,8 @@ import Header from './Header';
 import NavDrawer from './NavDrawer';
 import { useAppContext } from '../context/AppContext';
 import { NAV_LINKS } from '../constants';
+import AddPrinterModal from './modals/AddPrinterModal';
+import OfflineManager from './OfflineManager';
 
 import SalesScreen from '../screens/SalesScreen';
 import ReceiptsScreen from '../screens/ReceiptsScreen';
@@ -30,7 +32,7 @@ const KeepAliveScreen = React.memo(({ isVisible, children }: { isVisible: boolea
 });
 
 const Layout: React.FC = () => {
-  const { isDrawerOpen, openDrawer, closeDrawer } = useAppContext();
+  const { isDrawerOpen, openDrawer, closeDrawer, isAddPrinterModalOpen, closeAddPrinterModal, addPrinter } = useAppContext();
   const location = useLocation();
   const { pathname } = location;
 
@@ -118,6 +120,8 @@ const Layout: React.FC = () => {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
+      <OfflineManager />
+      
       {/* 
         DEDICATED SWIPE CATCHER
         Invisible strip on the left edge that captures touch events before they reach 
@@ -143,6 +147,16 @@ const Layout: React.FC = () => {
         {activeScreens['/settings'] && <KeepAliveScreen isVisible={pathname === '/settings'}><SettingsScreen /></KeepAliveScreen>}
         {activeScreens['/about'] && <KeepAliveScreen isVisible={pathname === '/about'}><AboutScreen /></KeepAliveScreen>}
       </main>
+
+      {/* Global Hardware Modals */}
+      <AddPrinterModal 
+        isOpen={isAddPrinterModalOpen} 
+        onClose={closeAddPrinterModal} 
+        onSave={(p) => {
+            addPrinter(p);
+            closeAddPrinterModal();
+        }} 
+      />
     </div>
   );
 };

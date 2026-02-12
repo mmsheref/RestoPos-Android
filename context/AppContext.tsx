@@ -53,6 +53,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [headerTitle, setHeaderTitle] = useState('');
   const [isReportsUnlocked, setReportsUnlocked] = useState(false);
   const [theme, setThemeState] = useState<Theme>(() => (safeStorage.getItem('theme') as Theme) || 'system');
+  
+  // Centralized Hardware UI State
+  const [isAddPrinterModalOpen, setIsAddPrinterModalOpen] = useState(false);
+
+  const openAddPrinterModal = useCallback(() => setIsAddPrinterModalOpen(true), []);
+  const closeAddPrinterModal = useCallback(() => setIsAddPrinterModalOpen(false), []);
 
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
@@ -403,6 +409,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       isDrawerOpen, openDrawer, closeDrawer, toggleDrawer, 
       headerTitle, setHeaderTitle, theme, setTheme,
       showOnboarding, completeOnboarding, isLoading, 
+      isAddPrinterModalOpen, openAddPrinterModal, closeAddPrinterModal,
       settings, updateSettings,
       printers, addPrinter, removePrinter,
       paymentTypes, addPaymentType, updatePaymentType, removePaymentType,
@@ -417,9 +424,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       exportItemsCsv, replaceItems,
       isReportsUnlocked, setReportsUnlocked
   }), [
-      user, isDrawerOpen, headerTitle, theme, showOnboarding, isLoading, settings, items, customGrids, receipts, 
+      user, isDrawerOpen, headerTitle, theme, showOnboarding, isLoading, isAddPrinterModalOpen, settings, items, customGrids, receipts, 
       printers, paymentTypes, savedTickets, tables, activeGridId, currentOrder, isReportsUnlocked,
-      openDrawer, closeDrawer, toggleDrawer, setTheme, completeOnboarding, updateSettings, addPrinter, removePrinter,
+      openDrawer, closeDrawer, toggleDrawer, setTheme, completeOnboarding, openAddPrinterModal, closeAddPrinterModal,
+      updateSettings, addPrinter, removePrinter,
       addPaymentType, updatePaymentType, removePaymentType, addReceipt, deleteReceipt, addItem, updateItem, deleteItem,
       saveTicket, removeTicket, mergeTickets, addCustomGrid, updateCustomGrid, deleteCustomGrid, setCustomGrids,
       addTable, updateTable, removeTable, setTables, setActiveGridId, addToOrder, removeFromOrder, deleteLineItem,

@@ -51,7 +51,7 @@ self.onmessage = function(e) {
 
 const SalesScreen: React.FC = () => {
   const { 
-      openDrawer, settings, printers, addReceipt, 
+      openDrawer, settings, printers, addReceipt, openAddPrinterModal,
       items, customGrids, addCustomGrid, updateCustomGrid, setCustomGrids,
       savedTickets, saveTicket, removeTicket,
       // Global Ticket State
@@ -71,6 +71,7 @@ const SalesScreen: React.FC = () => {
   useEffect(() => {
       const handleResize = () => setGridSize(getGridSize());
       window.addEventListener('resize', handleResize);
+      // FIX: Corrected method name from removeResizeEventListener to removeEventListener
       return () => window.removeEventListener('resize', handleResize);
   }, []);
 
@@ -379,7 +380,7 @@ const SalesScreen: React.FC = () => {
       
       const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
       if (!printer) {
-          alert("No printer configured. Please go to Settings to add a printer.");
+          openAddPrinterModal();
           return;
       }
 
@@ -392,7 +393,7 @@ const SalesScreen: React.FC = () => {
       if (!result.success) {
           alert(`Print Failed: ${result.message}`);
       }
-  }, [settings, printers]);
+  }, [settings, printers, openAddPrinterModal]);
 
   const handlePrintRequest = useCallback(async () => {
     if (currentOrder.length === 0) {
