@@ -41,18 +41,23 @@ const SwipeableOrderItem = React.memo<SwipeableOrderItemProps>(({
         if (!isSwiping) return;
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
         const diff = clientX - startX.current;
+        
+        // Add resistance when swiping right (disabled direction)
         let newOffset = currentOffset.current + diff;
-        if (newOffset > 0) newOffset = 0; 
-        if (newOffset < -100) newOffset = -100; 
+        if (newOffset > 0) newOffset = newOffset * 0.2; 
+        
+        // Limit max swipe left
+        if (newOffset < -120) newOffset = -120; 
+        
         setOffset(newOffset);
     };
 
     const handleTouchEnd = () => {
         setIsSwiping(false);
-        if (offset < -40) {
-            setOffset(-80); 
+        if (offset < -50) {
+            setOffset(-80); // Snap open
         } else {
-            setOffset(0); 
+            setOffset(0); // Snap close
         }
     };
 
@@ -65,17 +70,37 @@ const SwipeableOrderItem = React.memo<SwipeableOrderItemProps>(({
         onDelete(id);
     };
 
+    // Calculate opacity for the red background to prevent tinting when idle
+    // We only want it visible when offset is negative (swiping left)
+    const deleteLayerOpacity = offset < 0 ? Math.min(1, Math.abs(offset) / 40) : 0;
+    
+    // Only render/paint the layer if it's actually visible
+    const isLayerVisible = offset < -1;
+
     return (
-        <li className="relative border-b border-black/5 dark:border-white/5 overflow-hidden select-none transform translate-z-0 last:border-0">
-            <div className="absolute inset-0 flex justify-end bg-red-500/90 backdrop-blur-sm">
-                <button onClick={() => handleDelete(item.lineItemId)} className="w-[80px] h-full flex flex-col items-center justify-center text-white">
-                    <TrashIcon className="h-6 w-6 mb-1" />
-                    <span className="text-[10px] font-bold uppercase">Delete</span>
+        <li className="relative border-b border-white/10 overflow-hidden select-none transform translate-z-0 last:border-0 group">
+            {/* Delete Action Layer */}
+            <div 
+                className="absolute inset-0 flex justify-end bg-red-500/90"
+                style={{ 
+                    opacity: deleteLayerOpacity,
+                    visibility: isLayerVisible ? 'visible' : 'hidden',
+                    transition: isSwiping ? 'none' : 'opacity 0.2s ease-out'
+                }}
+            >
+                <button 
+                    onClick={() => handleDelete(item.lineItemId)} 
+                    className="w-[80px] h-full flex flex-col items-center justify-center text-white"
+                    tabIndex={isOpen ? 0 : -1}
+                >
+                    <TrashIcon className="h-5 w-5 mb-1" />
+                    <span className="text-[10px] font-bold uppercase tracking-wide">Delete</span>
                 </button>
             </div>
 
+            {/* Foreground Content */}
             <div 
-                className="relative bg-surface/40 backdrop-blur-sm flex items-center justify-between pl-4 pr-4 py-3 transition-transform duration-200 ease-out hover:bg-surface/60"
+                className="relative bg-surface/70 backdrop-blur-md flex items-center justify-between pl-4 pr-4 py-3 transition-transform duration-200 ease-out hover:bg-surface/80"
                 style={{ transform: `translateX(${offset}px)` }}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
@@ -226,7 +251,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
   return (
     // GLASS PANEL CONTAINER
     <section className={`${className} glass-panel border-l-0 md:border-l border-white/20 h-full flex flex-col pt-safe-top relative transition-all duration-300`}>
-      <header className="w-full z-30 flex-shrink-0 border-b border-black/5 dark:border-white/5 bg-surface/30 backdrop-blur-md">
+      <header className="w-full z-30 flex-shrink-0 border-b border-white/10 bg-surface/30 backdrop-blur-md">
         <div className="h-16 flex items-center justify-between px-5">
             <div className="flex items-center gap-3 overflow-hidden">
                 {onClose && (
@@ -302,7 +327,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
                             <div className="flex justify-between"><span>Tax ({settings.taxRate}%)</span><span>₹{tax.toFixed(2)}</span></div>
                         </div>
                     )}
-                    <div className="flex justify-between items-baseline pt-1 border-t border-black/5 dark:border-white/10">
+                    <div className="flex justify-between items-baseline pt-1 border-t border-white/10">
                         <span className="text-sm font-bold text-text-secondary uppercase tracking-wide">Total</span>
                         <span className="text-3xl font-black text-text-primary tracking-tight">₹{total.toFixed(2)}</span>
                     </div>

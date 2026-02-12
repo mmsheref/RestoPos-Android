@@ -1,5 +1,5 @@
 
-import React, { ReactNode, Component } from 'react';
+import React, { ReactNode } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import Layout from './components/Layout';
@@ -21,7 +21,7 @@ interface ErrorBoundaryState {
 }
 
 // FIX: Explicitly extending React.Component with typed props and state to resolve inheritance issues.
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
