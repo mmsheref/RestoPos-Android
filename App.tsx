@@ -1,3 +1,4 @@
+
 import React, { ReactNode } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
@@ -21,10 +22,8 @@ interface ErrorBoundaryState {
 
 // FIX: Explicitly extending React.Component with typed props and state to resolve inheritance issues.
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
+  // Explicitly define state property for TypeScript
+  public state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(_: Error): ErrorBoundaryState { 
     return { hasError: true }; 

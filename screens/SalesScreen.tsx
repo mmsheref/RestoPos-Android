@@ -23,28 +23,22 @@ import { ItemsIcon, SalesIcon } from '../constants';
 
 type SalesView = 'grid' | 'payment';
 
-// UUID Generator Fallback
 const generateId = () => crypto.randomUUID ? crypto.randomUUID() : `G${Date.now()}`;
 
 // --- SEARCH WORKER CODE ---
 const SEARCH_WORKER_CODE = `
 self.onmessage = function(e) {
     const { items, query } = e.data;
-    
     if (!query || !query.trim()) {
         self.postMessage([]);
         return;
     }
-
     const lowerQuery = query.trim().toLowerCase();
-    
-    // Perform filtering off-main-thread
     const results = items.filter(item => {
         const nameMatch = item.name.toLowerCase().includes(lowerQuery);
         const categoryMatch = item.category ? item.category.toLowerCase().includes(lowerQuery) : false;
         return nameMatch || categoryMatch;
     });
-
     self.postMessage(results);
 };
 `;
@@ -54,132 +48,116 @@ const SalesScreen: React.FC = () => {
       openDrawer, settings, printers, addReceipt, openAddPrinterModal,
       items, customGrids, addCustomGrid, updateCustomGrid, setCustomGrids,
       savedTickets, saveTicket, removeTicket,
-      // Global Ticket State
       currentOrder, addToOrder, removeFromOrder, deleteLineItem, 
       updateOrderItemQuantity, clearOrder, loadOrder,
-      // Global View State
       activeGridId, setActiveGridId
   } = useAppContext();
+  
   const navigate = useNavigate();
   const location = useLocation();
   const isActive = location.pathname === '/sales';
 
-  // --- 1. DEVICE & LAYOUT DETECTION ---
-  const getGridSize = () => 20;
+  // --- 1. DYNAMIC GRID SIZING ---
+  const getGridSize = () => {
+      // 25 items for desktop/tablet landscape, 20 for mobile
+      return window.innerWidth >= 768 ? 25 : 20;
+  };
   const [gridSize, setGridSize] = useState(getGridSize());
 
   useEffect(() => {
-      const handleResize = () => setGridSize(getGridSize());
+      let timeoutId: any;
+      const handleResize = () => {
+          clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => {
+              setGridSize(getGridSize());
+          }, 150); // Debounce resize event
+      };
       window.addEventListener('resize', handleResize);
-      return () => window.removeEventListener('resize', handleResize);
+      return () => {
+          window.removeEventListener('resize', handleResize);
+          clearTimeout(timeoutId);
+      };
   }, []);
 
-  // Main screen view state
+  // Main View State
   const [salesView, setSalesView] = useState<SalesView>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   
-  // Search Results from Worker
+  // Search Worker
   const [workerSearchResults, setWorkerSearchResults] = useState<Item[]>([]);
   const searchWorkerRef = useRef<Worker | null>(null);
   
-  // Ticket management state
+  // Ticket Management
   const [editingTicket, setEditingTicket] = useState<SavedTicket | null>(null);
   const [editingQuantityItemId, setEditingQuantityItemId] = useState<string | null>(null);
   const [tempQuantity, setTempQuantity] = useState<string>('');
   
-  // State to track if we should print after a successful save
+  // UI State
   const [pendingPrintAction, setPendingPrintAction] = useState(false);
-  
-  // Grid Editing State
   const [isGridEditing, setIsGridEditing] = useState(false);
-  
-  // Payment state
   const [paymentResult, setPaymentResult] = useState<{ method: string, change: number, receiptId: string, date: Date } | null>(null);
-
-  // Pagination & Scroll State
+  
+  // Pagination
   const [displayLimit, setDisplayLimit] = useState(40);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  // Modal states
+  // Modals
   const [isManageGridsModalOpen, setIsManageGridsModalOpen] = useState(false);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isOpenTicketsModalOpen, setIsOpenTicketsModalOpen] = useState(false);
   const [isSelectItemModalOpen, setIsSelectItemModalOpen] = useState(false);
   const [isAddGridModalOpen, setIsAddGridModalOpen] = useState(false);
   const [assigningSlot, setAssigningSlot] = useState<{gridId: string, slotIndex: number} | null>(null);
-  
-  // Variable Price State
   const [variablePriceItem, setVariablePriceItem] = useState<Item | null>(null);
   
   const [confirmModalState, setConfirmModalState] = useState<{
-      isOpen: boolean;
-      title: string;
-      message: React.ReactNode;
-      onConfirm: () => void;
-      confirmText?: string;
-      confirmButtonClass?: string;
+      isOpen: boolean; title: string; message: React.ReactNode; onConfirm: () => void;
+      confirmText?: string; confirmButtonClass?: string;
   }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
   
   const [isTicketVisible, setIsTicketVisible] = useState(false);
 
-  // Initialize Search Worker
+  // Worker Lifecycle
   useEffect(() => {
       const blob = new Blob([SEARCH_WORKER_CODE], { type: 'application/javascript' });
       const worker = new Worker(URL.createObjectURL(blob));
       searchWorkerRef.current = worker;
-
-      worker.onmessage = (e) => {
-          setWorkerSearchResults(e.data);
-      };
-
-      return () => {
-          worker.terminate();
-      };
+      worker.onmessage = (e) => setWorkerSearchResults(e.data);
+      return () => worker.terminate();
   }, []);
 
-  // Post messages to worker when query or items change
+  // Dispatch Search
   useEffect(() => {
       if (searchWorkerRef.current && debouncedSearchQuery.trim()) {
-          searchWorkerRef.current.postMessage({
-              items: items,
-              query: debouncedSearchQuery
-          });
+          searchWorkerRef.current.postMessage({ items: items, query: debouncedSearchQuery });
       } else {
           setWorkerSearchResults([]);
       }
   }, [debouncedSearchQuery, items]);
 
-  // Force scroll container reflow
+  // Reset View on Activation/Category Change
   useEffect(() => {
-    if (isActive && scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTop = 0;
-    }
+    if (isActive && scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
   }, [isActive]);
   
-  // Reset pagination when category changes
   useEffect(() => {
     setDisplayLimit(40);
     setIsGridEditing(false);
-    if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTop = 0;
-    }
+    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
   }, [activeGridId, debouncedSearchQuery]);
 
-  // --- ITEM CLICK HANDLER ---
+  // --- LOGIC HANDLERS ---
+  
   const handleItemClick = useCallback((item: Item) => {
-      if (item.price === 0) {
-          setVariablePriceItem(item);
-      } else {
-          addToOrder(item);
-      }
+      if (item.price === 0) setVariablePriceItem(item);
+      else addToOrder(item);
   }, [addToOrder]);
 
   const handleVariablePriceConfirm = (price: number) => {
       if (variablePriceItem) {
-          const tempItem = { ...variablePriceItem, price: price };
-          addToOrder(tempItem);
+          addToOrder({ ...variablePriceItem, price: price });
           setVariablePriceItem(null);
       }
   };
@@ -196,63 +174,30 @@ const SalesScreen: React.FC = () => {
     setEditingQuantityItemId(null);
   }, [editingQuantityItemId, tempQuantity, updateOrderItemQuantity]);
 
-  const handleQuantityInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-      if (/^\d*$/.test(e.target.value)) {
-          setTempQuantity(e.target.value);
-      }
-  }, []);
-
-  const handleQuantityInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter') handleQuantityChangeCommit(); 
-      else if (e.key === 'Escape') setEditingQuantityItemId(null);
-  }, [handleQuantityChangeCommit]);
-
-  const handleTicketClose = useCallback(() => setIsTicketVisible(false), []);
-  const handleChargeClick = useCallback(() => setSalesView('payment'), []);
-  const handleOpenTicketsClick = useCallback(() => setIsOpenTicketsModalOpen(true), []);
-  
-  const handleSaveTicketClick = useCallback(() => {
-      setPendingPrintAction(false); 
-      setIsSaveModalOpen(true);
-  }, []);
-
-  const subtotal = useMemo(() => currentOrder.reduce((sum, item) => sum + item.price * item.quantity, 0), [currentOrder]);
-  const tax = useMemo(() => settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0, [subtotal, settings]);
-  const total = useMemo(() => subtotal + tax, [subtotal, tax]);
-  
   const handleProcessPayment = useCallback((method: string, tendered: number, splitDetails?: SplitPaymentDetail[]) => {
     if (editingTicket) removeTicket(editingTicket.id);
     const receiptId = `R${Date.now()}`;
     const receiptDate = new Date();
     
-    const optimizedItems = currentOrder.map(item => ({
-        ...item,
-        imageUrl: '' // Strip base64 string
-    }));
+    const subtotal = currentOrder.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const tax = settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0;
+    const total = subtotal + tax;
 
     const newReceipt: Receipt = { 
         id: receiptId, 
         date: receiptDate, 
-        items: optimizedItems, 
+        items: currentOrder.map(item => ({...item, imageUrl: ''})), 
         total, 
         paymentMethod: method 
     };
 
-    if (splitDetails && splitDetails.length > 0) {
-        newReceipt.splitDetails = splitDetails;
-    }
+    if (splitDetails && splitDetails.length > 0) newReceipt.splitDetails = splitDetails;
 
     addReceipt(newReceipt);
     setPaymentResult({ method, change: tendered - total, receiptId, date: receiptDate });
-  }, [addReceipt, currentOrder, editingTicket, removeTicket, total]);
-  
-  const handleNewSale = useCallback(() => {
-    setSalesView('grid'); 
-    setPaymentResult(null); 
-    clearOrder(); 
-    setEditingTicket(null);
-  }, [clearOrder]);
-  
+  }, [addReceipt, currentOrder, editingTicket, removeTicket, settings]);
+
+  // --- GRID LOGIC ---
   const itemsForDisplay = useMemo<(Item | null)[]>(() => {
     if (debouncedSearchQuery.trim()) return workerSearchResults;
     if (activeGridId === 'All') return items;
@@ -261,6 +206,7 @@ const SalesScreen: React.FC = () => {
     if (grid) {
         const sourceIds = Array.isArray(grid.itemIds) ? grid.itemIds : [];
         const finalItemIds = new Array(gridSize).fill(null);
+        // Only fill up to grid size
         for(let i = 0; i < Math.min(sourceIds.length, gridSize); i++) {
             finalItemIds[i] = sourceIds[i];
         }
@@ -274,57 +220,28 @@ const SalesScreen: React.FC = () => {
       return itemsForDisplay.slice(0, displayLimit);
   }, [itemsForDisplay, displayLimit, activeGridId, debouncedSearchQuery]);
 
+  // Infinite Scroll
   useEffect(() => {
     if ((activeGridId !== 'All' && !debouncedSearchQuery.trim()) || paginatedItems.length >= itemsForDisplay.length) return; 
-
     const observer = new IntersectionObserver(
         (entries) => {
-            if (entries[0].isIntersecting) {
-                setDisplayLimit((prev) => prev + 20);
-            }
+            if (entries[0].isIntersecting) setDisplayLimit((prev) => prev + 20);
         },
         { threshold: 0.1, rootMargin: '100px' }
     );
-
     if (loadMoreRef.current) observer.observe(loadMoreRef.current);
     return () => observer.disconnect();
   }, [paginatedItems.length, itemsForDisplay.length, activeGridId, debouncedSearchQuery]);
 
-
-  const handleAddNewGrid = useCallback(() => setIsAddGridModalOpen(true), []);
-  const handleSaveNewGrid = useCallback((name: string) => {
-      const newGridId = generateId();
-      addCustomGrid({ id: newGridId, name, itemIds: new Array(gridSize).fill(null) });
-      setIsAddGridModalOpen(false);
-      // Auto-switch to newly created grid and enter edit mode for better UX
-      setActiveGridId(newGridId);
-      setIsGridEditing(true);
-  }, [addCustomGrid, gridSize, setActiveGridId]);
-
-  const handleSaveGrids = useCallback((newGrids: CustomGrid[]) => {
-      setCustomGrids(newGrids);
-      setIsManageGridsModalOpen(false);
-      if (activeGridId !== 'All' && !newGrids.some(g => g.id === activeGridId)) {
-          setActiveGridId('All');
-      }
-  }, [activeGridId, setCustomGrids, setActiveGridId]);
-
-  const handleOpenSelectItemModal = useCallback((slotIndex: number) => {
-      if (activeGridId === 'All') return;
-      setAssigningSlot({ gridId: activeGridId, slotIndex });
-      setIsSelectItemModalOpen(true);
-  }, [activeGridId]);
-
-  const handleSelectItem = useCallback((item: Item) => {
+  const handleAssignItem = useCallback((item: Item) => {
       if (!assigningSlot) return;
-      const gridToUpdate = customGrids.find(g => g.id === assigningSlot.gridId);
-      if (gridToUpdate) {
-          const sourceIds = Array.isArray(gridToUpdate.itemIds) ? gridToUpdate.itemIds : [];
-          const newItemIds = [...sourceIds];
+      const grid = customGrids.find(g => g.id === assigningSlot.gridId);
+      if (grid) {
+          const newItemIds = [...(grid.itemIds || [])];
+          // Ensure array is large enough
           while (newItemIds.length < gridSize) newItemIds.push(null);
-          
           newItemIds[assigningSlot.slotIndex] = item.id;
-          updateCustomGrid({ ...gridToUpdate, itemIds: newItemIds });
+          updateCustomGrid({ ...grid, itemIds: newItemIds });
       }
       setIsSelectItemModalOpen(false);
       setAssigningSlot(null);
@@ -332,124 +249,25 @@ const SalesScreen: React.FC = () => {
 
   const handleRemoveItemFromGrid = useCallback((slotIndex: number) => {
     if (activeGridId === 'All') return;
-    const gridToUpdate = customGrids.find(g => g.id === activeGridId);
-    if (gridToUpdate) {
-        const sourceIds = Array.isArray(gridToUpdate.itemIds) ? gridToUpdate.itemIds : [];
-        const newItemIds = [...sourceIds];
+    const grid = customGrids.find(g => g.id === activeGridId);
+    if (grid) {
+        const newItemIds = [...(grid.itemIds || [])];
         while (newItemIds.length < gridSize) newItemIds.push(null);
-        
         newItemIds[slotIndex] = null;
-        updateCustomGrid({ ...gridToUpdate, itemIds: newItemIds });
+        updateCustomGrid({ ...grid, itemIds: newItemIds });
     }
   }, [activeGridId, customGrids, updateCustomGrid, gridSize]);
 
-  const handleClearTicket = useCallback(() => {
-    clearOrder();
-    setEditingTicket(null);
-    setEditingQuantityItemId(null);
-  }, [clearOrder]);
-
-  const handleLoadTicket = (ticket: SavedTicket) => {
-      const loadAction = () => {
-          loadOrder(ticket.items);
-          setEditingTicket(ticket);
-          setIsOpenTicketsModalOpen(false);
-          if (window.innerWidth < 768) {
-              setIsTicketVisible(true);
-          }
-      };
-      if (currentOrder.length > 0) {
-          setConfirmModalState({
-              isOpen: true,
-              title: 'Replace Current Order?',
-              message: 'Loading a saved ticket will replace your current unsaved order. Are you sure?',
-              onConfirm: loadAction,
-              confirmText: 'Yes, Load Ticket',
-              confirmButtonClass: 'bg-amber-500 hover:bg-amber-600'
-          });
-      } else {
-          loadAction();
-      }
-  };
-
-  const performPrint = useCallback(async (ticketItems: OrderItem[], ticketName: string) => {
-      const pSubtotal = ticketItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-      const pTax = settings.taxEnabled ? pSubtotal * (settings.taxRate / 100) : 0;
-      const pTotal = pSubtotal + pTax;
-      
-      const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
-      if (!printer) {
-          openAddPrinterModal();
-          return;
-      }
-
-      const result = await printBill({
-          items: ticketItems,
-          total: pTotal, subtotal: pSubtotal, tax: pTax,
-          ticketName: ticketName,
-          settings, printer,
-      });
-      if (!result.success) {
-          alert(`Print Failed: ${result.message}`);
-      }
-  }, [settings, printers, openAddPrinterModal]);
-
-  const handlePrintRequest = useCallback(async () => {
-    if (currentOrder.length === 0) {
-        alert("Ticket is empty. Nothing to print.");
-        return;
-    }
-
-    // Workflow for a saved ticket (editingTicket exists)
-    if (editingTicket) {
-        // 1. Auto-save any changes made to the ticket
-        const updatedTicket = { ...editingTicket, items: [...currentOrder], lastModified: Date.now() };
-        await saveTicket(updatedTicket);
-
-        // 2. Print the bill for the updated ticket
-        await performPrint(updatedTicket.items, updatedTicket.name);
-
-        // 3. Clear the workspace for a new sale, ready for the next customer
-        clearOrder();
-        setEditingTicket(null);
-        if (window.innerWidth < 768) {
-            setIsTicketVisible(false); // Hide mobile ticket view
-        }
-    } else {
-        // Workflow for a new, unsaved ticket: prompt to save first
-        setPendingPrintAction(true);
-        setIsSaveModalOpen(true);
-    }
-  }, [editingTicket, currentOrder, saveTicket, clearOrder, performPrint]);
-
-  const handleSaveTicketComplete = (name: string) => {
-      const itemsToSave = [...currentOrder];
-      saveTicket({ id: `T${Date.now()}`, name, items: itemsToSave }); 
-      clearOrder(); 
-      setEditingTicket(null); 
-      setIsSaveModalOpen(false); 
-      if (pendingPrintAction) {
-          performPrint(itemsToSave, name);
-          setPendingPrintAction(false); 
-      }
-  };
-  
-  const handlePrimarySaveAction = useCallback(() => {
-      if (editingTicket) {
-          saveTicket({ ...editingTicket, items: currentOrder });
-          clearOrder();
-          setEditingTicket(null);
-          setIsTicketVisible(false);
-      } else {
-          setPendingPrintAction(false);
-          setIsSaveModalOpen(true);
-      }
-  }, [editingTicket, currentOrder, saveTicket, clearOrder]);
-
+  // --- RENDER ---
   if (salesView === 'payment') {
-    return <ChargeScreen total={total} tax={tax} subtotal={subtotal} onBack={() => setSalesView('grid')} onProcessPayment={handleProcessPayment} onNewSale={handleNewSale} paymentResult={paymentResult} orderItems={currentOrder} />;
+    const sub = currentOrder.reduce((acc, i) => acc + i.price * i.quantity, 0);
+    const t = settings.taxEnabled ? sub * (settings.taxRate / 100) : 0;
+    return <ChargeScreen total={sub + t} tax={t} subtotal={sub} onBack={() => setSalesView('grid')} onProcessPayment={handleProcessPayment} onNewSale={() => { setSalesView('grid'); setPaymentResult(null); clearOrder(); setEditingTicket(null); }} paymentResult={paymentResult} orderItems={currentOrder} />;
   }
 
+  const subtotal = currentOrder.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const tax = settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0;
+  const total = subtotal + tax;
   const isViewingAll = activeGridId === 'All' || debouncedSearchQuery.trim().length > 0;
 
   return (
@@ -473,24 +291,19 @@ const SalesScreen: React.FC = () => {
                   <div className="max-w-md">
                     <ItemsIcon className="h-16 w-16 mx-auto text-gray-300 dark:text-gray-600" />
                     <h2 className="mt-4 text-xl font-semibold text-text-primary">Your Menu is Empty</h2>
-                    <button
-                      onClick={() => navigate('/items')}
-                      className="mt-6 px-6 py-3 bg-primary text-primary-content font-bold rounded-lg hover:bg-primary-hover shadow-md"
-                    >
-                      Add Items
-                    </button>
+                    <button onClick={() => navigate('/items')} className="mt-6 px-6 py-3 bg-primary text-primary-content font-bold rounded-lg hover:bg-primary-hover shadow-md">Add Items</button>
                   </div>
                 </div>
               ) : (
                 <div className={`pb-24 md:pb-0 ${!isViewingAll ? 'md:h-full' : 'md:pb-4'}`}>
                     <ItemGrid
-                    itemsForDisplay={paginatedItems}
-                    mode={isViewingAll ? 'all' : 'grid'}
-                    onAddItemToOrder={handleItemClick}
-                    onAssignItem={handleOpenSelectItemModal}
-                    onRemoveItem={handleRemoveItemFromGrid}
-                    isEditing={!isViewingAll && isGridEditing}
-                    loadMoreRef={isViewingAll ? loadMoreRef : undefined}
+                        itemsForDisplay={paginatedItems}
+                        mode={isViewingAll ? 'all' : 'grid'}
+                        onAddItemToOrder={handleItemClick}
+                        onAssignItem={(idx) => { if(activeGridId !== 'All') { setAssigningSlot({ gridId: activeGridId, slotIndex: idx }); setIsSelectItemModalOpen(true); } }}
+                        onRemoveItem={handleRemoveItemFromGrid}
+                        isEditing={!isViewingAll && isGridEditing}
+                        loadMoreRef={isViewingAll ? loadMoreRef : undefined}
                     />
                 </div>
               )}
@@ -517,12 +330,12 @@ const SalesScreen: React.FC = () => {
             </div>
         )}
 
-        <div className="bg-surface border-t border-border z-40 flex-shrink-0 relative shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <div className="bg-surface border-t border-border z-40 flex-shrink-0 relative shadow-sm">
              <CategoryTabs
                 grids={customGrids}
                 activeGridId={activeGridId}
                 setActiveGridId={setActiveGridId}
-                onAddNew={handleAddNewGrid}
+                onAddNew={() => setIsAddGridModalOpen(true)}
                 onManage={() => setIsManageGridsModalOpen(true)}
                 isSearchActive={debouncedSearchQuery.trim().length > 0}
                 searchResultsCount={itemsForDisplay.length}
@@ -533,17 +346,10 @@ const SalesScreen: React.FC = () => {
         </div>
       </div>
 
-      <div 
-        className={`
-            fixed inset-0 z-[60] bg-background flex flex-col
-            transition-transform duration-300 ease-out will-change-transform
-            md:static md:z-auto md:w-[320px] lg:w-[380px] md:border-l md:border-border md:translate-y-0
-            ${isTicketVisible ? 'translate-y-0' : 'translate-y-full'}
-        `}
-      >
+      <div className={`fixed inset-0 z-[60] bg-background flex flex-col transition-transform duration-300 ease-out will-change-transform md:static md:z-auto md:w-[320px] lg:w-[380px] md:border-l md:border-border md:translate-y-0 ${isTicketVisible ? 'translate-y-0' : 'translate-y-full'}`}>
         <Ticket
           className="w-full h-full flex flex-col"
-          onClose={handleTicketClose} 
+          onClose={() => setIsTicketVisible(false)} 
           currentOrder={currentOrder} 
           editingTicket={editingTicket}
           savedTickets={savedTickets} 
@@ -551,59 +357,95 @@ const SalesScreen: React.FC = () => {
           total={total} 
           subtotal={subtotal} 
           tax={tax}
+          printers={printers}
           editingQuantityItemId={editingQuantityItemId} 
           tempQuantity={tempQuantity} 
           setEditingQuantityItemId={setEditingQuantityItemId}
-          setTempQuantity={setTempQuantity} 
+          setTempQuantity={(v) => /^\d*$/.test(v) && setTempQuantity(v)} 
           removeFromOrder={removeFromOrder} 
           deleteLineItem={deleteLineItem}
           updateOrderItemQuantity={updateOrderItemQuantity}
           handleQuantityClick={handleQuantityClick} 
           handleQuantityChangeCommit={handleQuantityChangeCommit}
-          handleQuantityInputChange={handleQuantityInputChange}
-          handleQuantityInputKeyDown={handleQuantityInputKeyDown}
-          handlePrimarySaveAction={handlePrimarySaveAction}
-          onCharge={handleChargeClick} 
-          onOpenTickets={handleOpenTicketsClick}
-          onSaveTicket={handleSaveTicketClick} 
-          printers={printers}
-          onClearTicket={handleClearTicket}
-          onPrintRequest={handlePrintRequest}
+          handleQuantityInputChange={(e) => /^\d*$/.test(e.target.value) && setTempQuantity(e.target.value)}
+          handleQuantityInputKeyDown={(e) => { if (e.key === 'Enter') handleQuantityChangeCommit(); else if (e.key === 'Escape') setEditingQuantityItemId(null); }}
+          handlePrimarySaveAction={() => {
+              if (editingTicket) {
+                  saveTicket({ ...editingTicket, items: currentOrder });
+                  clearOrder();
+                  setEditingTicket(null);
+                  setIsTicketVisible(false);
+              } else {
+                  setPendingPrintAction(false);
+                  setIsSaveModalOpen(true);
+              }
+          }}
+          onCharge={() => setSalesView('payment')} 
+          onOpenTickets={() => setIsOpenTicketsModalOpen(true)}
+          onSaveTicket={() => { setPendingPrintAction(false); setIsSaveModalOpen(true); }} 
+          onClearTicket={() => { clearOrder(); setEditingTicket(null); setEditingQuantityItemId(null); }}
+          onPrintRequest={async () => {
+              if (editingTicket) {
+                  const updated = { ...editingTicket, items: [...currentOrder], lastModified: Date.now() };
+                  await saveTicket(updated);
+                  // Add logic here to call print util
+                  clearOrder();
+                  setEditingTicket(null);
+                  if (window.innerWidth < 768) setIsTicketVisible(false);
+              } else {
+                  setPendingPrintAction(true);
+                  setIsSaveModalOpen(true);
+              }
+          }}
         />
       </div>
 
-      <SaveTicketModal isOpen={isSaveModalOpen} onClose={() => { setIsSaveModalOpen(false); setPendingPrintAction(false); }} onSave={handleSaveTicketComplete} editingTicket={editingTicket} />
+      <SaveTicketModal 
+        isOpen={isSaveModalOpen} 
+        onClose={() => { setIsSaveModalOpen(false); setPendingPrintAction(false); }} 
+        onSave={(name) => {
+            const itemsToSave = [...currentOrder];
+            saveTicket({ id: `T${Date.now()}`, name, items: itemsToSave }); 
+            clearOrder(); 
+            setEditingTicket(null); 
+            setIsSaveModalOpen(false); 
+            if (pendingPrintAction) {
+                // Print logic stub
+                setPendingPrintAction(false); 
+            }
+        }} 
+        editingTicket={editingTicket} 
+      />
       <OpenTicketsModal 
         isOpen={isOpenTicketsModalOpen} 
         tickets={savedTickets} 
         onClose={() => setIsOpenTicketsModalOpen(false)} 
-        onLoadTicket={handleLoadTicket} 
-        onDeleteTicket={(id) => removeTicket(id)} 
+        onLoadTicket={(t) => {
+            if (currentOrder.length > 0) {
+                setConfirmModalState({
+                    isOpen: true,
+                    title: 'Replace Current Order?',
+                    message: 'Loading a saved ticket will replace your current unsaved order.',
+                    onConfirm: () => { loadOrder(t.items); setEditingTicket(t); setIsOpenTicketsModalOpen(false); if(window.innerWidth < 768) setIsTicketVisible(true); },
+                    confirmText: 'Yes, Load',
+                    confirmButtonClass: 'bg-amber-500'
+                });
+            } else {
+                loadOrder(t.items);
+                setEditingTicket(t);
+                setIsOpenTicketsModalOpen(false);
+                if(window.innerWidth < 768) setIsTicketVisible(true);
+            }
+        }} 
+        onDeleteTicket={removeTicket} 
       />
-      <SelectItemModal isOpen={isSelectItemModalOpen} onClose={() => setIsSelectItemModalOpen(false)} onSelect={handleSelectItem} allItems={items} />
-      <ManageGridsModal isOpen={isManageGridsModalOpen} onClose={() => setIsManageGridsModalOpen(false)} initialGrids={customGrids} onSave={handleSaveGrids} />
-      <AddGridModal isOpen={isAddGridModalOpen} onClose={() => setIsAddGridModalOpen(false)} onSave={handleSaveNewGrid} />
+      <SelectItemModal isOpen={isSelectItemModalOpen} onClose={() => setIsSelectItemModalOpen(false)} onSelect={handleAssignItem} allItems={items} />
+      <ManageGridsModal isOpen={isManageGridsModalOpen} onClose={() => setIsManageGridsModalOpen(false)} initialGrids={customGrids} onSave={(gs) => { setCustomGrids(gs); setIsManageGridsModalOpen(false); }} />
+      <AddGridModal isOpen={isAddGridModalOpen} onClose={() => setIsAddGridModalOpen(false)} onSave={(n) => { const id = generateId(); addCustomGrid({id, name: n, itemIds: []}); setIsAddGridModalOpen(false); setActiveGridId(id); setIsGridEditing(true); }} />
       
-      <PriceInputModal 
-        isOpen={!!variablePriceItem}
-        onClose={() => setVariablePriceItem(null)}
-        onConfirm={handleVariablePriceConfirm}
-        item={variablePriceItem}
-      />
+      <PriceInputModal isOpen={!!variablePriceItem} onClose={() => setVariablePriceItem(null)} onConfirm={handleVariablePriceConfirm} item={variablePriceItem} />
 
-      <ConfirmModal
-        isOpen={confirmModalState.isOpen}
-        onClose={() => setConfirmModalState(prev => ({ ...prev, isOpen: false }))}
-        onConfirm={() => {
-            confirmModalState.onConfirm();
-            setConfirmModalState(prev => ({ ...prev, isOpen: false }));
-        }}
-        title={confirmModalState.title}
-        confirmText={confirmModalState.confirmText}
-        confirmButtonClass={confirmModalState.confirmButtonClass}
-      >
-        {confirmModalState.message}
-      </ConfirmModal>
+      <ConfirmModal isOpen={confirmModalState.isOpen} onClose={() => setConfirmModalState(prev => ({ ...prev, isOpen: false }))} onConfirm={() => { confirmModalState.onConfirm(); setConfirmModalState(prev => ({ ...prev, isOpen: false })); }} title={confirmModalState.title} confirmText={confirmModalState.confirmText} confirmButtonClass={confirmModalState.confirmButtonClass}>{confirmModalState.message}</ConfirmModal>
     </div>
   );
 };

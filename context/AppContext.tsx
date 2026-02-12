@@ -1,7 +1,7 @@
 
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { 
-    Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, 
+    Printer, Receipt, Item, AppSettings, SavedTicket, 
     CustomGrid, PaymentType, OrderItem, AppContextType, Table, Theme
 } from '../types';
 import { Capacitor } from '@capacitor/core';
@@ -10,7 +10,7 @@ import { Share } from '@capacitor/share';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { exportItemsToCsv } from '../utils/csvHelper';
 import { requestAppPermissions } from '../utils/permissions';
-import { requestNotificationPermission, scheduleDailySummary, cancelDailySummary, sendLowStockAlert } from '../utils/notificationHelper';
+import { requestNotificationPermission, sendLowStockAlert } from '../utils/notificationHelper';
 import { db, signOutUser, auth } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, query, orderBy, limit, getDocs, getDoc, increment } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -40,7 +40,6 @@ const PRINTERS_CACHE_KEY = 'pos_local_printers';
 const ONBOARDING_COMPLETED_KEY = 'pos_onboarding_completed_v1';
 const ACTIVE_GRID_KEY = 'pos_active_grid_id';
 
-// Defensive localStorage utility to prevent crashes in private tabs or restricted sandboxes
 const safeStorage = {
     getItem: (key: string) => { try { return localStorage.getItem(key); } catch(e) { return null; } },
     setItem: (key: string, val: string) => { try { localStorage.setItem(key, val); } catch(e) {} }
@@ -54,8 +53,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [headerTitle, setHeaderTitle] = useState('');
   const [isReportsUnlocked, setReportsUnlocked] = useState(false);
   const [theme, setThemeState] = useState<Theme>(() => (safeStorage.getItem('theme') as Theme) || 'system');
-  
-  // Centralized Hardware UI State
   const [isAddPrinterModalOpen, setIsAddPrinterModalOpen] = useState(false);
 
   const openAddPrinterModal = useCallback(() => setIsAddPrinterModalOpen(true), []);
@@ -66,78 +63,71 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     safeStorage.setItem('theme', newTheme);
   }, []);
 
-  // Theme & Status Bar Sync Effect
-  useEffect(() => {
+  // --- ROBUST THEME & STATUS BAR LOGIC ---
+  const applyTheme = useCallback(async () => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const isDark = theme === 'system' ? mediaQuery.matches : theme === 'dark';
     
-    const applyTheme = async () => {
-        // Determine if we should be in dark mode
-        // If theme is 'system', we use the media query result.
-        // If theme is 'dark', force true.
-        // If theme is 'light', force false.
-        const isDark = theme === 'system' ? mediaQuery.matches : theme === 'dark';
-        
-        // 1. Apply DOM Class for CSS variables/Tailwind
-        document.documentElement.classList.toggle('dark', isDark);
-        
-        // 2. Apply Native Status Bar Styling (Mobile)
-        if (Capacitor.isNativePlatform()) {
-            try {
-                // On Android, we need to ensure overlays are off to see the color
-                if (Capacitor.getPlatform() === 'android') {
-                    await StatusBar.setOverlaysWebView({ overlay: false });
-                }
-
-                // Apply Style (Dark Style = Light Text, Light Style = Dark Text)
-                const style = isDark ? Style.Dark : Style.Light;
-                await StatusBar.setStyle({ style });
-
-                if (Capacitor.getPlatform() === 'android') {
-                    // Match the background colors defined in index.html/Tailwind config
-                    // Dark: #121212, Light: #FFFFFF (Header Surface)
-                    const color = isDark ? '#121212' : '#FFFFFF';
-                    
-                    // Add a small delay for background color to ensure it overrides any defaults 
-                    // set by setStyle or window background interactions
-                    setTimeout(async () => {
-                        await StatusBar.setBackgroundColor({ color });
-                    }, 50);
-                }
-            } catch (e) {
-                // Fail silently for non-implemented platforms
+    // 1. CSS
+    document.documentElement.classList.toggle('dark', isDark);
+    
+    // 2. Native Status Bar
+    if (Capacitor.isNativePlatform()) {
+        try {
+            if (Capacitor.getPlatform() === 'android') {
+                await StatusBar.setOverlaysWebView({ overlay: false });
             }
-        }
-    };
+            
+            const style = isDark ? Style.Dark : Style.Light;
+            await StatusBar.setStyle({ style });
 
-    applyTheme();
-    
-    // Listen for system changes if the user is using 'System' mode
-    const listener = (e: MediaQueryListEvent) => {
-        if (theme === 'system') {
-            applyTheme();
+            if (Capacitor.getPlatform() === 'android') {
+                const color = isDark ? '#121212' : '#FFFFFF';
+                // Small delay to ensure style applies before color on some Android versions
+                setTimeout(() => StatusBar.setBackgroundColor({ color }), 50);
+            }
+        } catch (e) {
+            console.warn('StatusBar error:', e);
         }
-    };
-
-    // Use the modern event listener API
-    mediaQuery.addEventListener('change', listener);
-    return () => mediaQuery.removeEventListener('change', listener);
+    }
   }, [theme]);
+
+  // Initial and Listener-based Theme Application
+  useEffect(() => {
+    applyTheme();
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleSystemChange = () => {
+        if (theme === 'system') applyTheme();
+    };
+    
+    // Also listen for visibility change (user comes back from Settings app)
+    const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') applyTheme();
+    };
+
+    mediaQuery.addEventListener('change', handleSystemChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+        mediaQuery.removeEventListener('change', handleSystemChange);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [applyTheme, theme]);
 
   const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => setIsDrawerOpen(prev => !prev), []);
 
+  // Data State
   const [settings, setSettingsState] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [items, setItemsState] = useState<Item[]>([]);
   const [customGrids, setCustomGridsState] = useState<CustomGrid[]>([]);
   const [receipts, setReceiptsState] = useState<Receipt[]>([]);
-  
-  // Load printers from local storage only
   const [printers, setPrintersState] = useState<Printer[]>(() => {
       const cached = safeStorage.getItem(PRINTERS_CACHE_KEY);
       return cached ? JSON.parse(cached) : [];
   });
-
   const [paymentTypes, setPaymentTypesState] = useState<PaymentType[]>([]);
   const [savedTickets, setSavedTicketsState] = useState<SavedTicket[]>([]);
   const [tables, setTablesState] = useState<Table[]>([]);
@@ -150,16 +140,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
 
-  // CART ACTIONS - Optimized to keep memory footprint low
+  // CART ACTIONS - Optimized
   const addToOrder = useCallback((item: Item) => {
     setCurrentOrder(current => {
+      // Check last item for consecutive add optimization
       const lastItem = current.length > 0 ? current[current.length - 1] : null;
+      
+      // If same item ID and Price, increment quantity
       if (lastItem && lastItem.id === item.id && lastItem.price === item.price) {
         const newOrder = [...current];
         newOrder[newOrder.length - 1] = { ...lastItem, quantity: lastItem.quantity + 1 };
         return newOrder;
       }
-      return [...current, { ...item, imageUrl: '', quantity: 1, lineItemId: `L${Date.now()}-${Math.random()}` }];
+      // Else add new line item
+      return [...current, { ...item, imageUrl: '', quantity: 1, lineItemId: `L${Date.now()}-${Math.random().toString(36).substr(2, 5)}` }];
     });
   }, []);
 
@@ -167,12 +161,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCurrentOrder(current => {
       const itemIndex = current.findIndex(i => i.lineItemId === lineItemId);
       if (itemIndex === -1) return current;
+      
       const itemToUpdate = current[itemIndex];
       if (itemToUpdate.quantity > 1) {
         const newOrder = [...current];
         newOrder[itemIndex] = { ...itemToUpdate, quantity: itemToUpdate.quantity - 1 };
         return newOrder;
       }
+      // Remove if quantity becomes 0
       return current.filter(i => i.lineItemId !== lineItemId);
     });
   }, []);
@@ -182,24 +178,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const updateOrderItemQuantity = useCallback((lineItemId: string, newQuantity: number) => {
-    if (isNaN(newQuantity) || newQuantity <= 0) deleteLineItem(lineItemId);
-    else setCurrentOrder(prev => prev.map(i => i.lineItemId === lineItemId ? { ...i, quantity: newQuantity } : i));
+    if (isNaN(newQuantity) || newQuantity <= 0) {
+        deleteLineItem(lineItemId);
+    } else {
+        setCurrentOrder(prev => prev.map(i => i.lineItemId === lineItemId ? { ...i, quantity: newQuantity } : i));
+    }
   }, [deleteLineItem]);
   
   const clearOrder = useCallback(() => setCurrentOrder([]), []);
-  const loadOrder = useCallback((items: OrderItem[]) => setCurrentOrder(items.map(item => ({ ...item, lineItemId: item.lineItemId || `L${Date.now()}-${Math.random()}` }))), []);
+  
+  const loadOrder = useCallback((items: OrderItem[]) => {
+      // Regenerate line IDs to prevent conflicts if loaded multiple times
+      setCurrentOrder(items.map(item => ({ 
+          ...item, 
+          lineItemId: item.lineItemId || `L${Date.now()}-${Math.random().toString(36).substr(2, 5)}` 
+      })));
+  }, []);
 
+  // --- INITIAL DATA LOAD ---
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (currentUser) => {
         if (currentUser) {
             setUser(currentUser);
             const uid = currentUser.uid;
+            
             try {
-                const settingsSnap = await getDoc(doc(db, 'users', uid, 'config', 'settings'));
-                if (settingsSnap.exists()) setSettingsState({ ...DEFAULT_SETTINGS, ...settingsSnap.data() as AppSettings });
-                
-                // Note: PRINTERS removed from cloud sync query to save quota and support device-local hardware
-                const [itemsSnap, ptSnap, tblSnap, tktSnap, grdSnap] = await Promise.all([
+                // Parallel fetching for performance
+                const [settingsSnap, itemsSnap, ptSnap, tblSnap, tktSnap, grdSnap] = await Promise.all([
+                    getDoc(doc(db, 'users', uid, 'config', 'settings')),
                     getDocs(collection(db, 'users', uid, 'items')),
                     getDocs(collection(db, 'users', uid, 'payment_types')),
                     getDocs(query(collection(db, 'users', uid, 'tables'), orderBy('order'))),
@@ -207,16 +213,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     getDocs(query(collection(db, 'users', uid, 'custom_grids'), orderBy('order')))
                 ]);
 
+                if (settingsSnap.exists()) setSettingsState({ ...DEFAULT_SETTINGS, ...settingsSnap.data() as AppSettings });
                 setItemsState(itemsSnap.docs.map(d => d.data() as Item));
                 setPaymentTypesState(ptSnap.docs.map(d => d.data() as PaymentType));
                 setTablesState(tblSnap.docs.map(d => d.data() as Table));
                 setSavedTicketsState(tktSnap.docs.map(d => d.data() as SavedTicket));
                 setCustomGridsState(grdSnap.docs.map(d => d.data() as CustomGrid));
-            } catch (e) { console.error("Initial load sync deferred"); }
+            } catch (e) { 
+                console.error("Initial load sync deferred or failed", e); 
+            }
             
-            const unsubReceipts = onSnapshot(query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(50)), (snap) => {
-                setReceiptsState(snap.docs.map(d => ({ ...d.data(), date: (d.data().date as Timestamp).toDate() } as Receipt)));
-            });
+            // Real-time listener ONLY for recent receipts to save bandwidth
+            const unsubReceipts = onSnapshot(
+                query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(50)), 
+                (snap) => {
+                    setReceiptsState(snap.docs.map(d => ({ ...d.data(), date: (d.data().date as Timestamp).toDate() } as Receipt)));
+                }
+            );
+            
             setIsLoading(false);
             return () => unsubReceipts();
         } else {
@@ -227,8 +241,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return () => unsubAuth();
   }, []);
 
+  // --- DATA ACTIONS ---
+  
   const addReceipt = useCallback(async (receipt: Receipt) => {
     if (!user) return;
+    
+    // Strip heavy image data before saving to DB
     const persistenceFriendlyReceipt = {
         ...receipt,
         items: receipt.items.map(item => {
@@ -236,23 +254,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             return { ...rest, imageUrl: '' };
         })
     };
+
+    // Optimistic UI update
     setReceiptsState(prev => [receipt, ...prev].slice(0, 100));
+    
+    // Dual write: IndexedDB (local backup) + Firestore (cloud)
     idb.saveReceipt(persistenceFriendlyReceipt); 
     const batch = writeBatch(db);
     batch.set(doc(db, 'users', user.uid, 'receipts', receipt.id), persistenceFriendlyReceipt);
 
+    // Stock Management
     const updatedItems = [...items];
+    let stockChanged = false;
+
     receipt.items.forEach(orderItem => {
         const idx = updatedItems.findIndex(i => i.id === orderItem.id);
         if (idx > -1) {
-            updatedItems[idx].stock = Math.max(0, updatedItems[idx].stock - orderItem.quantity);
+            const oldStock = updatedItems[idx].stock;
+            updatedItems[idx].stock = Math.max(0, oldStock - orderItem.quantity);
+            stockChanged = true;
+            
             batch.update(doc(db, 'users', user.uid, 'items', orderItem.id), { stock: increment(-orderItem.quantity) });
+            
             if (settings.notifyLowStock && updatedItems[idx].stock <= (settings.lowStockThreshold || 0)) {
                 sendLowStockAlert(updatedItems[idx].name, updatedItems[idx].stock);
             }
         }
     });
-    setItemsState(updatedItems);
+
+    if (stockChanged) setItemsState(updatedItems);
+    
     try { await batch.commit(); } catch (e) { console.warn("Background sync deferred"); }
   }, [user, items, settings]);
   
@@ -310,7 +341,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       await setDoc(doc(db, 'users', user.uid, 'config', 'settings'), next, { merge: true });
   }, [user, settings]);
   
-  // PRINTER ACTIONS - LOCAL ONLY
+  // Local-only Printer Management
   const addPrinter = useCallback((p: Printer) => {
       setPrintersState(v => {
           const next = [...v, p];
@@ -327,6 +358,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
   }, []);
 
+  // Standard CRUD Actions
   const addPaymentType = useCallback(async (p: Omit<PaymentType, 'id' | 'enabled' | 'type'>) => {
       if (!user) return;
       const id = `pt_${Date.now()}`;
@@ -451,6 +483,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       batch.commit();
   }, [user]);
 
+  // Context Value Construction
   const value = useMemo(() => ({
       user, signOut: signOutUser,
       isDrawerOpen, openDrawer, closeDrawer, toggleDrawer, 

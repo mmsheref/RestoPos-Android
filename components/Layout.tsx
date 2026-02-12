@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useLocation, Navigate } from 'react-router-dom';
 import Header from './Header';
 import NavDrawer from './NavDrawer';
@@ -7,6 +7,7 @@ import { useAppContext } from '../context/AppContext';
 import { NAV_LINKS } from '../constants';
 import AddPrinterModal from './modals/AddPrinterModal';
 import OfflineManager from './OfflineManager';
+import { useEdgeSwipe } from '../hooks/useEdgeSwipe';
 
 import SalesScreen from '../screens/SalesScreen';
 import ReceiptsScreen from '../screens/ReceiptsScreen';
@@ -16,9 +17,8 @@ import ReportsScreen from '../screens/ReportsScreen';
 import AboutScreen from '../screens/AboutScreen';
 
 const SCREEN_TIMEOUT = 10 * 60 * 1000; // 10 Minutes
-const SWIPE_THRESHOLD = 50; // Pixels to trigger open
-const MAX_VERTICAL_SWIPE = 40; // Max vertical movement allowed during horizontal swipe
 
+// Optimized KeepAlive component
 const KeepAliveScreen = React.memo(({ isVisible, children }: { isVisible: boolean, children: React.ReactNode }) => {
     return (
         <div 
@@ -31,54 +31,25 @@ const KeepAliveScreen = React.memo(({ isVisible, children }: { isVisible: boolea
 });
 
 const Layout: React.FC = () => {
-  const { isDrawerOpen, openDrawer, closeDrawer, isAddPrinterModalOpen, closeAddPrinterModal, addPrinter } = useAppContext();
+  const { isDrawerOpen, openDrawer, isAddPrinterModalOpen, closeAddPrinterModal, addPrinter } = useAppContext();
   const location = useLocation();
   const { pathname } = location;
 
-  // --- SWIPE GESTURE LOGIC ---
-  const touchStart = useRef<{ x: number, y: number } | null>(null);
-  
-  const handleTouchStart = (e: React.TouchEvent) => {
-    // Only capture if we are tapping the specific edge detector, 
-    // so we don't need to check coordinate bounds here (implicit via element placement)
-    const x = e.touches[0].clientX;
-    const y = e.touches[0].clientY;
-    touchStart.current = { x, y };
-  };
-  
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStart.current) return;
-    
-    const x = e.touches[0].clientX;
-    const y = e.touches[0].clientY;
-    const deltaY = Math.abs(y - touchStart.current.y);
-    // Note: We don't check deltaX here, we check it on End for the trigger
-    
-    // If user is scrolling vertically significantly, cancel the drawer gesture
-    if (deltaY > MAX_VERTICAL_SWIPE) {
-      touchStart.current = null;
-    }
-  };
+  // --- GESTURE LOGIC ---
+  const swipeHandlers = useEdgeSwipe({
+      onSwipe: () => !isDrawerOpen && openDrawer(),
+      threshold: 50,
+      edgeWidth: 32 // 32px hit zone from the left
+  });
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStart.current) return;
-    
-    const x = e.changedTouches[0].clientX;
-    const deltaX = x - touchStart.current.x;
-
-    if (deltaX > SWIPE_THRESHOLD && !isDrawerOpen) {
-      openDrawer();
-    }
-    touchStart.current = null;
-  };
-
-  // Screen management logic
+  // --- SCREEN MANAGEMENT ---
   const [activeScreens, setActiveScreens] = useState<Record<string, number>>({ '/sales': Date.now() });
   
   useEffect(() => {
       setActiveScreens(prev => ({ ...prev, [pathname]: Date.now() }));
   }, [pathname]);
 
+  // Garbage collection for inactive screens
   useEffect(() => {
       const interval = setInterval(() => {
           const now = Date.now();
@@ -86,6 +57,7 @@ const Layout: React.FC = () => {
               const next = { ...prev };
               let changed = false;
               Object.keys(next).forEach(path => {
+                  // Keep Sales screen always alive
                   if (path !== '/sales' && path !== pathname && now - next[path] > SCREEN_TIMEOUT) {
                       delete next[path];
                       changed = true;
@@ -112,18 +84,11 @@ const Layout: React.FC = () => {
     <div className="relative h-screen w-full overflow-hidden bg-background text-text-primary flex flex-col">
       <OfflineManager />
       
-      {/* 
-        DEDICATED SWIPE CATCHER
-        Invisible strip on the left edge that captures touch events.
-        Moved logic HERE so the main app doesn't process every touch event.
-        Pointer capture ensures 'move' and 'end' fire even if finger leaves this div.
-      */}
+      {/* SWIPE CATCHER LAYER */}
       {!isDrawerOpen && (
         <div 
-            className="fixed left-0 top-0 bottom-0 w-6 z-[100] touch-none" 
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
+            className="fixed left-0 top-0 bottom-0 w-8 z-[100] touch-none" 
+            {...swipeHandlers}
         />
       )}
 
@@ -139,7 +104,6 @@ const Layout: React.FC = () => {
         {activeScreens['/about'] && <KeepAliveScreen isVisible={pathname === '/about'}><AboutScreen /></KeepAliveScreen>}
       </main>
 
-      {/* Global Hardware Modals */}
       <AddPrinterModal 
         isOpen={isAddPrinterModalOpen} 
         onClose={closeAddPrinterModal} 
