@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { PaymentType } from '../../../types';
-import { PaymentMethodIcon, ArrowLeftIcon, SplitIcon, UserIcon, TrashIcon } from '../../../constants';
+import { PaymentMethodIcon, ArrowLeftIcon, SplitIcon, UserIcon } from '../../../constants';
 
 interface PaymentWorkspaceProps {
     onBack: () => void;
@@ -28,39 +28,7 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
     inputRef, cashTendered, handleFocus, handleCashChange, handleProcessCashPayment, handleProcessOtherPayment,
     uniqueQuickCash, onProcessPayment, onSplitClick
 }) => {
-    // Helper for numpad
-    const appendNumber = (num: string) => {
-        const setVal = (val: string) => {
-            if (inputRef.current) {
-                const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-                nativeSetter?.call(inputRef.current, val);
-                inputRef.current.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-        };
-
-        if (cashTendered === '0' && num !== '.') {
-            setVal(num);
-        } else if (num === '.' && cashTendered.includes('.')) {
-            return;
-        } else if (num === '.' && !cashTendered) {
-            setVal('0.');
-        } else {
-            // Check decimal limit (2 places)
-            const parts = cashTendered.split('.');
-            if (parts.length > 1 && parts[1].length >= 2) return;
-            setVal(cashTendered + num);
-        }
-    };
-
-    const backspace = () => {
-        if (inputRef.current) {
-            const newVal = cashTendered.slice(0, -1);
-            const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-            nativeSetter?.call(inputRef.current, newVal);
-            inputRef.current.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-    };
-
+    
     return (
     <div className="flex-1 flex flex-col h-full bg-background relative">
       {/* Mobile Header */}
@@ -176,37 +144,6 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
                                 ))}
                             </div>
                         )}
-
-                        {/* Numpad */}
-                        <div className="grid grid-cols-3 gap-3">
-                            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                                <button
-                                    key={num}
-                                    onClick={() => appendNumber(num.toString())}
-                                    className="py-6 text-2xl font-bold bg-surface border border-border rounded-xl shadow-sm hover:bg-surface-muted active:bg-surface-muted/80 active:border-primary/50 transition-colors text-text-primary"
-                                >
-                                    {num}
-                                </button>
-                            ))}
-                            <button
-                                onClick={() => appendNumber('.')}
-                                className="py-6 text-2xl font-bold bg-surface border border-border rounded-xl shadow-sm hover:bg-surface-muted active:bg-surface-muted/80 active:border-primary/50 transition-colors text-text-primary"
-                            >
-                                .
-                            </button>
-                            <button
-                                onClick={() => appendNumber('0')}
-                                className="py-6 text-2xl font-bold bg-surface border border-border rounded-xl shadow-sm hover:bg-surface-muted active:bg-surface-muted/80 active:border-primary/50 transition-colors text-text-primary"
-                            >
-                                0
-                            </button>
-                            <button
-                                onClick={backspace}
-                                className="py-6 text-xl font-bold bg-surface-muted border border-border rounded-xl shadow-sm hover:bg-gray-200 dark:hover:bg-gray-700 active:opacity-70 transition-opacity text-text-secondary flex items-center justify-center"
-                            >
-                                <TrashIcon className="h-6 w-6" />
-                            </button>
-                        </div>
                     </div>
                 )}
             </div>

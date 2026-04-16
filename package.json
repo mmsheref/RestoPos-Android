@@ -3,33 +3,36 @@
   "private": true,
   "version": "2.5.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@capacitor/app": "^7.0.0",
-    "@capacitor/core": "^7.4.4",
-    "@capacitor/filesystem": "^7.1.5",
-    "@capacitor/haptics": "^7.0.0",
-    "@capacitor/local-notifications": "^7.0.0",
-    "@capacitor/share": "^7.0.2",
-    "@capacitor/status-bar": "^7.0.0",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/core": "^8.3.0",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/local-notifications": "^8.0.2",
+    "@capacitor/share": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
     "cordova-plugin-android-permissions": "^1.1.5",
     "cordova-plugin-bluetooth-serial": "^0.4.7",
-    "firebase": "^12.6.0",
-    "react": "^19.2.1",
-    "react-dom": "^19.2.1",
-    "react-router-dom": "^7.10.1"
+    "firebase": "^12.12.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "react-router-dom": "^7.14.1"
   },
   "devDependencies": {
-    "@capacitor/android": "^7.0.0",
-    "@capacitor/cli": "^7.0.0",
-    "@capacitor/ios": "^7.0.0",
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.1.1",
-    "typescript": "~5.8.2",
-    "vite": "^7.2.7"
+    "@capacitor/android": "^8.3.0",
+    "@capacitor/cli": "^8.3.0",
+    "@capacitor/ios": "^8.3.0",
+    "@types/node": "^25.6.0",
+    "@vitejs/plugin-react": "^6.0.1",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.8"
   }
 }
